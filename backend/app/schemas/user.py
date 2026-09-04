@@ -11,5 +11,6 @@ class UserRead(BaseModel):
     email: str
     display_name: str
     timezone: str
+    calendar_token: str
     is_active: bool
     created_at: datetime
