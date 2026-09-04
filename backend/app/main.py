@@ -12,6 +12,7 @@ from app.api.routes.categories import router as categories_router
 from app.api.routes.contexts import router as contexts_router
 from app.api.routes.health import router as health_router
 from app.api.routes.tags import router as tags_router
+from app.api.routes.tasks import router as tasks_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.core.middleware import CSRFCookieMiddleware, SecurityHeadersMiddleware
@@ -48,6 +49,7 @@ app.include_router(auth_router)
 app.include_router(categories_router)
 app.include_router(contexts_router)
 app.include_router(tags_router)
+app.include_router(tasks_router)
 
 
 @app.exception_handler(Exception)

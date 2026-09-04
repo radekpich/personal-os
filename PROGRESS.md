@@ -22,13 +22,18 @@
   - Upraveno: `backend/app/models/__init__.py`, `backend/app/main.py`
   - Ověřeno: RED testy selhaly na 404/chybějících modelech; poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` s 27 testy; Alembic upgrade na čisté DB prošel; HTTP smoke ověřil chráněné `/tags`, create/list/update/delete.
 
+- [x] 2026-09-04 17:43 — Krok 4 — Task CRUD, quick inbox a filtrování
+  - Vytvořeno: `backend/app/schemas/task.py`, `backend/app/services/task_service.py`, `backend/app/api/routes/tasks.py`, `backend/alembic/versions/2f6d4e8c9a31_expand_tasks_for_core_task_management.py`, `backend/tests/test_tasks.py`
+  - Upraveno: `backend/app/models/task.py`, `backend/app/models/__init__.py`, `backend/app/main.py`
+  - Ověřeno: Claude Code narazil na session limit a nechal necommitnutý stav; Hermes doplnil migraci, opravil SQLite `ALTER COLUMN DROP DEFAULT`, poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` se 47 testy; Alembic upgrade na čisté DB prošel; HTTP smoke ověřil chráněné `/tasks`, `POST /tasks/quick`, create task s category/context/tag a filtry context/tag/inbox.
+
 ## Rozpracováno
 
-- Nic není rozpracováno. Krok 3 je dokončený a projekt je v konzistentním stavu.
+- Nic není rozpracováno. Krok 4 je dokončený a projekt je v konzistentním stavu.
 
 ## Další krok
 
-Začít krokem 4: rozšířit `Task` na plný model, přidat `POST /tasks/quick`, CRUD a komplexní filtrování včetně named views.
+Začít krokem 5: přidat opakované úkoly přes RRULE, režimy `fixed` a `after_completion` a generování další instance při dokončení.
 
 ## Poznámky
 

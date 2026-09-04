@@ -1,0 +1,232 @@
+import uuid
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
+
+import sqlalchemy as sa
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.tag import Tag
+from app.models.task import Task, TaskPriority, TaskStatus, task_tags
+from app.models.user import User
+from app.schemas.task import TaskCreate, TaskUpdate, TaskView
+from app.services import category_service, context_service
+
+LOCAL_TIMEZONE = ZoneInfo("Europe/Prague")
+
+
+@dataclass
+class TaskListFilters:
+    status: TaskStatus | None = None
+    category_id: uuid.UUID | None = None
+    context_id: uuid.UUID | None = None
+    tag_ids: list[uuid.UUID] | None = None
+    due_from: date | None = None
+    due_to: date | None = None
+    q: str | None = None
+    view: TaskView | None = None
+    page: int = 1
+    page_size: int = 20
+
+
+def _local_today() -> date:
+    return datetime.now(LOCAL_TIMEZONE).date()
+
+
+def _view_condition(view: TaskView) -> sa.ColumnElement[bool]:
+    today = _local_today()
+    if view == TaskView.INBOX:
+        return Task.status == TaskStatus.INBOX.value
+    if view == TaskView.TODAY:
+        return Task.due_date == today
+    if view == TaskView.THIS_WEEK:
+        start = today - timedelta(days=today.weekday())
+        end = start + timedelta(days=6)
+        return sa.and_(Task.due_date >= start, Task.due_date <= end)
+    return sa.and_(
+        Task.due_date < today,
+        Task.status.notin_([TaskStatus.DONE.value, TaskStatus.CANCELLED.value]),
+    )
+
+
+def _build_conditions(owner: User, filters: TaskListFilters) -> list[sa.ColumnElement[bool]]:
+    conditions: list[sa.ColumnElement[bool]] = [
+        Task.owner_id == owner.id,
+        Task.deleted_at.is_(None),
+    ]
+    if filters.status is not None:
+        conditions.append(Task.status == filters.status.value)
+    if filters.category_id is not None:
+        conditions.append(Task.category_id == filters.category_id)
+    if filters.context_id is not None:
+        conditions.append(Task.context_id == filters.context_id)
+    if filters.tag_ids:
+        conditions.append(
+            Task.id.in_(select(task_tags.c.task_id).where(task_tags.c.tag_id.in_(filters.tag_ids)))
+        )
+    if filters.due_from is not None:
+        conditions.append(Task.due_date >= filters.due_from)
+    if filters.due_to is not None:
+        conditions.append(Task.due_date <= filters.due_to)
+    if filters.q:
+        pattern = f"%{filters.q}%"
+        conditions.append(sa.or_(Task.title.ilike(pattern), Task.description.ilike(pattern)))
+    if filters.view is not None:
+        conditions.append(_view_condition(filters.view))
+    return conditions
+
+
+async def list_tasks(
+    db: AsyncSession, owner: User, filters: TaskListFilters
+) -> tuple[list[Task], int]:
+    conditions = _build_conditions(owner, filters)
+
+    total = (
+        await db.execute(select(sa.func.count()).select_from(Task).where(*conditions))
+    ).scalar_one()
+
+    stmt = (
+        select(Task)
+        .where(*conditions)
+        .order_by(Task.position, Task.created_at)
+        .offset((filters.page - 1) * filters.page_size)
+        .limit(filters.page_size)
+    )
+    tasks = (await db.execute(stmt)).scalars().all()
+    return list(tasks), total
+
+
+async def get_task(db: AsyncSession, owner: User, task_id: uuid.UUID) -> Task:
+    result = await db.execute(
+        select(Task).where(Task.id == task_id, Task.owner_id == owner.id, Task.deleted_at.is_(None))
+    )
+    task = result.scalar_one_or_none()
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+    return task
+
+
+async def _resolve_tags(db: AsyncSession, owner: User, tag_ids: list[uuid.UUID]) -> list[Tag]:
+    if not tag_ids:
+        return []
+    unique_ids = set(tag_ids)
+    result = await db.execute(
+        select(Tag).where(
+            Tag.id.in_(unique_ids), Tag.owner_id == owner.id, Tag.deleted_at.is_(None)
+        )
+    )
+    tags = list(result.scalars().all())
+    if len(tags) != len(unique_ids):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tag not found")
+    return tags
+
+
+async def quick_create_task(db: AsyncSession, owner: User, title: str) -> Task:
+    title = title.strip()
+    if not title:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="title must not be empty"
+        )
+    if len(title) > 255:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="title too long")
+    task = Task(
+        owner_id=owner.id,
+        title=title,
+        status=TaskStatus.INBOX.value,
+        priority=TaskPriority.NONE.value,
+    )
+    db.add(task)
+    await db.commit()
+    await db.refresh(task)
+    return task
+
+
+async def create_task(db: AsyncSession, owner: User, payload: TaskCreate) -> Task:
+    if payload.category_id is not None:
+        await category_service.get_category(db, owner, payload.category_id)
+    if payload.context_id is not None:
+        await context_service.get_context(db, owner, payload.context_id)
+    if payload.parent_task_id is not None:
+        await get_task(db, owner, payload.parent_task_id)
+    tags = await _resolve_tags(db, owner, payload.tag_ids)
+
+    completed_at = datetime.now(UTC) if payload.status == TaskStatus.DONE else None
+    task = Task(
+        owner_id=owner.id,
+        title=payload.title,
+        description=payload.description,
+        status=payload.status.value,
+        priority=payload.priority.value,
+        due_date=payload.due_date,
+        due_time=payload.due_time,
+        estimate_minutes=payload.estimate_minutes,
+        completed_at=completed_at,
+        category_id=payload.category_id,
+        context_id=payload.context_id,
+        parent_task_id=payload.parent_task_id,
+        position=payload.position,
+        tags=tags,
+    )
+    db.add(task)
+    await db.commit()
+    await db.refresh(task)
+    return task
+
+
+async def update_task(
+    db: AsyncSession, owner: User, task_id: uuid.UUID, payload: TaskUpdate
+) -> Task:
+    task = await get_task(db, owner, task_id)
+    changes = payload.model_dump(exclude_unset=True)
+
+    if "category_id" in changes:
+        if payload.category_id is not None:
+            await category_service.get_category(db, owner, payload.category_id)
+        task.category_id = payload.category_id
+
+    if "context_id" in changes:
+        if payload.context_id is not None:
+            await context_service.get_context(db, owner, payload.context_id)
+        task.context_id = payload.context_id
+
+    if "parent_task_id" in changes:
+        if payload.parent_task_id is not None:
+            if payload.parent_task_id == task.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="task cannot be its own parent",
+                )
+            await get_task(db, owner, payload.parent_task_id)
+        task.parent_task_id = payload.parent_task_id
+
+    if "tag_ids" in changes:
+        task.tags = await _resolve_tags(db, owner, payload.tag_ids or [])
+
+    for field in ("title", "description", "due_date", "due_time", "estimate_minutes", "position"):
+        if field in changes:
+            setattr(task, field, changes[field])
+
+    if "priority" in changes and payload.priority is not None:
+        task.priority = payload.priority.value
+
+    if "status" in changes and payload.status is not None:
+        new_status = payload.status
+        if new_status == TaskStatus.DONE and task.status != TaskStatus.DONE.value:
+            task.completed_at = datetime.now(UTC)
+        elif new_status != TaskStatus.DONE:
+            task.completed_at = None
+        task.status = new_status.value
+
+    db.add(task)
+    await db.commit()
+    await db.refresh(task)
+    return task
+
+
+async def delete_task(db: AsyncSession, owner: User, task_id: uuid.UUID) -> None:
+    task = await get_task(db, owner, task_id)
+    task.deleted_at = datetime.now(UTC)
+    db.add(task)
+    await db.commit()
