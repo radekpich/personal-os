@@ -17,13 +17,18 @@
   - Upraveno: `backend/app/models/__init__.py`, `backend/app/main.py`
   - Ověřeno: RED testy selhaly na 404/chybějících modelech; poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` s 23 testy; Alembic upgrade na čisté DB prošel; HTTP smoke ověřil login, chráněné `/categories`, create/list category/context a soft delete contextu.
 
+- [x] 2026-09-04 17:19 — Krok 3 — Tag a M:N vazba na Task základ
+  - Vytvořeno: `backend/app/models/tag.py`, `backend/app/models/task.py`, `backend/app/schemas/tag.py`, `backend/app/services/tag_service.py`, `backend/app/api/routes/tags.py`, `backend/alembic/versions/b7c84319d5aa_add_tags_tasks_and_task_tags.py`, `backend/tests/test_tags.py`
+  - Upraveno: `backend/app/models/__init__.py`, `backend/app/main.py`
+  - Ověřeno: RED testy selhaly na 404/chybějících modelech; poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` s 27 testy; Alembic upgrade na čisté DB prošel; HTTP smoke ověřil chráněné `/tags`, create/list/update/delete.
+
 ## Rozpracováno
 
-- Nic není rozpracováno. Krok 2 je dokončený a projekt je v konzistentním stavu.
+- Nic není rozpracováno. Krok 3 je dokončený a projekt je v konzistentním stavu.
 
 ## Další krok
 
-Začít krokem 3: přidat `Tag`, minimální `Task` model a M:N vazbu `task_tags` včetně owner-scoped tag endpointů.
+Začít krokem 4: rozšířit `Task` na plný model, přidat `POST /tasks/quick`, CRUD a komplexní filtrování včetně named views.
 
 ## Poznámky
 
