@@ -25,6 +25,11 @@ class TaskPriority(str, enum.Enum):
     HIGH = "high"
 
 
+class RecurrenceMode(str, enum.Enum):
+    FIXED = "fixed"
+    AFTER_COMPLETION = "after_completion"
+
+
 task_tags = sa.Table(
     "task_tags",
     Base.metadata,
@@ -71,6 +76,11 @@ class Task(Base):
     parent_task_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid, sa.ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    recurrence_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid, sa.ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    recurrence_rule: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
+    recurrence_mode: Mapped[str | None] = mapped_column(sa.String(40), nullable=True)
     position: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False

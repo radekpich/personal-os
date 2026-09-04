@@ -9,12 +9,90 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tag import Tag
-from app.models.task import Task, TaskPriority, TaskStatus, task_tags
+from app.models.task import RecurrenceMode, Task, TaskPriority, TaskStatus, task_tags
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate, TaskView
 from app.services import category_service, context_service
 
 LOCAL_TIMEZONE = ZoneInfo("Europe/Prague")
+WEEKDAY_TO_INDEX = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
+
+
+def _parse_rrule(rrule: str) -> dict[str, str]:
+    return dict(part.split("=", 1) for part in rrule.split(";") if "=" in part)
+
+
+def _next_due_date(rrule: str, mode: str, task: Task, completed_at: datetime) -> date | None:
+    parts = _parse_rrule(rrule)
+    interval = int(parts.get("INTERVAL", "1"))
+    if mode == RecurrenceMode.AFTER_COMPLETION.value:
+        anchor = completed_at.astimezone(LOCAL_TIMEZONE).date()
+    else:
+        anchor = task.due_date or completed_at.astimezone(LOCAL_TIMEZONE).date()
+
+    freq = parts["FREQ"]
+    if freq == "DAILY":
+        return anchor + timedelta(days=interval)
+    if freq == "WEEKLY":
+        byday = parts.get("BYDAY")
+        if byday:
+            targets = [
+                WEEKDAY_TO_INDEX[item] for item in byday.split(",") if item in WEEKDAY_TO_INDEX
+            ]
+            for offset in range(1, 7 * interval + 8):
+                candidate = anchor + timedelta(days=offset)
+                if candidate.weekday() in targets:
+                    return candidate
+        return anchor + timedelta(weeks=interval)
+    if freq == "MONTHLY":
+        month = anchor.month - 1 + interval
+        year = anchor.year + month // 12
+        month = month % 12 + 1
+        day = min(anchor.day, 28)
+        return date(year, month, day)
+    if freq == "YEARLY":
+        return date(anchor.year + interval, anchor.month, min(anchor.day, 28))
+    return None
+
+
+async def _generate_next_recurrence_instance(
+    db: AsyncSession, task: Task, completed_at: datetime
+) -> None:
+    if task.recurrence_rule is None or task.recurrence_mode is None:
+        return
+    template_id = task.recurrence_template_id or task.id
+    next_due = _next_due_date(task.recurrence_rule, task.recurrence_mode, task, completed_at)
+    if next_due is None:
+        return
+    existing = await db.execute(
+        select(Task).where(
+            Task.owner_id == task.owner_id,
+            Task.recurrence_template_id == template_id,
+            Task.status.notin_([TaskStatus.DONE.value, TaskStatus.CANCELLED.value]),
+            Task.deleted_at.is_(None),
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        return
+    next_task = Task(
+        owner_id=task.owner_id,
+        title=task.title,
+        description=task.description,
+        status=TaskStatus.TODO.value,
+        priority=task.priority,
+        due_date=next_due,
+        due_time=task.due_time,
+        estimate_minutes=task.estimate_minutes,
+        category_id=task.category_id,
+        context_id=task.context_id,
+        parent_task_id=task.parent_task_id,
+        recurrence_template_id=template_id,
+        recurrence_rule=task.recurrence_rule,
+        recurrence_mode=task.recurrence_mode,
+        position=task.position,
+        tags=list(task.tags),
+    )
+    db.add(next_task)
 
 
 @dataclass
@@ -166,6 +244,10 @@ async def create_task(db: AsyncSession, owner: User, payload: TaskCreate) -> Tas
         category_id=payload.category_id,
         context_id=payload.context_id,
         parent_task_id=payload.parent_task_id,
+        recurrence_rule=payload.recurrence_rule,
+        recurrence_mode=payload.recurrence_mode.value
+        if payload.recurrence_mode is not None
+        else None,
         position=payload.position,
         tags=tags,
     )
@@ -204,9 +286,23 @@ async def update_task(
     if "tag_ids" in changes:
         task.tags = await _resolve_tags(db, owner, payload.tag_ids or [])
 
-    for field in ("title", "description", "due_date", "due_time", "estimate_minutes", "position"):
+    for field in (
+        "title",
+        "description",
+        "due_date",
+        "due_time",
+        "estimate_minutes",
+        "position",
+        "completed_at",
+        "recurrence_rule",
+    ):
         if field in changes:
             setattr(task, field, changes[field])
+
+    if "recurrence_mode" in changes:
+        task.recurrence_mode = (
+            payload.recurrence_mode.value if payload.recurrence_mode is not None else None
+        )
 
     if "priority" in changes and payload.priority is not None:
         task.priority = payload.priority.value
@@ -214,7 +310,8 @@ async def update_task(
     if "status" in changes and payload.status is not None:
         new_status = payload.status
         if new_status == TaskStatus.DONE and task.status != TaskStatus.DONE.value:
-            task.completed_at = datetime.now(UTC)
+            task.completed_at = payload.completed_at or datetime.now(UTC)
+            await _generate_next_recurrence_instance(db, task, task.completed_at)
         elif new_status != TaskStatus.DONE:
             task.completed_at = None
         task.status = new_status.value

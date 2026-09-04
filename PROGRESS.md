@@ -27,13 +27,18 @@
   - Upraveno: `backend/app/models/task.py`, `backend/app/models/__init__.py`, `backend/app/main.py`
   - Ověřeno: Claude Code narazil na session limit a nechal necommitnutý stav; Hermes doplnil migraci, opravil SQLite `ALTER COLUMN DROP DEFAULT`, poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` se 47 testy; Alembic upgrade na čisté DB prošel; HTTP smoke ověřil chráněné `/tasks`, `POST /tasks/quick`, create task s category/context/tag a filtry context/tag/inbox.
 
+- [x] 2026-09-04 17:48 — Krok 5 — Opakované úkoly
+  - Vytvořeno: `backend/alembic/versions/7b1d2c5e9f40_add_task_recurrence_fields.py`, `backend/tests/test_recurrence.py`
+  - Upraveno: `backend/app/models/task.py`, `backend/app/schemas/task.py`, `backend/app/services/task_service.py`
+  - Ověřeno: RED testy selhaly na chybějících recurrence polích/generování; poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` s 51 testy; Alembic upgrade na čisté DB prošel; HTTP smoke ověřil weekly RRULE a vytvoření další instance po dokončení.
+
 ## Rozpracováno
 
-- Nic není rozpracováno. Krok 4 je dokončený a projekt je v konzistentním stavu.
+- Nic není rozpracováno. Krok 5 je dokončený a projekt je v konzistentním stavu.
 
 ## Další krok
 
-Začít krokem 5: přidat opakované úkoly přes RRULE, režimy `fixed` a `after_completion` a generování další instance při dokončení.
+Začít krokem 6: přidat read-only iCalendar feed `GET /calendar/{token}.ics` a chráněné `POST /calendar/regenerate-token`.
 
 ## Poznámky
 
