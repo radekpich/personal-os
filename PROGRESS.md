@@ -37,13 +37,17 @@
   - Upraveno: `backend/app/main.py`
   - Ověřeno: RED testy selhaly na 404; poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` s 55 testy; Alembic upgrade na čisté DB prošel; HTTP smoke ověřil veřejný `.ics` feed přes token, VEVENT/VTIMEZONE/RRULE a regeneraci tokenu.
 
+- [x] 2026-09-04 17:57 — Krok 7 — Seed data
+  - Vytvořeno: `backend/alembic/versions/91c0a6e7d2b8_seed_default_personal_os_data.py`, `backend/tests/test_seed_data.py`
+  - Ověřeno: RED test selhal na chybějícím seed demo ownerovi; poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` s 56 testy; Alembic upgrade na čisté DB vytvořil demo usera, 6 kategorií, 5 kontextů a 3 úkoly.
+
 ## Rozpracováno
 
-- Nic není rozpracováno. Krok 6 je dokončený a projekt je v konzistentním stavu.
+- Nic není rozpracováno. Krok 7 je dokončený a projekt je v konzistentním stavu.
 
 ## Další krok
 
-Začít krokem 7: přidat seed data pro výchozí kategorie, kontexty a ukázkové úkoly.
+Začít krokem 8: finální audit, dokumentace a kompletní smoke Fáze 2.
 
 ## Poznámky
 
