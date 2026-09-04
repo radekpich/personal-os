@@ -32,13 +32,18 @@
   - Upraveno: `backend/app/models/task.py`, `backend/app/schemas/task.py`, `backend/app/services/task_service.py`
   - Ověřeno: RED testy selhaly na chybějících recurrence polích/generování; poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` s 51 testy; Alembic upgrade na čisté DB prošel; HTTP smoke ověřil weekly RRULE a vytvoření další instance po dokončení.
 
+- [x] 2026-09-04 17:52 — Krok 6 — iCalendar feed
+  - Vytvořeno: `backend/app/services/calendar_ics_service.py`, `backend/app/api/routes/calendar.py`, `backend/tests/test_calendar_ics.py`
+  - Upraveno: `backend/app/main.py`
+  - Ověřeno: RED testy selhaly na 404; poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` s 55 testy; Alembic upgrade na čisté DB prošel; HTTP smoke ověřil veřejný `.ics` feed přes token, VEVENT/VTIMEZONE/RRULE a regeneraci tokenu.
+
 ## Rozpracováno
 
-- Nic není rozpracováno. Krok 5 je dokončený a projekt je v konzistentním stavu.
+- Nic není rozpracováno. Krok 6 je dokončený a projekt je v konzistentním stavu.
 
 ## Další krok
 
-Začít krokem 6: přidat read-only iCalendar feed `GET /calendar/{token}.ics` a chráněné `POST /calendar/regenerate-token`.
+Začít krokem 7: přidat seed data pro výchozí kategorie, kontexty a ukázkové úkoly.
 
 ## Poznámky
 
