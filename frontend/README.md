@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal OS Frontend
 
-## Getting Started
+Next.js 15 App Router frontend pro každodenní úkolovník.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Next.js 15.5.7 + React 19
+- TypeScript strict
+- Tailwind CSS v4
+- shadcn/ui styl: Radix primitives, `class-variance-authority`, `cn()`
+- `next-themes` pro světlý/tmavý režim
+- TanStack Query pro server state
+- `react-hook-form` + `zod` pro formuláře
+- Playwright smoke skript pro E2E ověření
+
+## Design tokens
+
+Veškeré základní barvy, typografie, radiusy, spacing a stíny jsou v jednom souboru:
+
+```text
+src/app/globals.css
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Změnou CSS proměnných v `:root` a `.dark` jde přebarvit celý vzhled.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Lokální spuštění
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Backend musí běžet s CORS pro frontend origin, typicky:
 
-## Learn More
+```bash
+cd ../backend
+export CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+export COOKIE_SECURE=false
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
-To learn more about Next.js, take a look at the following resources:
+Frontend:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+cp .env.example .env.local
+npm install
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Aplikace poběží na `http://localhost:3000`.
 
-## Deploy on Vercel
+## Produkční build
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`NEXT_PUBLIC_API_BASE_URL` je klientská proměnná, takže se propisuje při buildu:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+NEXT_PUBLIC_API_BASE_URL=https://api.example.com npm run build
+npm run start
+```
+
+## Ověření
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+E2E smoke proti běžícímu backendu a frontendu:
+
+```bash
+FRONTEND_BASE_URL=http://127.0.0.1:3000 \
+PHASE3_E2E_EMAIL=user@example.com \
+PHASE3_E2E_PASSWORD='...' \
+npm run phase3:smoke
+```
+
+Smoke ověřuje login, quick capture, Inbox, detail drawer, optimistic done, calendar token regeneraci, command palette a mobilní 375px layout.
+
+## PWA
+
+- `public/manifest.webmanifest`
+- `public/icons/icon-192.png`
+- `public/icons/icon-512.png`
+- `public/sw.js`
+
+Service worker cachuje pouze statické assety. Offline synchronizace není implementovaná záměrně.
