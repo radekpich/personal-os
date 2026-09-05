@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import type { Category, Context, Tag, Task } from "@/lib/api/types";
+import type { Category, Context, Tag, Task, Vision } from "@/lib/api/types";
 import { useUpdateTask } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -20,20 +20,21 @@ const schema = z.object({
   due_time: z.string().nullable(),
   category_id: z.string().nullable(),
   context_id: z.string().nullable(),
+  vision_id: z.string().nullable(),
   recurrence_rule: z.string().nullable(),
   recurrence_mode: z.enum(["fixed", "after_completion"]).nullable(),
   tag_ids: z.array(z.string()),
 });
 type Values = z.infer<typeof schema>;
 
-export function TaskDetailPanel({ task, categories, contexts, tags, onClose }: { task: Task | null; categories: Category[]; contexts: Context[]; tags: Tag[]; onClose: () => void }) {
+export function TaskDetailPanel({ task, categories, contexts, tags, visions, onClose }: { task: Task | null; categories: Category[]; contexts: Context[]; tags: Tag[]; visions: Vision[]; onClose: () => void }) {
   const update = useUpdateTask();
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: emptyValues });
-  useEffect(() => { if (task) form.reset({ title: task.title, description: task.description ?? "", status: task.status, priority: task.priority, due_date: task.due_date, due_time: task.due_time, category_id: task.category_id, context_id: task.context_id, recurrence_rule: task.recurrence_rule, recurrence_mode: task.recurrence_mode, tag_ids: task.tags.map((tag) => tag.id) }); }, [task, form]);
+  useEffect(() => { if (task) form.reset({ title: task.title, description: task.description ?? "", status: task.status, priority: task.priority, due_date: task.due_date, due_time: task.due_time, category_id: task.category_id, context_id: task.context_id, vision_id: task.vision_id, recurrence_rule: task.recurrence_rule, recurrence_mode: task.recurrence_mode, tag_ids: task.tags.map((tag) => tag.id) }); }, [task, form]);
   const open = Boolean(task);
   async function submit(values: Values) {
     if (!task) return;
-    await update.mutateAsync({ id: task.id, payload: { ...values, description: values.description || null, due_date: values.due_date || null, due_time: values.due_time || null, category_id: values.category_id || null, context_id: values.context_id || null, recurrence_rule: values.recurrence_rule || null, recurrence_mode: values.recurrence_rule ? values.recurrence_mode ?? "fixed" : null } });
+    await update.mutateAsync({ id: task.id, payload: { ...values, description: values.description || null, due_date: values.due_date || null, due_time: values.due_time || null, category_id: values.category_id || null, context_id: values.context_id || null, vision_id: values.vision_id || null, recurrence_rule: values.recurrence_rule || null, recurrence_mode: values.recurrence_rule ? values.recurrence_mode ?? "fixed" : null } });
     onClose();
   }
   return (
@@ -55,6 +56,7 @@ export function TaskDetailPanel({ task, categories, contexts, tags, onClose }: {
               <label className="grid gap-1 text-sm font-medium">Čas<Input type="time" {...form.register("due_time")} /></label>
               <Select label="Kategorie" {...form.register("category_id")}><option value="">Inbox / bez kategorie</option>{categories.map((c) => <option value={c.id} key={c.id}>{c.name}</option>)}</Select>
               <Select label="Kontext" {...form.register("context_id")}><option value="">Bez kontextu</option>{contexts.map((c) => <option value={c.id} key={c.id}>{c.name}</option>)}</Select>
+              <Select label="Vize / cíl" {...form.register("vision_id")}><option value="">Bez vazby na vizi</option>{visions.map((v) => <option value={v.id} key={v.id}>{v.title}</option>)}</Select>
             </div>
             <label className="grid gap-1 text-sm font-medium">RRULE opakování<Input placeholder="FREQ=WEEKLY;BYDAY=MO" {...form.register("recurrence_rule")} /></label>
             <Select label="Typ opakování" {...form.register("recurrence_mode")}><option value="">Bez opakování</option><option value="fixed">Pevný rytmus</option><option value="after_completion">Po dokončení</option></Select>
@@ -67,7 +69,7 @@ export function TaskDetailPanel({ task, categories, contexts, tags, onClose }: {
   );
 }
 
-const emptyValues: Values = { title: "", description: "", status: "inbox", priority: "none", due_date: null, due_time: null, category_id: null, context_id: null, recurrence_rule: null, recurrence_mode: null, tag_ids: [] };
+const emptyValues: Values = { title: "", description: "", status: "inbox", priority: "none", due_date: null, due_time: null, category_id: null, context_id: null, vision_id: null, recurrence_rule: null, recurrence_mode: null, tag_ids: [] };
 
 function Select({ label, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {
   return <label className="grid gap-1 text-sm font-medium">{label}<select className="focus-ring min-h-11 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-base" {...props}>{children}</select></label>;

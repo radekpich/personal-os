@@ -1,25 +1,25 @@
 "use client";
 
 import { Clock, PanelRightOpen, Trash2 } from "lucide-react";
-import type { Category, Context, Tag, Task, TaskStatus } from "@/lib/api/types";
+import type { Category, Context, Tag, Task, TaskStatus, Vision } from "@/lib/api/types";
 import { useDeleteTask, useToggleTaskDone } from "@/lib/api/hooks";
 import { cn, formatHumanDate, isOverdue } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { priorityLabels, statusLabels } from "./labels";
 
-type Props = { tasks: Task[]; categories: Category[]; contexts: Context[]; tags: Tag[]; selectedId?: string | null; onSelect: (task: Task) => void };
+type Props = { tasks: Task[]; categories: Category[]; contexts: Context[]; tags: Tag[]; visions?: Vision[]; selectedId?: string | null; onSelect: (task: Task) => void };
 
-export function TaskList({ tasks, categories, contexts, selectedId, onSelect }: Props) {
+export function TaskList({ tasks, categories, contexts, visions = [], selectedId, onSelect }: Props) {
   if (tasks.length === 0) return <div className="panel p-8 text-center text-[var(--muted)]">Nic tu není. Zapiš první úkol nahoře.</div>;
   return (
     <div className="grid gap-3">
-      {tasks.map((task) => <TaskItem key={task.id} task={task} category={categories.find((c) => c.id === task.category_id)} context={contexts.find((c) => c.id === task.context_id)} selected={task.id === selectedId} onSelect={() => onSelect(task)} />)}
+      {tasks.map((task) => <TaskItem key={task.id} task={task} category={categories.find((c) => c.id === task.category_id)} context={contexts.find((c) => c.id === task.context_id)} vision={visions.find((v) => v.id === task.vision_id)} selected={task.id === selectedId} onSelect={() => onSelect(task)} />)}
     </div>
   );
 }
 
-function TaskItem({ task, category, context, selected, onSelect }: { task: Task; category?: Category; context?: Context; selected: boolean; onSelect: () => void }) {
+function TaskItem({ task, category, context, vision, selected, onSelect }: { task: Task; category?: Category; context?: Context; vision?: Vision; selected: boolean; onSelect: () => void }) {
   const toggle = useToggleTaskDone();
   const remove = useDeleteTask();
   const done = task.status === "done";
@@ -33,6 +33,7 @@ function TaskItem({ task, category, context, selected, onSelect }: { task: Task;
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
           {category ? <Badge className="border-0" style={{ background: `${category.color}22`, color: category.color }}><span className="mr-1 size-2 rounded-full" style={{ background: category.color }} />{category.name}</Badge> : <Badge>Inbox</Badge>}
           {context ? <span>{context.name}</span> : null}
+          {vision ? <Badge className="border-[var(--accent)] text-[var(--accent)]">🎯 {vision.title}</Badge> : null}
           <Badge className={cn(task.priority === "high" && "border-[var(--danger)] text-[var(--danger)]", task.priority === "medium" && "border-[var(--warning)] text-[var(--warning)]")}>{priorityLabels[task.priority]}</Badge>
           <span className={cn("inline-flex items-center gap-1", overdue && "font-semibold text-[var(--danger)]")}><Clock size={13}/>{formatHumanDate(task.due_date)}</span>
           <span>{statusLabels[task.status]}</span>

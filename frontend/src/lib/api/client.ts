@@ -1,4 +1,21 @@
-import type { Category, Context, ListResponse, Tag, Task, TaskCreate, TaskFilters, TaskList, TaskUpdate, User } from "./types";
+import type {
+  Category,
+  Context,
+  ListResponse,
+  StagnatingVision,
+  Tag,
+  Task,
+  TaskCreate,
+  TaskFilters,
+  TaskList,
+  TaskUpdate,
+  User,
+  Vision,
+  VisionCreate,
+  VisionProgress,
+  VisionTreeNode,
+  VisionUpdate,
+} from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 const CSRF_COOKIE_NAME = process.env.NEXT_PUBLIC_CSRF_COOKIE_NAME ?? "csrf_token";
@@ -110,6 +127,13 @@ export const api = {
   createTask: (payload: TaskCreate) => request<Task>("/tasks", { method: "POST", json: payload }),
   updateTask: (id: string, payload: TaskUpdate) => request<Task>(`/tasks/${id}`, { method: "PATCH", json: payload }),
   deleteTask: (id: string) => request<void>(`/tasks/${id}`, { method: "DELETE" }),
+  visions: () => request<ListResponse<Vision>>("/visions"),
+  visionTree: () => request<ListResponse<VisionTreeNode>>("/visions/tree"),
+  visionProgress: (id: string) => request<VisionProgress>(`/visions/${id}/progress`),
+  stagnatingVisions: (days = 14) => request<ListResponse<StagnatingVision>>("/visions/stagnating", { params: { days } }),
+  createVision: (payload: VisionCreate) => request<Vision>("/visions", { method: "POST", json: payload }),
+  updateVision: (id: string, payload: VisionUpdate) => request<Vision>(`/visions/${id}`, { method: "PATCH", json: payload }),
+  deleteVision: (id: string) => request<void>(`/visions/${id}`, { method: "DELETE" }),
   regenerateCalendarToken: () => request<User>("/calendar/regenerate-token", { method: "POST" }),
 };
 

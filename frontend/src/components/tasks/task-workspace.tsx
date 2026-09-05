@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { Task, TaskFilters, TaskStatus, TaskView } from "@/lib/api/types";
-import { useTasks, useTaxonomy } from "@/lib/api/hooks";
+import { useTasks, useTaxonomy, useVisions } from "@/lib/api/hooks";
 import { TaskDetailPanel } from "@/components/tasks/task-detail-panel";
 import { TaskList } from "@/components/tasks/task-list";
 
@@ -24,6 +24,7 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
   }), [params, initialView]);
   const tasks = useTasks(filters);
   const { categories, contexts, tags } = useTaxonomy();
+  const visions = useVisions();
 
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(params.toString());
@@ -38,7 +39,7 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <section className="grid gap-4">
         <Filters status={filters.status ?? "all"} categoryId={filters.category_id ?? "all"} contextId={filters.context_id ?? "all"} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} onStatus={(value) => setParam("status", value)} onCategory={(value) => setParam("category_id", value)} onContext={(value) => setParam("context_id", value)} />
-        {tasks.isLoading ? <div className="panel p-8 text-[var(--muted)]">Načítám úkoly…</div> : tasks.isError ? <div className="panel p-8 text-[var(--danger)]">Úkoly se nepodařilo načíst.</div> : <TaskList tasks={tasks.data?.items ?? []} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} selectedId={activeSelected?.id} onSelect={setSelected} />}
+        {tasks.isLoading ? <div className="panel p-8 text-[var(--muted)]">Načítám úkoly…</div> : tasks.isError ? <div className="panel p-8 text-[var(--danger)]">Úkoly se nepodařilo načíst.</div> : <TaskList tasks={tasks.data?.items ?? []} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} selectedId={activeSelected?.id} onSelect={setSelected} />}
       </section>
       <aside className="panel hidden h-fit p-5 xl:block">
         <h2 className="font-semibold">Tipy</h2>
@@ -48,7 +49,7 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
           <li>Klik na kolečko úkol optimisticky dokončí.</li>
         </ul>
       </aside>
-      <TaskDetailPanel task={activeSelected} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} onClose={() => { setSelected(null); if (selectedFromUrl) router.push('/tasks'); }} />
+      <TaskDetailPanel task={activeSelected} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} onClose={() => { setSelected(null); if (selectedFromUrl) router.push('/tasks'); }} />
     </div>
   );
 }

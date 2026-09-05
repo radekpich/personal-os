@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
-import type { Task, TaskFilters, TaskStatus, TaskUpdate } from "./types";
+import type { Task, TaskFilters, TaskStatus, TaskUpdate, VisionCreate, VisionUpdate } from "./types";
 
 export const queryKeys = {
   me: ["me"] as const,
@@ -11,6 +11,10 @@ export const queryKeys = {
   tags: ["tags"] as const,
   tasks: (filters: TaskFilters = {}) => ["tasks", filters] as const,
   task: (id: string | null) => ["task", id] as const,
+  visions: ["visions"] as const,
+  visionTree: ["visions", "tree"] as const,
+  visionProgress: (id: string | null) => ["visions", id, "progress"] as const,
+  stagnatingVisions: (days: number) => ["visions", "stagnating", days] as const,
 };
 
 export function useMe() {
@@ -51,6 +55,7 @@ export function useUpdateTask() {
     onSuccess: (task) => {
       queryClient.setQueryData(queryKeys.task(task.id), task);
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["visions"] });
     },
   });
 }
@@ -85,4 +90,44 @@ export function useToggleTaskDone() {
 export function useDeleteTask() {
   const queryClient = useQueryClient();
   return useMutation({ mutationFn: api.deleteTask, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }) });
+}
+
+export function useVisions() {
+  return useQuery({ queryKey: queryKeys.visions, queryFn: api.visions });
+}
+
+export function useVisionTree() {
+  return useQuery({ queryKey: queryKeys.visionTree, queryFn: api.visionTree });
+}
+
+export function useVisionProgress(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.visionProgress(id),
+    queryFn: () => api.visionProgress(id!),
+    enabled: Boolean(id),
+  });
+}
+
+export function useStagnatingVisions(days = 14) {
+  return useQuery({ queryKey: queryKeys.stagnatingVisions(days), queryFn: () => api.stagnatingVisions(days) });
+}
+
+function invalidateVisions(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ["visions"] });
+  queryClient.invalidateQueries({ queryKey: ["tasks"] });
+}
+
+export function useCreateVision() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: (payload: VisionCreate) => api.createVision(payload), onSuccess: () => invalidateVisions(queryClient) });
+}
+
+export function useUpdateVision() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: ({ id, payload }: { id: string; payload: VisionUpdate }) => api.updateVision(id, payload), onSuccess: () => invalidateVisions(queryClient) });
+}
+
+export function useDeleteVision() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: api.deleteVision, onSuccess: () => invalidateVisions(queryClient) });
 }

@@ -64,13 +64,24 @@
   - GREEN ověřeno: `pytest tests/test_visions.py -q` → 10 passed.
   - Backend gates ověřeny: `ruff check .`, `ruff format --check .`, `mypy --strict app tests`, `pytest -q` → 66 passed.
 
+- [x] 2026-09-05 07:49 — Fáze 4 / Krok 4–7 — Frontend Visions, navázání úkolu a E2E smoke
+  - Přidány frontend typy/API metody/hooks pro `Vision`, `VisionTreeNode`, `VisionProgress`, `StagnatingVision` a `Task.vision_id`.
+  - Přidána stránka `/visions` se stromovým pohledem, rozbalováním, native drag/drop přes změnu `parent_id`, progress bary a panel stagnujících vizí.
+  - Upraven detail úkolu: select `Vize / cíl`, ukládání `vision_id`; seznam úkolů zobrazuje navázanou vizi jako badge.
+  - Upraven Dashboard/Task workspace tak, aby načítal vize a invalidoval vision cache po změně úkolu.
+  - Přidán `npm run phase4:smoke` (`frontend/scripts/phase4-smoke.mjs`) pro produkční E2E: login, založení vize, drag/drop vnoření, quick task, navázání úkolu na vizi, ověření progressu a mobile visual smoke.
+  - Smoke odhalil reálný cache bug (`0/0` progress po navázání úkolu); opraveno invalidací `visions` queries v `useUpdateTask`.
+  - Ověřeno backend: `ruff check .`, `ruff format --check .`, `mypy --strict app tests`, `pytest -q` → 66 passed.
+  - Ověřeno frontend: `npm run lint`, `npm run typecheck`, `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:53911 npm run build`.
+  - Ověřeno E2E: produkční backend + `next start` + `npm run phase4:smoke` → OK; screenshoty `/tmp/personal-os-phase4-desktop.png`, `/tmp/personal-os-phase4-mobile.png`.
+
 ## Rozpracováno
 
-- Fáze 4 / Krok 4 — Frontend API typy/hooks pro vize a `Task.vision_id`.
+- Nic — Fáze 4 je implementovaná a ověřená.
 
 ## Další krok
 
-Doplnit frontend typy, API metody a TanStack Query hooks pro Vision tree/progress/stagnating a upravit Task typ/form payload o `vision_id`.
+Rozhodnout Fázi 5: buď Goals/diary propojení, nebo stabilizace/UX polish Visions podle reálného používání.
 
 ## Poznámky
 

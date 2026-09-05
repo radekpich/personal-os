@@ -24,7 +24,8 @@ export function CommandCenter() {
       if ((event.metaKey || event.ctrlKey) && key === "1") router.push("/dashboard");
       if ((event.metaKey || event.ctrlKey) && key === "2") router.push("/tasks");
       if ((event.metaKey || event.ctrlKey) && key === "3") router.push("/inbox");
-      if ((event.metaKey || event.ctrlKey) && key === "4") router.push("/settings");
+      if ((event.metaKey || event.ctrlKey) && key === "4") router.push("/visions");
+      if ((event.metaKey || event.ctrlKey) && key === "5") router.push("/settings");
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -50,7 +51,7 @@ export function CommandCenter() {
               <Command.Empty className="p-4 text-sm text-[var(--muted)]">Nic nenalezeno.</Command.Empty>
               {trimmed ? <Command.Item value={`create-${trimmed}`} onSelect={createTask} className="rounded-[var(--radius-sm)] px-3 py-2 aria-selected:bg-[var(--surface-muted)]">Vytvořit úkol „{trimmed}“</Command.Item> : null}
               <Command.Group heading="Pohledy" className="text-xs text-[var(--muted)]">
-                {[['/dashboard','Dashboard'],['/tasks?view=today','Dnes'],['/tasks?view=overdue','Po termínu'],['/inbox','Inbox'],['/settings','Nastavení']].map(([href,label]) => <Command.Item key={href} value={label} onSelect={() => { setOpen(false); router.push(href); }} className="rounded-[var(--radius-sm)] px-3 py-2 text-sm aria-selected:bg-[var(--surface-muted)]">{label}</Command.Item>)}
+                {[['/dashboard','Dashboard'],['/tasks?view=today','Dnes'],['/tasks?view=overdue','Po termínu'],['/inbox','Inbox'],['/visions','Vize'],['/settings','Nastavení']].map(([href,label]) => <Command.Item key={href} value={label} onSelect={() => { setOpen(false); router.push(href); }} className="rounded-[var(--radius-sm)] px-3 py-2 text-sm aria-selected:bg-[var(--surface-muted)]">{label}</Command.Item>)}
               </Command.Group>
               <Command.Group heading="Kategorie" className="text-xs text-[var(--muted)]">
                 {categories.data?.items.map((category) => <Command.Item key={category.id} value={category.name} onSelect={() => { setOpen(false); router.push(`/tasks?category_id=${category.id}`); }} className="rounded-[var(--radius-sm)] px-3 py-2 text-sm aria-selected:bg-[var(--surface-muted)]"><span className="mr-2 inline-block size-2 rounded-full" style={{ background: category.color }}/>{category.name}</Command.Item>)}
