@@ -4,6 +4,13 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 14:14 — Fáze 5 / Krok 6 — Frontend stránka Návyky
+  - Přidána `/challenges` stránka a navigace „Návyky“ v sidebaru i spodní navigaci.
+  - Přidány challenge karty s velkým číslem aktuální šňůry, rekordem, cílem a one-tap akcí: daily check-in / abstinence relaps.
+  - Přidán formulář pro založení výzvy s typem, kategorií, vizí, cílem dní, grace days a barvou.
+  - Přidána GitHub-style heatmapa: 7 řádků, sloupce po týdnech, tooltip s datem/poznámkou/pauzou, mobile horizontal scroll.
+  - Ověřeno frontend gate: `npm run lint`, `npm run typecheck`, `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:53901 npm run build` zelené.
+
 - [x] 2026-09-05 14:09 — Fáze 5 / Krok 5 — Frontend API typy/hooks
   - Přidány TS typy `Challenge`, `ChallengeCreate/Update`, `CheckIn`, `CheckInResult`, `ChallengeStats`, `ChallengeHeatmap`.
   - Přidány API client metody pro `/challenges`, `/stats`, `/heatmap`, check-in a pause.
@@ -118,11 +125,11 @@
 
 ## Rozpracováno
 
-- Fáze 5 / Krok 6 — Frontend stránka Návyky: challenge karty, one-tap dnešní check-in/relaps, GitHub-style heatmapa 53×7 s tooltipem a mobile horizontal scroll.
+- Fáze 5 / Krok 7 — Full-stack E2E smoke, mobile visual smoke, finální gates, PROGRESS, commit a push.
 
 ## Další krok
 
-Vytvořit `/challenges` UI, přidat navigaci a ověřit frontend lint/typecheck/build.
+Vytvořit Phase 5 smoke script, spustit na čerstvé DB přes reálný backend + `next start`, uložit desktop/mobile screenshoty a pushnout `main`.
 
 ## Poznámky
 
