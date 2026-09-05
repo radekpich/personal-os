@@ -41,13 +41,18 @@
   - Vytvořeno: `backend/alembic/versions/91c0a6e7d2b8_seed_default_personal_os_data.py`, `backend/tests/test_seed_data.py`
   - Ověřeno: RED test selhal na chybějícím seed demo ownerovi; poté prošlo `ruff check`, `ruff format --check`, `mypy --strict app tests`, `pytest -q` s 56 testy; Alembic upgrade na čisté DB vytvořil demo usera, 6 kategorií, 5 kontextů a 3 úkoly.
 
+- [x] 2026-09-05 05:23 — Krok 8 — Finální audit, dokumentace a kompletní smoke Fáze 2
+  - Vytvořeno/upraveno: `backend/README.md`, `PROGRESS.md`
+  - Ověřeno: `ruff check .`, `ruff format --check .`, `mypy --strict app tests`, `pytest -q` s 56 testy; Alembic upgrade na čisté DB; CLI create-user; živý E2E smoke přes uvicorn pro auth, category/context/tag, quick task, task CRUD/filter, recurrence next instance, ICS feed a regenerate token.
+  - Smoke výsledek: `PHASE2_E2E_SMOKE_OK {'health': 200, 'unauth_tasks': 401, 'login': 200, 'category': 201, 'context': 201, 'tag': 201, 'quick': 201, 'task': 201, 'filtered_total': 1, 'next_due': '2026-09-14', 'ics': 200, 'regen': 200, 'old_token': 404}`
+
 ## Rozpracováno
 
-- Nic není rozpracováno. Krok 7 je dokončený a projekt je v konzistentním stavu.
+- Nic není rozpracováno. Krok 8 je dokončený a Fáze 2 je uzavřená v konzistentním stavu.
 
 ## Další krok
 
-Začít krokem 8: finální audit, dokumentace a kompletní smoke Fáze 2.
+Fáze 2 je hotová. Další práce má začít novou fází podle navazujícího plánu.
 
 ## Poznámky
 
