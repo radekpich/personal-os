@@ -10,6 +10,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.api.routes.auth import router as auth_router
 from app.api.routes.calendar import router as calendar_router
 from app.api.routes.categories import router as categories_router
+from app.api.routes.challenges import router as challenges_router
 from app.api.routes.contexts import router as contexts_router
 from app.api.routes.health import router as health_router
 from app.api.routes.tags import router as tags_router
@@ -50,6 +51,7 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(calendar_router)
 app.include_router(categories_router)
+app.include_router(challenges_router)
 app.include_router(contexts_router)
 app.include_router(tags_router)
 app.include_router(tasks_router)

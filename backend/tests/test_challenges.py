@@ -1,0 +1,164 @@
+from datetime import UTC, datetime, tzinfo
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+
+from app.models.user import User
+from tests.conftest import CsrfHeaders, TestSessionLocal
+
+
+async def _login(client: AsyncClient, csrf_headers: CsrfHeaders, test_user: User) -> dict[str, str]:
+    headers = await csrf_headers(client)
+    response = await client.post(
+        "/auth/login",
+        json={"email": test_user.email, "password": "correct-password"},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    return await csrf_headers(client)
+
+
+async def test_challenges_require_auth(client: AsyncClient) -> None:
+    response = await client.get("/challenges")
+
+    assert response.status_code == 401
+
+
+async def test_create_list_and_get_daily_action_challenge(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    headers = await _login(client, csrf_headers, test_user)
+    category = await client.post(
+        "/categories", json={"name": "Zdraví", "color": "#22c55e", "icon": "heart"}, headers=headers
+    )
+    vision = await client.post(
+        "/visions", json={"title": "Být fit", "horizon": "1y"}, headers=headers
+    )
+
+    created = await client.post(
+        "/challenges",
+        json={
+            "title": "Švihadlo",
+            "description": "Každý den aspoň pár minut.",
+            "type": "daily_action",
+            "category_id": category.json()["id"],
+            "vision_id": vision.json()["id"],
+            "started_at": "2026-09-01T00:00:00+02:00",
+            "target_days": 100,
+            "allowed_gap_days": 1,
+            "is_active": True,
+            "color": "#f97316",
+            "icon": "activity",
+        },
+        headers=headers,
+    )
+
+    assert created.status_code == 201
+    payload = created.json()
+    assert payload["title"] == "Švihadlo"
+    assert payload["type"] == "daily_action"
+    assert payload["category_id"] == category.json()["id"]
+    assert payload["vision_id"] == vision.json()["id"]
+    assert payload["target_days"] == 100
+    assert payload["allowed_gap_days"] == 1
+    assert payload["current_streak"] == 0
+    assert payload["longest_streak"] == 0
+    assert payload["owner_id"] == str(test_user.id)
+
+    listed = await client.get("/challenges")
+    assert listed.status_code == 200
+    assert [item["id"] for item in listed.json()["items"]] == [payload["id"]]
+
+    fetched = await client.get(f"/challenges/{payload['id']}")
+    assert fetched.status_code == 200
+    assert fetched.json()["id"] == payload["id"]
+
+
+async def test_check_in_same_date_is_idempotent_and_recalculates_streak(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Čtení",
+            "type": "daily_action",
+            "started_at": "2026-09-01T00:00:00+02:00",
+            "color": "#3b82f6",
+            "icon": "book-open",
+        },
+        headers=headers,
+    )
+    assert challenge.status_code == 201
+    challenge_id = challenge.json()["id"]
+
+    first = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-05", "value": 20, "note": "Ráno", "is_relapse": False},
+        headers=headers,
+    )
+    second = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-05", "value": 30, "note": "Opraveno", "is_relapse": False},
+        headers=headers,
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 200
+    assert second.json()["check_in"]["id"] == first.json()["check_in"]["id"]
+    assert second.json()["check_in"]["value"] == 30
+    assert second.json()["check_in"]["note"] == "Opraveno"
+    assert second.json()["current_streak"] == 1
+    assert second.json()["longest_streak"] == 1
+
+    from app.models.challenge import CheckIn
+
+    async with TestSessionLocal() as session:
+        rows = (await session.execute(select(CheckIn))).scalars().all()
+    assert len(rows) == 1
+
+
+async def test_check_in_without_date_uses_user_timezone_not_utc(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_user.timezone = "Europe/Prague"
+    async with TestSessionLocal() as session:
+        stored = await session.get(User, test_user.id)
+        assert stored is not None
+        stored.timezone = "Europe/Prague"
+        await session.commit()
+
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 5, 22, 30, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Pozdní kardio",
+            "type": "daily_action",
+            "started_at": "2026-09-01T00:00:00+02:00",
+        },
+        headers=headers,
+    )
+
+    response = await client.post(
+        f"/challenges/{challenge.json()['id']}/check-in", json={}, headers=headers
+    )
+
+    assert response.status_code == 201
+    assert response.json()["check_in"]["date"] == "2026-09-06"

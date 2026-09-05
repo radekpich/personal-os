@@ -9,6 +9,16 @@
   - Ověřen čistý repo stav po Fázi 4: `main...origin/main` bez lokálních změn.
   - Založen pracovní checklist pro backend model, výpočty šňůr, stats/heatmap, frontend a E2E smoke.
 
+- [x] 2026-09-05 13:52 — Fáze 5 / Krok 1 — Backend datový základ přes TDD
+  - Přidány modely `Challenge`, `CheckIn`, `ChallengePause` a enum `ChallengeType`.
+  - Přidána migrace `a5c2f91e6b37_add_challenges_and_check_ins.py`; fresh SQLite Alembic upgrade ověřil tabulky `challenges`, `check_ins`, `challenge_pauses`.
+  - Přidány základní `/challenges` endpointy: list/create/get/patch/delete, `POST /challenges/{id}/check-in`, `POST /challenges/{id}/pauses`.
+  - Přidána unikátní idempotence `(challenge_id, date)` pro check-in; druhý zápis stejného dne dělá update a vrací 200.
+  - Už v datovém základu existují oddělené výpočtové funkce pro `daily_action` a `abstinence`, aby se neslily dvě odlišné logiky.
+  - TDD RED ověřeno: `pytest tests/test_challenges.py -q` nejdřív padal na chybějící `/challenges` a `challenge_service`.
+  - GREEN ověřeno: `pytest tests/test_challenges.py -q` → 4 passed.
+  - Slice gates ověřeny: `ruff check`, `ruff format --check`, `mypy --strict app tests/test_challenges.py`.
+
 - [x] 2026-09-05 07:17 — Fáze 4 / Krok 0 — Plán a baseline
   - Zapsána Fáze 4 do `PLAN.md`.
   - Založen pracovní checklist pro backend model/strom/progress a frontend stromový modul.
@@ -82,11 +92,11 @@
 
 ## Rozpracováno
 
-- Fáze 5 / Krok 1 — Backend datový základ přes TDD: `Challenge`, `CheckIn`, `ChallengePause`, migrace, základní routy a idempotentní check-in skeleton.
+- Fáze 5 / Krok 2 — Daily action výpočty: timezone den, backfill limit, budoucnost, `allowed_gap_days`, pauzy.
 
 ## Další krok
 
-Napsat RED backend testy pro Challenge create/list/read a CheckIn idempotenci na unikátní lokální den.
+Napsat RED backend testy pro `daily_action`: backfill/future limit, grace gap a pause-aware šňůra.
 
 ## Poznámky
 

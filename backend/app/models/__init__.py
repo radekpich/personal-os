@@ -1,4 +1,5 @@
 from app.models.category import Category
+from app.models.challenge import Challenge, ChallengePause, ChallengeType, CheckIn
 from app.models.context import Context
 from app.models.refresh_token import RefreshToken
 from app.models.tag import Tag
@@ -8,6 +9,10 @@ from app.models.vision import Vision, VisionHorizon, VisionStatus
 
 __all__ = [
     "Category",
+    "Challenge",
+    "ChallengePause",
+    "ChallengeType",
+    "CheckIn",
     "Context",
     "RefreshToken",
     "Tag",
