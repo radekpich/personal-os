@@ -4,6 +4,15 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 14:24 — Fáze 5 / Krok 7 — E2E smoke a finální ověření
+  - Přidán `npm run phase5:smoke` a Playwright smoke script `frontend/scripts/phase5-smoke.mjs`.
+  - Smoke běží proti čerstvé SQLite DB, Alembic `head`, reálnému FastAPI backendu a produkčnímu `next start`.
+  - Ověřeno E2E: login, založení `daily_action`, one-tap dnešní check-in, ověření rekord/streak, založení `abstinence`, zapsání relapsu, desktop screenshot.
+  - Ověřeno mobile visual smoke: stránka `/challenges`, bottom nav a mobilní screenshot; heatmapa má extra spodní scroll rezervu (`pb-20`) proti fixed bottom nav.
+  - Smoke výstup: `ok: true`; screenshoty `/tmp/personal-os-phase5-desktop.png`, `/tmp/personal-os-phase5-mobile.png`.
+  - Finální backend gate: `ruff check .`, `ruff format --check .`, `mypy --strict app tests`, `pytest -q` → 77 passed.
+  - Finální frontend gate: `npm run lint`, `npm run typecheck`, `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:53921 npm run build` zelené.
+
 - [x] 2026-09-05 14:14 — Fáze 5 / Krok 6 — Frontend stránka Návyky
   - Přidána `/challenges` stránka a navigace „Návyky“ v sidebaru i spodní navigaci.
   - Přidány challenge karty s velkým číslem aktuální šňůry, rekordem, cílem a one-tap akcí: daily check-in / abstinence relaps.
@@ -125,11 +134,11 @@
 
 ## Rozpracováno
 
-- Fáze 5 / Krok 7 — Full-stack E2E smoke, mobile visual smoke, finální gates, PROGRESS, commit a push.
+- Nic — Fáze 5 je dokončená a čeká na další plánovanou fázi.
 
 ## Další krok
 
-Vytvořit Phase 5 smoke script, spustit na čerstvé DB přes reálný backend + `next start`, uložit desktop/mobile screenshoty a pushnout `main`.
+Navrhnout Fázi 6 podle priority: buď deník/media import, finance/investice, nebo další automatizace kolem Personal OS.
 
 ## Poznámky
 

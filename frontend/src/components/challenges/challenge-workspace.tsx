@@ -242,7 +242,7 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 function ContributionHeatmap({ days, color }: { days: ChallengeHeatmapDay[]; color: string }) {
   const padded = useMemo(() => padHeatmap(days), [days]);
   return (
-    <div className="overflow-x-auto pb-2" aria-label="Roční heatmapa návyků">
+    <div className="overflow-x-auto pb-20 md:pb-2" aria-label="Roční heatmapa návyků">
       <div className="grid w-max grid-flow-col grid-rows-7 gap-1">
         {padded.map((day, index) => (
           <div
