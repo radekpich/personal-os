@@ -4,6 +4,13 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 14:02 — Fáze 5 / Krok 3 — Abstinence logika
+  - Doplněny testy pro odmítnutí úspěšného check-inu u `abstinence`: zapisuje se pouze relaps.
+  - Ověřeno, že relaps resetuje aktuální šňůru na 0 a rekord zůstává nejdelší období bez relapsu.
+  - Doplněn RED→GREEN test pro pauzu u `abstinence`: pauzované dny se nepočítají do elapsed streaku.
+  - `abstinence` výpočet zůstává v samostatné funkci `_calculate_abstinence_streaks`; `daily_action` má oddělenou `_calculate_daily_action_streaks`.
+  - Ověřeno: `pytest tests/test_challenges.py -q` → 9 passed; `ruff check`, `ruff format --check`, `mypy --strict app tests/test_challenges.py` zelené.
+
 - [x] 2026-09-05 13:58 — Fáze 5 / Krok 2 — Daily action záludnosti
   - Doplněny testy pro `allowed_gap_days`, backfill limit 7 dní, odmítnutí budoucnosti a timezone lokální den.
   - Doplněn RED→GREEN test pro pauzu: interval pauzy se vyjme z gapu, nepočítá se do šňůry a po návratu pokračuje streak.
@@ -98,11 +105,11 @@
 
 ## Rozpracováno
 
-- Fáze 5 / Krok 3 — Abstinence výpočty: pouze relaps zápisy, šňůra od `started_at`/posledního relapsu, rekord mezi relapsy.
+- Fáze 5 / Krok 4 — Stats a heatmap endpointy: `GET /challenges/{id}/stats` a `GET /challenges/{id}/heatmap?year=`.
 
 ## Další krok
 
-Napsat RED backend testy pro `abstinence`: odmítnout non-relapse check-in, relaps resetuje aktuální streak, rekord zůstává nejdelší období bez relapsu.
+Napsat RED backend testy pro stats (current/longest/total/success rate 30/90) a roční heatmapu s hodnotou, poznámkou a relapsem.
 
 ## Poznámky
 

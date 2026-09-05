@@ -286,6 +286,18 @@ async def _calculate_daily_action_streaks(
     return current_streak, longest
 
 
+def _active_elapsed_days(
+    start_exclusive: date, end_inclusive: date, pauses: list[ChallengePause]
+) -> int:
+    days = 0
+    cursor = start_exclusive + timedelta(days=1)
+    while cursor <= end_inclusive:
+        if not _is_paused(cursor, pauses):
+            days += 1
+        cursor += timedelta(days=1)
+    return days
+
+
 async def _calculate_abstinence_streaks(
     db: AsyncSession, owner: User, challenge: Challenge
 ) -> tuple[int, int]:
@@ -301,10 +313,12 @@ async def _calculate_abstinence_streaks(
         .order_by(CheckIn.date)
     )
     relapses = list(result.scalars().all())
+    pauses = await _challenge_pauses(db, owner, challenge)
     last_boundary = relapses[-1] if relapses else started_date
-    current = max((today - last_boundary).days, 0)
+    current = max(_active_elapsed_days(last_boundary, today, pauses), 0)
     boundaries = [started_date, *relapses, today]
     longest = max(
-        max((end - start).days, 0) for start, end in zip(boundaries, boundaries[1:], strict=False)
+        max(_active_elapsed_days(start, end, pauses), 0)
+        for start, end in zip(boundaries, boundaries[1:], strict=False)
     )
     return current, max(current, longest)

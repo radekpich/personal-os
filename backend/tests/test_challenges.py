@@ -270,6 +270,99 @@ async def test_daily_action_pause_freezes_streak_instead_of_breaking_it(
     assert resumed.json()["longest_streak"] == 3
 
 
+async def test_abstinence_rejects_success_check_in_and_relapse_resets_current_streak(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 10, 9, 0, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Bez cukru",
+            "type": "abstinence",
+            "started_at": "2026-09-01T00:00:00+02:00",
+        },
+        headers=headers,
+    )
+    challenge_id = challenge.json()["id"]
+
+    success_attempt = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-03", "is_relapse": False},
+        headers=headers,
+    )
+    first_relapse = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-04", "is_relapse": True, "note": "dort"},
+        headers=headers,
+    )
+    second_relapse = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-10", "is_relapse": True, "note": "oslava"},
+        headers=headers,
+    )
+
+    assert success_attempt.status_code == 400
+    assert "relapse" in success_attempt.json()["detail"]
+    assert first_relapse.status_code == 201
+    assert first_relapse.json()["current_streak"] == 6
+    assert first_relapse.json()["longest_streak"] == 6
+    assert second_relapse.status_code == 201
+    assert second_relapse.json()["current_streak"] == 0
+    assert second_relapse.json()["longest_streak"] == 6
+
+
+async def test_abstinence_pause_freezes_elapsed_time(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 6, 9, 0, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Bez alkoholu",
+            "type": "abstinence",
+            "started_at": "2026-09-01T00:00:00+02:00",
+        },
+        headers=headers,
+    )
+    challenge_id = challenge.json()["id"]
+
+    pause = await client.post(
+        f"/challenges/{challenge_id}/pauses",
+        json={"start_date": "2026-09-03", "end_date": "2026-09-04", "note": "dovolená"},
+        headers=headers,
+    )
+    fetched = await client.get(f"/challenges/{challenge_id}")
+
+    assert pause.status_code == 201
+    assert fetched.status_code == 200
+    assert fetched.json()["current_streak"] == 3
+    assert fetched.json()["longest_streak"] == 3
+
+
 async def test_check_in_without_date_uses_user_timezone_not_utc(
     client: AsyncClient,
     test_user: User,
