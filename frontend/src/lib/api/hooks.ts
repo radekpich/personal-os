@@ -2,13 +2,27 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
-import type { Task, TaskFilters, TaskStatus, TaskUpdate, VisionCreate, VisionUpdate } from "./types";
+import type {
+  ChallengeCreate,
+  ChallengeUpdate,
+  CheckInCreate,
+  Task,
+  TaskFilters,
+  TaskStatus,
+  TaskUpdate,
+  VisionCreate,
+  VisionUpdate,
+} from "./types";
 
 export const queryKeys = {
   me: ["me"] as const,
   categories: ["categories"] as const,
   contexts: ["contexts"] as const,
   tags: ["tags"] as const,
+  challenges: ["challenges"] as const,
+  challenge: (id: string | null) => ["challenges", id] as const,
+  challengeStats: (id: string | null) => ["challenges", id, "stats"] as const,
+  challengeHeatmap: (id: string | null, year: number) => ["challenges", id, "heatmap", year] as const,
   tasks: (filters: TaskFilters = {}) => ["tasks", filters] as const,
   task: (id: string | null) => ["task", id] as const,
   visions: ["visions"] as const,
@@ -90,6 +104,87 @@ export function useToggleTaskDone() {
 export function useDeleteTask() {
   const queryClient = useQueryClient();
   return useMutation({ mutationFn: api.deleteTask, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }) });
+}
+
+export function useChallenges() {
+  return useQuery({ queryKey: queryKeys.challenges, queryFn: api.challenges });
+}
+
+export function useChallenge(id: string | null) {
+  return useQuery({ queryKey: queryKeys.challenge(id), queryFn: () => api.challenge(id!), enabled: Boolean(id) });
+}
+
+export function useChallengeStats(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.challengeStats(id),
+    queryFn: () => api.challengeStats(id!),
+    enabled: Boolean(id),
+  });
+}
+
+export function useChallengeHeatmap(id: string | null, year: number) {
+  return useQuery({
+    queryKey: queryKeys.challengeHeatmap(id, year),
+    queryFn: () => api.challengeHeatmap(id!, year),
+    enabled: Boolean(id),
+  });
+}
+
+function invalidateChallenges(queryClient: ReturnType<typeof useQueryClient>, id?: string) {
+  queryClient.invalidateQueries({ queryKey: ["challenges"] });
+  if (id) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.challenge(id) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.challengeStats(id) });
+  }
+}
+
+export function useCreateChallenge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ChallengeCreate) => api.createChallenge(payload),
+    onSuccess: () => invalidateChallenges(queryClient),
+  });
+}
+
+export function useUpdateChallenge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ChallengeUpdate }) => api.updateChallenge(id, payload),
+    onSuccess: (challenge) => invalidateChallenges(queryClient, challenge.id),
+  });
+}
+
+export function useDeleteChallenge() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: api.deleteChallenge, onSuccess: () => invalidateChallenges(queryClient) });
+}
+
+export function useCheckInChallenge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: CheckInCreate }) => api.checkInChallenge(id, payload),
+    onSuccess: (_result, variables) => {
+      invalidateChallenges(queryClient, variables.id);
+      queryClient.invalidateQueries({ queryKey: ["challenges", variables.id, "heatmap"] });
+    },
+  });
+}
+
+export function useCreateChallengePause() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: { start_date: string; end_date?: string | null; note?: string | null };
+    }) => api.createChallengePause(id, payload),
+    onSuccess: (_result, variables) => {
+      invalidateChallenges(queryClient, variables.id);
+      queryClient.invalidateQueries({ queryKey: ["challenges", variables.id, "heatmap"] });
+    },
+  });
 }
 
 export function useVisions() {

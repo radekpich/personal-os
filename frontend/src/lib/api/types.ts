@@ -16,6 +16,91 @@ export type TaskView = "today" | "this_week" | "overdue" | "inbox";
 export type RecurrenceMode = "fixed" | "after_completion";
 export type VisionHorizon = "life" | "5y" | "1y" | "quarter";
 export type VisionStatus = "active" | "paused" | "achieved" | "abandoned";
+export type ChallengeType = "daily_action" | "abstinence";
+
+export type Challenge = {
+  id: UUID;
+  owner_id: UUID;
+  title: string;
+  description: string | null;
+  type: ChallengeType;
+  category_id: UUID | null;
+  vision_id: UUID | null;
+  started_at: string;
+  target_days: number | null;
+  allowed_gap_days: number;
+  is_active: boolean;
+  color: string;
+  icon: string;
+  current_streak: number;
+  longest_streak: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ChallengeCreate = {
+  title: string;
+  description?: string | null;
+  type?: ChallengeType;
+  category_id?: UUID | null;
+  vision_id?: UUID | null;
+  started_at?: string | null;
+  target_days?: number | null;
+  allowed_gap_days?: number;
+  is_active?: boolean;
+  color?: string;
+  icon?: string;
+};
+
+export type ChallengeUpdate = Partial<ChallengeCreate>;
+
+export type CheckInCreate = {
+  date?: string | null;
+  value?: number | null;
+  note?: string | null;
+  is_relapse?: boolean;
+};
+
+export type CheckIn = {
+  id: UUID;
+  owner_id: UUID;
+  challenge_id: UUID;
+  date: string;
+  value: number | null;
+  note: string | null;
+  is_relapse: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CheckInResult = {
+  check_in: CheckIn;
+  current_streak: number;
+  longest_streak: number;
+};
+
+export type ChallengeStats = {
+  current_streak: number;
+  longest_streak: number;
+  total_count: number;
+  success_rate_30: number;
+  success_rate_90: number;
+};
+
+export type ChallengeHeatmapDay = {
+  date: string;
+  has_check_in: boolean;
+  value: number | null;
+  note: string | null;
+  is_relapse: boolean;
+  is_paused: boolean;
+  intensity: 0 | 1 | 2 | 3 | 4;
+};
+
+export type ChallengeHeatmap = {
+  year: number;
+  days: ChallengeHeatmapDay[];
+};
 
 export type Category = {
   id: UUID;

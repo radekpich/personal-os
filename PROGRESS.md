@@ -4,6 +4,12 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 14:09 — Fáze 5 / Krok 5 — Frontend API typy/hooks
+  - Přidány TS typy `Challenge`, `ChallengeCreate/Update`, `CheckIn`, `CheckInResult`, `ChallengeStats`, `ChallengeHeatmap`.
+  - Přidány API client metody pro `/challenges`, `/stats`, `/heatmap`, check-in a pause.
+  - Přidány TanStack Query hooks a invalidace po check-in/pause/create/update/delete.
+  - Ověřeno: `npm run lint`, `npm run typecheck`, `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:53901 npm run build` zelené.
+
 - [x] 2026-09-05 14:06 — Fáze 5 / Krok 4 — Stats a heatmap endpointy
   - Přidány `GET /challenges/{id}/stats` a `GET /challenges/{id}/heatmap?year=`.
   - Stats vrací `current_streak`, `longest_streak`, `total_count`, `success_rate_30`, `success_rate_90`.
@@ -112,11 +118,11 @@
 
 ## Rozpracováno
 
-- Fáze 5 / Krok 5 — Frontend API typy/hooks pro Challenges, CheckInResult, Stats a Heatmap.
+- Fáze 5 / Krok 6 — Frontend stránka Návyky: challenge karty, one-tap dnešní check-in/relaps, GitHub-style heatmapa 53×7 s tooltipem a mobile horizontal scroll.
 
 ## Další krok
 
-Doplnit frontend typy, API client metody a TanStack Query hooks; ověřit `npm run lint`, `npm run typecheck`, `next build`.
+Vytvořit `/challenges` UI, přidat navigaci a ověřit frontend lint/typecheck/build.
 
 ## Poznámky
 
