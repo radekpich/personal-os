@@ -34,6 +34,7 @@ class TaskBase(BaseModel):
     estimate_minutes: int | None = Field(default=None, ge=1)
     category_id: uuid.UUID | None = None
     context_id: uuid.UUID | None = None
+    vision_id: uuid.UUID | None = None
     parent_task_id: uuid.UUID | None = None
     recurrence_rule: str | None = Field(default=None, max_length=255)
     recurrence_mode: RecurrenceMode | None = None
@@ -67,6 +68,7 @@ class TaskUpdate(BaseModel):
     completed_at: datetime | None = None
     category_id: uuid.UUID | None = None
     context_id: uuid.UUID | None = None
+    vision_id: uuid.UUID | None = None
     parent_task_id: uuid.UUID | None = None
     recurrence_rule: str | None = Field(default=None, max_length=255)
     recurrence_mode: RecurrenceMode | None = None
@@ -91,6 +93,7 @@ class TaskRead(BaseModel):
     completed_at: datetime | None
     category_id: uuid.UUID | None
     context_id: uuid.UUID | None
+    vision_id: uuid.UUID | None
     parent_task_id: uuid.UUID | None
     recurrence_template_id: uuid.UUID | None
     recurrence_rule: str | None

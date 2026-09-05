@@ -12,7 +12,7 @@ from app.models.tag import Tag
 from app.models.task import RecurrenceMode, Task, TaskPriority, TaskStatus, task_tags
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate, TaskView
-from app.services import category_service, context_service
+from app.services import category_service, context_service, vision_service
 
 LOCAL_TIMEZONE = ZoneInfo("Europe/Prague")
 WEEKDAY_TO_INDEX = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
@@ -85,6 +85,7 @@ async def _generate_next_recurrence_instance(
         estimate_minutes=task.estimate_minutes,
         category_id=task.category_id,
         context_id=task.context_id,
+        vision_id=task.vision_id,
         parent_task_id=task.parent_task_id,
         recurrence_template_id=template_id,
         recurrence_rule=task.recurrence_rule,
@@ -226,6 +227,8 @@ async def create_task(db: AsyncSession, owner: User, payload: TaskCreate) -> Tas
         await category_service.get_category(db, owner, payload.category_id)
     if payload.context_id is not None:
         await context_service.get_context(db, owner, payload.context_id)
+    if payload.vision_id is not None:
+        await vision_service.get_vision(db, owner, payload.vision_id)
     if payload.parent_task_id is not None:
         await get_task(db, owner, payload.parent_task_id)
     tags = await _resolve_tags(db, owner, payload.tag_ids)
@@ -243,6 +246,7 @@ async def create_task(db: AsyncSession, owner: User, payload: TaskCreate) -> Tas
         completed_at=completed_at,
         category_id=payload.category_id,
         context_id=payload.context_id,
+        vision_id=payload.vision_id,
         parent_task_id=payload.parent_task_id,
         recurrence_rule=payload.recurrence_rule,
         recurrence_mode=payload.recurrence_mode.value
@@ -272,6 +276,11 @@ async def update_task(
         if payload.context_id is not None:
             await context_service.get_context(db, owner, payload.context_id)
         task.context_id = payload.context_id
+
+    if "vision_id" in changes:
+        if payload.vision_id is not None:
+            await vision_service.get_vision(db, owner, payload.vision_id)
+        task.vision_id = payload.vision_id
 
     if "parent_task_id" in changes:
         if payload.parent_task_id is not None:

@@ -44,13 +44,24 @@
 - [x] Krok 7 — Seed data
 - [x] Krok 8 — Finální audit, dokumentace a kompletní smoke Fáze 2
 
+- [x] 2026-09-05 07:24 — Fáze 4 / Krok 1 — Backend datový základ přes TDD
+  - Přidán `Vision` model s poli `title`, Markdown `description`, `parent_id`, `horizon`, `status`, `target_date`, `category_id`, `position` a audit/soft-delete sloupci.
+  - Přidány enumy `VisionHorizon` (`life`, `5y`, `1y`, `quarter`) a `VisionStatus` (`active`, `paused`, `achieved`, `abandoned`).
+  - Přidána migrace `d4b8f72c9e11_add_visions_and_task_vision_link.py`.
+  - Přidán `Task.vision_id` s FK `visions.id ON DELETE SET NULL` do modelu, schémat a service vrstvy.
+  - Přidány základní `/visions` endpointy: list/create/get/patch/delete.
+  - TDD RED ověřeno: `pytest tests/test_visions.py -q` nejdřív padal na chybějících endpointech a ignorovaném `vision_id`.
+  - GREEN ověřeno: `pytest tests/test_visions.py -q` → 4 passed.
+  - Ověřeno slice gates: `ruff check app tests/test_visions.py`, `ruff format --check app tests/test_visions.py`, `mypy --strict app tests/test_visions.py`.
+  - Ověřeno Alembic na čerstvé SQLite DB: tabulka `visions` existuje a `tasks.vision_id` existuje.
+
 ## Rozpracováno
 
-- Fáze 4 / Krok 1 — Backend datový základ přes TDD: Vision model, migrace, schémata, routy a `Task.vision_id`.
+- Fáze 4 / Krok 2 — Strom a ochrana integrity: testy pro self-parent/cyklus/cizí parent/hloubku >4 a implementace validace.
 
 ## Další krok
 
-Napsat failing backend testy pro Vision create/list/detail a `Task.vision_id`, ověřit RED a až potom implementovat model/migraci/službu/routy.
+Napsat failing backend testy pro stromové ochrany Vision, ověřit RED a potom doplnit parent validaci ve `vision_service`.
 
 ## Poznámky
 

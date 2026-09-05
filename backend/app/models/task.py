@@ -73,6 +73,9 @@ class Task(Base):
     context_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid, sa.ForeignKey("contexts.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    vision_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid, sa.ForeignKey("visions.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     parent_task_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid, sa.ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True
     )
