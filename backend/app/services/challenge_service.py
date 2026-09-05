@@ -9,7 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.challenge import Challenge, ChallengePause, ChallengeType, CheckIn
 from app.models.user import User
-from app.schemas.challenge import ChallengeCreate, ChallengeUpdate, CheckInCreate
+from app.schemas.challenge import (
+    ChallengeCreate,
+    ChallengeHeatmap,
+    ChallengeHeatmapDay,
+    ChallengeStats,
+    ChallengeUpdate,
+    CheckInCreate,
+)
 from app.services import category_service, vision_service
 
 BACKFILL_LIMIT_DAYS = 7
@@ -212,6 +219,120 @@ async def create_pause(
     await db.commit()
     await db.refresh(pause)
     return pause
+
+
+def _heatmap_intensity(value: float | None, has_check_in: bool) -> int:
+    if not has_check_in:
+        return 0
+    if value is None:
+        return 1
+    if value <= 0:
+        return 0
+    if value < 10:
+        return 1
+    if value < 25:
+        return 2
+    if value < 45:
+        return 3
+    return 4
+
+
+def _active_days_in_range(start: date, end: date, pauses: list[ChallengePause]) -> int:
+    if start > end:
+        return 0
+    total = 0
+    cursor = start
+    while cursor <= end:
+        if not _is_paused(cursor, pauses):
+            total += 1
+        cursor += timedelta(days=1)
+    return total
+
+
+def _success_rate(
+    challenge: Challenge,
+    check_ins: list[CheckIn],
+    pauses: list[ChallengePause],
+    today: date,
+    days: int,
+    owner: User,
+) -> float:
+    started_date = challenge.started_at.astimezone(_user_zone(owner)).date()
+    start = max(today - timedelta(days=days - 1), started_date)
+    active_days = _active_days_in_range(start, today, pauses)
+    if active_days == 0:
+        return 0.0
+    relevant = [check_in for check_in in check_ins if start <= check_in.date <= today]
+    if challenge.type == ChallengeType.ABSTINENCE.value:
+        relapse_days = {
+            check_in.date
+            for check_in in relevant
+            if check_in.is_relapse and not _is_paused(check_in.date, pauses)
+        }
+        successes = max(active_days - len(relapse_days), 0)
+    else:
+        successes = len(
+            {
+                check_in.date
+                for check_in in relevant
+                if not check_in.is_relapse and not _is_paused(check_in.date, pauses)
+            }
+        )
+    return round((successes / active_days) * 100, 2)
+
+
+async def get_stats(db: AsyncSession, owner: User, challenge_id: uuid.UUID) -> ChallengeStats:
+    challenge = await get_challenge(db, owner, challenge_id)
+    await _recalculate_streaks(db, owner, challenge)
+    result = await db.execute(
+        select(CheckIn).where(CheckIn.challenge_id == challenge.id, CheckIn.owner_id == owner.id)
+    )
+    check_ins = list(result.scalars().all())
+    pauses = await _challenge_pauses(db, owner, challenge)
+    today = _today_for_user(owner)
+    return ChallengeStats(
+        current_streak=challenge.current_streak,
+        longest_streak=challenge.longest_streak,
+        total_count=len(check_ins),
+        success_rate_30=_success_rate(challenge, check_ins, pauses, today, 30, owner),
+        success_rate_90=_success_rate(challenge, check_ins, pauses, today, 90, owner),
+    )
+
+
+async def get_heatmap(
+    db: AsyncSession, owner: User, challenge_id: uuid.UUID, year: int
+) -> ChallengeHeatmap:
+    challenge = await get_challenge(db, owner, challenge_id)
+    start = date(year, 1, 1)
+    end = date(year, 12, 31)
+    result = await db.execute(
+        select(CheckIn).where(
+            CheckIn.challenge_id == challenge.id,
+            CheckIn.owner_id == owner.id,
+            CheckIn.date >= start,
+            CheckIn.date <= end,
+        )
+    )
+    check_ins = {check_in.date: check_in for check_in in result.scalars().all()}
+    pauses = await _challenge_pauses(db, owner, challenge)
+    days: list[ChallengeHeatmapDay] = []
+    cursor = start
+    while cursor <= end:
+        check_in = check_ins.get(cursor)
+        value = float(check_in.value) if check_in and check_in.value is not None else None
+        days.append(
+            ChallengeHeatmapDay(
+                date=cursor,
+                has_check_in=check_in is not None,
+                value=value,
+                note=check_in.note if check_in else None,
+                is_relapse=bool(check_in.is_relapse) if check_in else False,
+                is_paused=_is_paused(cursor, pauses),
+                intensity=_heatmap_intensity(value, check_in is not None),
+            )
+        )
+        cursor += timedelta(days=1)
+    return ChallengeHeatmap(year=year, days=days)
 
 
 async def _recalculate_streaks(db: AsyncSession, owner: User, challenge: Challenge) -> None:

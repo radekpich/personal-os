@@ -10,10 +10,12 @@ from app.models.challenge import Challenge
 from app.models.user import User
 from app.schemas.challenge import (
     ChallengeCreate,
+    ChallengeHeatmap,
     ChallengeList,
     ChallengePauseCreate,
     ChallengePauseRead,
     ChallengeRead,
+    ChallengeStats,
     ChallengeUpdate,
     CheckInCreate,
     CheckInResult,
@@ -65,6 +67,25 @@ async def update_challenge(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> Challenge:
     return await challenge_service.update_challenge(db, current_user, challenge_id, payload)
+
+
+@router.get("/{challenge_id}/stats", response_model=ChallengeStats)
+async def get_challenge_stats(
+    challenge_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ChallengeStats:
+    return await challenge_service.get_stats(db, current_user, challenge_id)
+
+
+@router.get("/{challenge_id}/heatmap", response_model=ChallengeHeatmap)
+async def get_challenge_heatmap(
+    challenge_id: uuid.UUID,
+    year: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ChallengeHeatmap:
+    return await challenge_service.get_heatmap(db, current_user, challenge_id, year)
 
 
 @router.delete(

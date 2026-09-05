@@ -4,6 +4,13 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 14:06 — Fáze 5 / Krok 4 — Stats a heatmap endpointy
+  - Přidány `GET /challenges/{id}/stats` a `GET /challenges/{id}/heatmap?year=`.
+  - Stats vrací `current_streak`, `longest_streak`, `total_count`, `success_rate_30`, `success_rate_90`.
+  - Success rate se počítá přes aktivní lokální dny od `started_at`, s pauzami vyjmutými z denominatoru.
+  - Heatmapa vrací celý rok po dnech (`365/366`) včetně `value`, `note`, `is_relapse`, `is_paused`, `has_check_in`, `intensity`.
+  - Ověřeno full backend gate: `ruff check .`, `ruff format --check .`, `mypy --strict app tests`, `pytest -q` → 77 passed.
+
 - [x] 2026-09-05 14:02 — Fáze 5 / Krok 3 — Abstinence logika
   - Doplněny testy pro odmítnutí úspěšného check-inu u `abstinence`: zapisuje se pouze relaps.
   - Ověřeno, že relaps resetuje aktuální šňůru na 0 a rekord zůstává nejdelší období bez relapsu.
@@ -105,11 +112,11 @@
 
 ## Rozpracováno
 
-- Fáze 5 / Krok 4 — Stats a heatmap endpointy: `GET /challenges/{id}/stats` a `GET /challenges/{id}/heatmap?year=`.
+- Fáze 5 / Krok 5 — Frontend API typy/hooks pro Challenges, CheckInResult, Stats a Heatmap.
 
 ## Další krok
 
-Napsat RED backend testy pro stats (current/longest/total/success rate 30/90) a roční heatmapu s hodnotou, poznámkou a relapsem.
+Doplnit frontend typy, API client metody a TanStack Query hooks; ověřit `npm run lint`, `npm run typecheck`, `next build`.
 
 ## Poznámky
 

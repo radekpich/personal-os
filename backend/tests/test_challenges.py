@@ -363,6 +363,107 @@ async def test_abstinence_pause_freezes_elapsed_time(
     assert fetched.json()["longest_streak"] == 3
 
 
+async def test_challenge_stats_include_streak_totals_and_success_rates(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 10, 9, 0, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Ranní mobilita",
+            "type": "daily_action",
+            "started_at": "2026-09-01T00:00:00+02:00",
+        },
+        headers=headers,
+    )
+    challenge_id = challenge.json()["id"]
+    pause = await client.post(
+        f"/challenges/{challenge_id}/pauses",
+        json={"start_date": "2026-09-05", "end_date": "2026-09-05"},
+        headers=headers,
+    )
+    assert pause.status_code == 201
+    for day in ["2026-09-08", "2026-09-09", "2026-09-10"]:
+        response = await client.post(
+            f"/challenges/{challenge_id}/check-in", json={"date": day}, headers=headers
+        )
+        assert response.status_code == 201
+
+    stats = await client.get(f"/challenges/{challenge_id}/stats")
+
+    assert stats.status_code == 200
+    assert stats.json() == {
+        "current_streak": 3,
+        "longest_streak": 3,
+        "total_count": 3,
+        "success_rate_30": 33.33,
+        "success_rate_90": 33.33,
+    }
+
+
+async def test_challenge_heatmap_returns_year_days_with_values_notes_relapses_and_pauses(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Čtení s heatmapou",
+            "type": "daily_action",
+            "started_at": "2026-01-01T00:00:00+01:00",
+        },
+        headers=headers,
+    )
+    challenge_id = challenge.json()["id"]
+    checked = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-05", "value": 45, "note": "kapitola 3"},
+        headers=headers,
+    )
+    pause = await client.post(
+        f"/challenges/{challenge_id}/pauses",
+        json={"start_date": "2026-09-06", "end_date": "2026-09-07", "note": "výlet"},
+        headers=headers,
+    )
+    assert checked.status_code == 201
+    assert pause.status_code == 201
+
+    heatmap = await client.get(f"/challenges/{challenge_id}/heatmap?year=2026")
+
+    assert heatmap.status_code == 200
+    payload = heatmap.json()
+    assert payload["year"] == 2026
+    assert len(payload["days"]) == 365
+    day = next(item for item in payload["days"] if item["date"] == "2026-09-05")
+    assert day == {
+        "date": "2026-09-05",
+        "has_check_in": True,
+        "value": 45,
+        "note": "kapitola 3",
+        "is_relapse": False,
+        "is_paused": False,
+        "intensity": 4,
+    }
+    paused = next(item for item in payload["days"] if item["date"] == "2026-09-06")
+    assert paused["has_check_in"] is False
+    assert paused["is_paused"] is True
+    assert paused["intensity"] == 0
+
+
 async def test_check_in_without_date_uses_user_timezone_not_utc(
     client: AsyncClient,
     test_user: User,

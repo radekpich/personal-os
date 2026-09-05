@@ -107,6 +107,29 @@ class CheckInResult(BaseModel):
     longest_streak: int
 
 
+class ChallengeStats(BaseModel):
+    current_streak: int
+    longest_streak: int
+    total_count: int
+    success_rate_30: float
+    success_rate_90: float
+
+
+class ChallengeHeatmapDay(BaseModel):
+    date: LocalDate
+    has_check_in: bool
+    value: float | None
+    note: str | None
+    is_relapse: bool
+    is_paused: bool
+    intensity: int = Field(ge=0, le=4)
+
+
+class ChallengeHeatmap(BaseModel):
+    year: int
+    days: list[ChallengeHeatmapDay]
+
+
 class ChallengePauseCreate(BaseModel):
     start_date: LocalDate
     end_date: LocalDate | None = None
