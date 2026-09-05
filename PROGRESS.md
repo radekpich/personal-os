@@ -1,8 +1,13 @@
 # PROGRESS.md — Personal OS
 
-## Aktuální fáze — Fáze 4: Modul dlouhodobých cílů / Visions
+## Aktuální fáze — Fáze 5: Měření návyků / Challenges
 
 ## Hotovo
+
+- [x] 2026-09-05 13:42 — Fáze 5 / Krok 0 — Plán a baseline
+  - Zapsána Fáze 5 do `PLAN.md`: Challenges/CheckIns, oddělené logiky `daily_action` vs `abstinence`, timezone pravidla, backfill limit, grace period, pauzy, idempotence, stats a heatmapa.
+  - Ověřen čistý repo stav po Fázi 4: `main...origin/main` bez lokálních změn.
+  - Založen pracovní checklist pro backend model, výpočty šňůr, stats/heatmap, frontend a E2E smoke.
 
 - [x] 2026-09-05 07:17 — Fáze 4 / Krok 0 — Plán a baseline
   - Zapsána Fáze 4 do `PLAN.md`.
@@ -77,11 +82,11 @@
 
 ## Rozpracováno
 
-- Nic — Fáze 4 je implementovaná a ověřená.
+- Fáze 5 / Krok 1 — Backend datový základ přes TDD: `Challenge`, `CheckIn`, `ChallengePause`, migrace, základní routy a idempotentní check-in skeleton.
 
 ## Další krok
 
-Rozhodnout Fázi 5: buď Goals/diary propojení, nebo stabilizace/UX polish Visions podle reálného používání.
+Napsat RED backend testy pro Challenge create/list/read a CheckIn idempotenci na unikátní lokální den.
 
 ## Poznámky
 

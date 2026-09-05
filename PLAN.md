@@ -1,5 +1,126 @@
 # PLAN.md — Personal OS
 
+## Fáze 5 — Měření návyků / Challenges
+
+Cíl: přidat modul měření návyků, který zvládá dva odlišné typy šňůr bez společné zkratkové logiky: `daily_action` vyžaduje aktivní zápis, `abstinence` automaticky běží od startu/posledního relapsu. Všechny hranice dnů se počítají podle timezone uživatele (`User.timezone`, typicky `Europe/Prague`), ne podle UTC serveru.
+
+### Datový model
+
+`Challenge`:
+
+- `id`, `owner_id`
+- `title`
+- `description`
+- `type` — `daily_action`, `abstinence`
+- `category_id`
+- `vision_id`
+- `started_at` — timezone-aware datetime začátku výzvy
+- `target_days` — volitelný cíl
+- `allowed_gap_days` — grace period pro `daily_action`, default 0
+- `is_active`
+- `color`
+- `icon`
+- `current_streak`, `longest_streak`
+- `created_at`, `updated_at`, `deleted_at`
+
+`CheckIn`:
+
+- `id`, `owner_id`, `challenge_id`
+- `date` — lokální datum uživatele, unikátní pro `(challenge_id, date)`
+- `value` — volitelné číslo
+- `note`
+- `is_relapse`
+- `created_at`, `updated_at`
+
+`ChallengePause`:
+
+- `id`, `owner_id`, `challenge_id`
+- `start_date`, `end_date`
+- `note`
+
+### Kritická pravidla
+
+- Timezone: pokud klient neposílá `date`, backend určí dnešní den z aktuálního času v `User.timezone`. UTC server nesmí rozhodovat hranici dne.
+- Zpětný zápis: `CheckIn.date` může být max 7 lokálních dní zpět; budoucnost odmítnout.
+- Idempotence: opakovaný zápis stejného dne a výzvy provede upsert, ne duplikát; vrací přepočtené streaky.
+- `daily_action`: úspěšné dny jsou check-iny s `is_relapse=false`; šňůra se počítá jen z existujících zápisů, ale `allowed_gap_days` toleruje mezery. Pauzy se do přerušení nepočítají.
+- `abstinence`: úspěch se nezapisuje; zapisuje se jen relaps (`is_relapse=true`). Current streak = lokální dny od `started_at` nebo posledního relapsu, s pauzami odečtenými/ignorovanými podle lokálního kalendáře. `allowed_gap_days` se na abstinence nevztahuje.
+- Nedělat jednu sdílenou funkci pro oba typy; service má oddělené výpočty pro daily_action a abstinence.
+
+### API
+
+- `GET /challenges` — seznam challenge karet se základními streaky.
+- `POST /challenges` — create.
+- `GET /challenges/{id}` — detail.
+- `PATCH /challenges/{id}` — update/freeze přes `is_active` a metadata.
+- `DELETE /challenges/{id}` — soft delete.
+- `POST /challenges/{id}/check-in` — upsert check-inu, přepočítá a vrátí `current_streak`, `longest_streak`.
+- `POST /challenges/{id}/pauses` — založí pauzu.
+- `GET /challenges/{id}/stats` — aktuální šňůra, rekord, celkový počet, úspěšnost za 30/90 dní.
+- `GET /challenges/{id}/heatmap?year=` — data pro roční 53×7 kalendářovou mřížku.
+
+### Frontend
+
+- Nová navigace `Návyky` / `/challenges`.
+- Challenge karta:
+  - title, icon, barva,
+  - velké číslo current streak,
+  - record/target,
+  - one-tap dnešní check-in pro `daily_action`, relaps button pro `abstinence`.
+- Heatmapa ve stylu GitHub contributions:
+  - 53 sloupců × 7 dní,
+  - intenzita podle `value`, binárně když `value` chybí,
+  - tooltip s datem, hodnotou a poznámkou,
+  - na mobilu horizontální scroll.
+- Formulář musí umožnit zpětný zápis dne v limitu 7 dní.
+
+### Kroky
+
+1. **Krok 0 — Plán a baseline**
+   - Zapsat Fázi 5 do `PLAN.md` a `PROGRESS.md`.
+   - Ověřit čistý repo stav po Fázi 4.
+   - Commit `faze-5/krok-0: plan navyku`.
+
+2. **Krok 1 — Backend datový základ přes TDD**
+   - RED testy pro Challenge create/list/read a CheckIn idempotenci na unikátní den.
+   - Modely `Challenge`, `CheckIn`, `ChallengePause`, enum `ChallengeType`, migrace.
+   - Routy/services/schémata skeleton.
+   - Alembic fresh DB ověření.
+   - Commit `faze-5/krok-1: datovy model navyku`.
+
+3. **Krok 2 — Daily action výpočty**
+   - RED testy: timezone dnešní datum Europe/Prague, backfill limit 7 dní, future date reject, allowed_gap_days, pause interval.
+   - Implementovat oddělenou daily_action streak funkci.
+   - Commit `faze-5/krok-2: daily action streaky`.
+
+4. **Krok 3 — Abstinence výpočty**
+   - RED testy: automatický běh od `started_at`, relaps reset, žádný úspěšný check-in, timezone hranice dne, pauza.
+   - Implementovat oddělenou abstinence streak funkci.
+   - Commit `faze-5/krok-3: abstinence streaky`.
+
+5. **Krok 4 — Stats a heatmap**
+   - RED testy pro stats 30/90 success rate a heatmap rok/tooltip payload.
+   - Implementovat `GET /stats` a `GET /heatmap?year=`.
+   - Commit `faze-5/krok-4: stats a heatmap navyku`.
+
+6. **Krok 5 — Frontend API vrstva**
+   - Typy, klient, TanStack hooks pro challenges/check-ins/stats/heatmap.
+   - Commit `faze-5/krok-5: frontend api navyku`.
+
+7. **Krok 6 — Frontend UI**
+   - Route `/challenges`, navigace, challenge karty, one-tap check-in/relaps, heatmap 53×7 s mobile scroll.
+   - Commit `faze-5/krok-6: frontend navyky heatmapa`.
+
+8. **Krok 7 — Smoke, dokumentace, push**
+   - Backend gates, frontend gates, live E2E smoke pro daily_action i abstinence a mobile visual smoke.
+   - Aktualizovat `PROGRESS.md`, commit a push.
+
+### UX zásady
+
+- Návyky musí být použitelné jedním klepnutím: běžný den nesmí vyžadovat otevření formuláře.
+- Abstinence nesmí uživatele nutit zapisovat úspěch každý den — primární akce je relaps a číslo běží samo.
+- Heatmapa je důkaz historie, ne hlavní ovládání; na mobilu se raději scrolluje vodorovně, než aby se buňky zmenšily na nepoužitelné.
+
 ## Fáze 4 — Modul dlouhodobých cílů / Visions
 
 Cíl: přidat modul dlouhodobých cílů, který propojí sny/cíle/milníky s každodenními úkoly. Bez vazby `Task.vision_id` nejsou vize jádro systému, proto je propojení úkolů na vize součástí backendu i frontendu.
