@@ -223,6 +223,33 @@ async def _recalculate_streaks(db: AsyncSession, owner: User, challenge: Challen
     challenge.longest_streak = longest
 
 
+async def _challenge_pauses(
+    db: AsyncSession, owner: User, challenge: Challenge
+) -> list[ChallengePause]:
+    result = await db.execute(
+        select(ChallengePause)
+        .where(ChallengePause.challenge_id == challenge.id, ChallengePause.owner_id == owner.id)
+        .order_by(ChallengePause.start_date)
+    )
+    return list(result.scalars().all())
+
+
+def _is_paused(day: date, pauses: list[ChallengePause]) -> bool:
+    return any(pause.start_date <= day <= (pause.end_date or day) for pause in pauses)
+
+
+def _active_gap_days(
+    start_exclusive: date, end_exclusive: date, pauses: list[ChallengePause]
+) -> int:
+    gap = 0
+    cursor = start_exclusive + timedelta(days=1)
+    while cursor < end_exclusive:
+        if not _is_paused(cursor, pauses):
+            gap += 1
+        cursor += timedelta(days=1)
+    return gap
+
+
 async def _calculate_daily_action_streaks(
     db: AsyncSession, owner: User, challenge: Challenge
 ) -> tuple[int, int]:
@@ -235,14 +262,15 @@ async def _calculate_daily_action_streaks(
         )
         .order_by(CheckIn.date)
     )
-    days = list(result.scalars().all())
+    days = [day for day in result.scalars().all()]
     if not days:
         return 0, 0
+    pauses = await _challenge_pauses(db, owner, challenge)
     longest = 1
     run = 1
     previous = days[0]
     for current in days[1:]:
-        gap = (current - previous).days - 1
+        gap = _active_gap_days(previous, current, pauses)
         if gap <= challenge.allowed_gap_days:
             run += gap + 1
         else:
@@ -251,7 +279,9 @@ async def _calculate_daily_action_streaks(
         previous = current
     longest = max(longest, run)
     today = _today_for_user(owner)
-    trailing_gap = (today - days[-1]).days
+    trailing_gap = _active_gap_days(days[-1], today + timedelta(days=1), pauses)
+    if days[-1] != today:
+        trailing_gap = max(trailing_gap - 1, 0)
     current_streak = run if trailing_gap <= challenge.allowed_gap_days else 0
     return current_streak, longest
 

@@ -4,6 +4,12 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 13:58 — Fáze 5 / Krok 2 — Daily action záludnosti
+  - Doplněny testy pro `allowed_gap_days`, backfill limit 7 dní, odmítnutí budoucnosti a timezone lokální den.
+  - Doplněn RED→GREEN test pro pauzu: interval pauzy se vyjme z gapu, nepočítá se do šňůry a po návratu pokračuje streak.
+  - `daily_action` výpočet teď používá pause-aware aktivní gap, nikoliv hrubý kalendářní rozdíl.
+  - Ověřeno: `pytest tests/test_challenges.py -q` → 7 passed; `ruff check`, `ruff format --check`, `mypy --strict app tests/test_challenges.py` zelené.
+
 - [x] 2026-09-05 13:42 — Fáze 5 / Krok 0 — Plán a baseline
   - Zapsána Fáze 5 do `PLAN.md`: Challenges/CheckIns, oddělené logiky `daily_action` vs `abstinence`, timezone pravidla, backfill limit, grace period, pauzy, idempotence, stats a heatmapa.
   - Ověřen čistý repo stav po Fázi 4: `main...origin/main` bez lokálních změn.
@@ -92,11 +98,11 @@
 
 ## Rozpracováno
 
-- Fáze 5 / Krok 2 — Daily action výpočty: timezone den, backfill limit, budoucnost, `allowed_gap_days`, pauzy.
+- Fáze 5 / Krok 3 — Abstinence výpočty: pouze relaps zápisy, šňůra od `started_at`/posledního relapsu, rekord mezi relapsy.
 
 ## Další krok
 
-Napsat RED backend testy pro `daily_action`: backfill/future limit, grace gap a pause-aware šňůra.
+Napsat RED backend testy pro `abstinence`: odmítnout non-relapse check-in, relaps resetuje aktuální streak, rekord zůstává nejdelší období bez relapsu.
 
 ## Poznámky
 

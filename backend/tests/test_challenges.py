@@ -123,6 +123,153 @@ async def test_check_in_same_date_is_idempotent_and_recalculates_streak(
     assert len(rows) == 1
 
 
+async def test_daily_action_allowed_gap_keeps_streak_alive(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 5, 9, 0, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "3× týdně běh",
+            "type": "daily_action",
+            "started_at": "2026-09-01T00:00:00+02:00",
+            "allowed_gap_days": 1,
+        },
+        headers=headers,
+    )
+    challenge_id = challenge.json()["id"]
+
+    first = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-01"},
+        headers=headers,
+    )
+    second = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-03"},
+        headers=headers,
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert second.json()["current_streak"] == 3
+    assert second.json()["longest_streak"] == 3
+
+
+async def test_daily_action_rejects_future_and_too_old_backfill_dates(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 10, 9, 0, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={"title": "Kardio", "type": "daily_action"},
+        headers=headers,
+    )
+    challenge_id = challenge.json()["id"]
+
+    valid_backfill = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-03"},
+        headers=headers,
+    )
+    too_old = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-02"},
+        headers=headers,
+    )
+    future = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-11"},
+        headers=headers,
+    )
+
+    assert valid_backfill.status_code == 201
+    assert too_old.status_code == 400
+    assert "too far" in too_old.json()["detail"]
+    assert future.status_code == 400
+    assert "future" in future.json()["detail"]
+
+
+async def test_daily_action_pause_freezes_streak_instead_of_breaking_it(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 5, 10, 0, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Švihadlo po nemoci",
+            "type": "daily_action",
+            "started_at": "2026-09-01T00:00:00+02:00",
+            "allowed_gap_days": 0,
+        },
+        headers=headers,
+    )
+    challenge_id = challenge.json()["id"]
+    for day in ["2026-09-01", "2026-09-02"]:
+        response = await client.post(
+            f"/challenges/{challenge_id}/check-in", json={"date": day}, headers=headers
+        )
+        assert response.status_code == 201
+
+    pause = await client.post(
+        f"/challenges/{challenge_id}/pauses",
+        json={"start_date": "2026-09-03", "end_date": "2026-09-04", "note": "nemoc"},
+        headers=headers,
+    )
+
+    assert pause.status_code == 201
+    fetched = await client.get(f"/challenges/{challenge_id}")
+    assert fetched.status_code == 200
+    assert fetched.json()["current_streak"] == 2
+    assert fetched.json()["longest_streak"] == 2
+
+    resumed = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-05"},
+        headers=headers,
+    )
+
+    assert resumed.status_code == 201
+    assert resumed.json()["current_streak"] == 3
+    assert resumed.json()["longest_streak"] == 3
+
+
 async def test_check_in_without_date_uses_user_timezone_not_utc(
     client: AsyncClient,
     test_user: User,
