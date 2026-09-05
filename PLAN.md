@@ -1,5 +1,128 @@
 # PLAN.md — Personal OS
 
+## Fáze 6A — Univerzální subsystém příloh / Attachments
+
+Cíl: přidat bezpečný a znovupoužitelný subsystém pro nahrávání souborů, který teď použijí úkoly a později deník/poznámky i další entity. Binární data jsou vždy na disku, metadata v DB. Model přílohy zůstává univerzální; vazba na entity se dělá přes konkrétní spojovací tabulky, ne přes polymorfní `entity_type + entity_id`.
+
+### Datový model
+
+`Attachment`:
+
+- `id`, `owner_id`
+- `storage_path`, `thumbnail_path`
+- `original_filename`, `mime_type`, `size_bytes`
+- `width`, `height`
+- `checksum_sha256`
+- `captured_at` — z EXIF `DateTimeOriginal`, pokud existuje
+- `gps_lat`, `gps_lon` — z EXIF GPS, pokud existuje
+- `caption`
+- `processing_status` — `pending`, `ready`, `failed`
+- `created_at`, `deleted_at`
+
+Spojovací tabulky:
+
+- `task_attachments(task_id, attachment_id, position)` — reálně používané v části A.
+- `note_attachments(note_id, attachment_id, position)` — připravený vzor pro část B; bez polymorfních klíčů.
+
+### Storage pravidla
+
+- Soubory se ukládají do `{ATTACHMENTS_DIR}/{owner_id}/{YYYY}/{MM}/{uuid}.{ext}`.
+- Cesta se generuje na serveru z UUID, nikdy z klientského názvu souboru.
+- Binární data nikdy nejdou do SQLite.
+- Zápis je atomický: stream do dočasného souboru, potom `os.replace`.
+- Limit jednoho uploadu je konfigurovatelný (`MAX_ATTACHMENT_SIZE_MB`, default 15 MB) a kontroluje se při streamování.
+- Celkový limit je konfigurovatelný (`MAX_STORAGE_MB`); upload se odmítne před finálním uložením s jasnou chybou.
+- Povolené typy se ověřují podle magic bytes: JPEG, PNG, HEIC, WebP, PDF. Nepoužívat příponu ani `Content-Type` od klienta jako zdroj pravdy.
+- `checksum_sha256` slouží k deduplikaci fyzických souborů: stejný obsah se fyzicky neuloží dvakrát, jen vznikne další metadata/vazba.
+
+### Processing
+
+- Processing běží mimo request přes `BackgroundTasks`; upload vrací rychle se stavem `pending`.
+- Obrázky:
+  - načíst přes Pillow / pillow-heif,
+  - aplikovat EXIF Orientation,
+  - před odstraněním EXIF vytáhnout `DateTimeOriginal` a GPS,
+  - delší hranu zmenšit na max 2000 px,
+  - uložit jako JPEG kvalita 85 bez EXIF,
+  - vytvořit náhled s delší hranou 400 px.
+- HEIC převést na JPEG.
+- PDF nekomprimovat, uložit originál; vytvořit náhled první stránky.
+- `processing_status`: `pending → ready` nebo `failed`.
+
+### API
+
+- `POST /attachments` — multipart upload, vrací metadata včetně `processing_status`.
+- `GET /attachments/{id}` — chráněné přihlášením a kontrolou vlastníka, stream souboru z backendu.
+- `GET /attachments/{id}/thumb` — chráněný thumbnail stream.
+- `PATCH /attachments/{id}` — úprava `caption`.
+- `DELETE /attachments/{id}` — soft delete; fyzický úklid až po 30 dnech.
+- `POST /tasks/{id}/attachments` — napojení attachmentu na task s `position`.
+- `DELETE /tasks/{id}/attachments/{attachment_id}` — odebrání vazby.
+- `GET /storage/usage` — počet souborů, obsazeno, zbývá, procenta.
+
+Bezpečnost:
+
+- Přístup k cizí příloze vrací 404, ne 403.
+- Přílohy neservírovat jako veřejné statické soubory.
+- Zakázané typy, path traversal názvy, překročení per-file limitu i storage limitu mají testy.
+
+### Cleanup
+
+- Denní APScheduler/Background úloha smaže fyzické soubory u attachmentů soft-deleted před více než 30 dny.
+- Stejná úloha najde osiřelé fyzické soubory bez DB záznamu a odstraní je.
+
+### Frontend
+
+- Znovupoužitelná upload komponenta:
+  - drag & drop,
+  - výběr souboru,
+  - fotoaparát přes `<input type="file" accept="image/*" capture="environment">`,
+  - progress stav,
+  - mřížka thumbnailů,
+  - lightbox.
+- V detailu úkolu sekce „Přílohy“ s uploadem a odebráním vazby.
+- V nastavení karta obsazenosti úložiště z `GET /storage/usage`.
+
+### Kroky
+
+1. **Krok 0 — Plán a baseline**
+   - Zapsat Fázi 6A do `PLAN.md`/`PROGRESS.md`.
+   - Ověřit čistý `main` po Fázi 5.
+   - Commit `faze-6a/krok-0: plan priloh`.
+
+2. **Krok 1 — Backend datový model a config přes TDD**
+   - RED testy migrace/modelu pro `attachments`, `task_attachments`, `note_attachments` a storage config defaulty.
+   - Modely, enum, migrace, settings a `.env.example`.
+   - Fresh Alembic upgrade.
+   - Commit `faze-6a/krok-1: datovy model priloh`.
+
+3. **Krok 2 — Upload a bezpečnostní validace přes TDD**
+   - RED testy: povolený typ, zakázaný typ, path traversal filename, per-file limit streamem, storage limit, cizí příloha 404, dedupe stejného souboru.
+   - Implementovat `POST /attachments`, magic bytes, atomický zápis, checksum dedupe, `GET /storage/usage`.
+   - Commit `faze-6a/krok-2: upload priloh a limity`.
+
+4. **Krok 3 — Processing obrázků/PDF mimo request**
+   - RED/GREEN testy pro thumbnail, JPEG normalizaci, EXIF orientation/metadata, HEIC převod pokud knihovna dostupná, PDF thumbnail.
+   - BackgroundTasks processing a status transitions.
+   - Commit `faze-6a/krok-3: processing priloh`.
+
+5. **Krok 4 — Entity vazby a serving**
+   - `GET /attachments/{id}`, `/thumb`, `PATCH`, `DELETE`, `POST/DELETE /tasks/{id}/attachments`.
+   - Cleanup úloha pro soft-deleted a orphan soubory.
+   - Commit `faze-6a/krok-4: endpointy a vazby priloh`.
+
+6. **Krok 5 — Frontend API a reusable uploader**
+   - Typy, API client, hooks, upload component, thumbnail grid a lightbox.
+   - Commit `faze-6a/krok-5: frontend upload komponenta`.
+
+7. **Krok 6 — Task detail a storage settings**
+   - Přílohy v detailu úkolu, storage usage v Settings.
+   - Commit `faze-6a/krok-6: prilohy v ukolech a storage`.
+
+8. **Krok 7 — Smoke, dokumentace, push**
+   - Backend/frontend gates a produkční E2E smoke: upload obrázku k úkolu, thumbnail, lightbox, delete link, storage usage.
+   - Aktualizovat `PROGRESS.md`, commit a push.
+
 ## Fáze 5 — Měření návyků / Challenges
 
 Cíl: přidat modul měření návyků, který zvládá dva odlišné typy šňůr bez společné zkratkové logiky: `daily_action` vyžaduje aktivní zápis, `abstinence` automaticky běží od startu/posledního relapsu. Všechny hranice dnů se počítají podle timezone uživatele (`User.timezone`, typicky `Europe/Prague`), ne podle UTC serveru.

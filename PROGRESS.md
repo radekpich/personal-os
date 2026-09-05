@@ -1,6 +1,6 @@
 # PROGRESS.md — Personal OS
 
-## Aktuální fáze — Fáze 5: Měření návyků / Challenges
+## Aktuální fáze — Fáze 6A: Univerzální subsystém příloh / Attachments
 
 ## Hotovo
 
@@ -134,11 +134,11 @@
 
 ## Rozpracováno
 
-- Nic — Fáze 5 je dokončená a čeká na další plánovanou fázi.
+- Fáze 6A / Krok 0 — Plán a baseline: zapsat plán univerzálního attachment subsystému, ověřit čistý `main` po Fázi 5 a připravit TDD řezy.
 
 ## Další krok
 
-Navrhnout Fázi 6 podle priority: buď deník/media import, finance/investice, nebo další automatizace kolem Personal OS.
+Napsat RED testy pro backend datový model/config: `attachments`, `task_attachments`, připravený vzor `note_attachments`, storage limity a fresh Alembic upgrade.
 
 ## Poznámky
 
