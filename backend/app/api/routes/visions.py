@@ -1,14 +1,22 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, verify_csrf
 from app.db.session import get_db
 from app.models.user import User
 from app.models.vision import Vision
-from app.schemas.vision import VisionCreate, VisionList, VisionRead, VisionUpdate
+from app.schemas.vision import (
+    StagnatingVisionList,
+    VisionCreate,
+    VisionList,
+    VisionProgress,
+    VisionRead,
+    VisionTree,
+    VisionUpdate,
+)
 from app.services import vision_service
 
 router = APIRouter(prefix="/visions", tags=["visions"])
@@ -35,6 +43,34 @@ async def create_vision(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> Vision:
     return await vision_service.create_vision(db, current_user, payload)
+
+
+@router.get("/tree", response_model=VisionTree)
+async def get_vision_tree(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> VisionTree:
+    return VisionTree(items=await vision_service.get_vision_tree(db, current_user))
+
+
+@router.get("/stagnating", response_model=StagnatingVisionList)
+async def list_stagnating_visions(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    days: Annotated[int, Query(ge=1, le=3650)] = 14,
+) -> StagnatingVisionList:
+    return StagnatingVisionList(
+        items=await vision_service.list_stagnating_visions(db, current_user, days)
+    )
+
+
+@router.get("/{vision_id}/progress", response_model=VisionProgress)
+async def get_vision_progress(
+    vision_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> VisionProgress:
+    return await vision_service.get_vision_progress(db, current_user, vision_id)
 
 
 @router.get("/{vision_id}", response_model=VisionRead)

@@ -55,13 +55,22 @@
   - Ověřeno slice gates: `ruff check app tests/test_visions.py`, `ruff format --check app tests/test_visions.py`, `mypy --strict app tests/test_visions.py`.
   - Ověřeno Alembic na čerstvé SQLite DB: tabulka `visions` existuje a `tasks.vision_id` existuje.
 
+- [x] 2026-09-05 07:31 — Fáze 4 / Krok 2–3 — Backend strom, progress a stagnace
+  - Přidána ochrana Vision stromu: self-parent → 400, cyklus → 400, cizí/neexistující parent → 404, max hloubka 4 úrovně → 400.
+  - Přidán `GET /visions/tree`, skládá celý strom z jednoho selectu nad `visions` a nedělá N+1.
+  - Přidán `GET /visions/{id}/progress`: `total_tasks`, `done_tasks`, `last_activity_at`, `stagnation_days`.
+  - Přidán `GET /visions/stagnating?days=X`: vrací vize bez posledního pohybu na navázaných úkolech aspoň X dní.
+  - TDD RED ověřeno pro stromové validace, tree route i progress/stagnating endpointy.
+  - GREEN ověřeno: `pytest tests/test_visions.py -q` → 10 passed.
+  - Backend gates ověřeny: `ruff check .`, `ruff format --check .`, `mypy --strict app tests`, `pytest -q` → 66 passed.
+
 ## Rozpracováno
 
-- Fáze 4 / Krok 2 — Strom a ochrana integrity: testy pro self-parent/cyklus/cizí parent/hloubku >4 a implementace validace.
+- Fáze 4 / Krok 4 — Frontend API typy/hooks pro vize a `Task.vision_id`.
 
 ## Další krok
 
-Napsat failing backend testy pro stromové ochrany Vision, ověřit RED a potom doplnit parent validaci ve `vision_service`.
+Doplnit frontend typy, API metody a TanStack Query hooks pro Vision tree/progress/stagnating a upravit Task typ/form payload o `vision_id`.
 
 ## Poznámky
 

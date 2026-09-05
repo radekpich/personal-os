@@ -51,3 +51,28 @@ class VisionRead(BaseModel):
 
 class VisionList(BaseModel):
     items: list[VisionRead]
+
+
+class VisionTreeNode(VisionRead):
+    children: list["VisionTreeNode"] = Field(default_factory=list)
+
+
+class VisionProgress(BaseModel):
+    vision_id: uuid.UUID
+    total_tasks: int
+    done_tasks: int
+    last_activity_at: datetime | None
+    stagnation_days: int | None
+
+
+class StagnatingVision(BaseModel):
+    vision: VisionRead
+    progress: VisionProgress
+
+
+class StagnatingVisionList(BaseModel):
+    items: list[StagnatingVision]
+
+
+class VisionTree(BaseModel):
+    items: list[VisionTreeNode]
