@@ -1,152 +1,70 @@
 # PLAN.md — Personal OS
 
-## Fáze 2 — Jádro aplikace: kategorie, kontexty, štítky, úkoly, opakování a iCalendar
+## Fáze 3 — Frontend použitelný pro každodenní práci
 
-Cíl: rozšířit existující backend po Fázi 1 o chráněné owner-scoped doménové jádro aplikace. Každý krok musí skončit funkčním stavem, aktualizovaným `PROGRESS.md` a git commitem ve formátu `faze-2/krok-N: ...`.
+Cíl: postavit použitelný frontend úkolovníku nad hotovým backendem Fáze 2.
 
-### Krok 0 — Baseline a pracovní pravidla
+### Technický základ
 
-Soubory:
-- `PLAN.md`
-- `PROGRESS.md`
-- existující backend soubory z Fáze 1
+- Next.js 15, App Router, TypeScript strict.
+- Tailwind CSS v4.
+- shadcn/ui styl komponent: Radix primitives + `cn`, varianty přes `class-variance-authority`.
+- Design tokeny centralizované v jednom souboru `frontend/src/app/globals.css` jako CSS proměnné: barvy, radiusy, spacing, fonty, stíny.
+- Light/dark přes `next-themes`.
+- TanStack Query pro server state.
+- Typovaný API klient podle backend OpenAPI kontraktu / ručně udržované typy.
+- Formuláře přes `react-hook-form` + `zod`.
+- PWA manifest, ikony, standalone mode, SW pouze pro statické assety.
 
-Úkoly:
-- založit git repozitář, pokud neexistuje;
-- zapsat plán Fáze 2;
-- zapsat počáteční progress;
-- commitnout baseline před prvním produkčním kódem Fáze 2.
+### Kroky
 
-### Krok 1 — Uživatelský profil pro calendar token
+1. **Krok 0 — Frontend skeleton a plán**
+   - Next app v `frontend/`, Next 15, TypeScript strict, Tailwind v4.
+   - Fáze 3 zapsaná do `PLAN.md` a `PROGRESS.md`.
+   - Build/lint/typecheck projdou.
 
-Soubory:
-- `backend/app/models/user.py`
-- `backend/app/schemas/user.py`
-- `backend/alembic/versions/*_add_calendar_token_to_users.py`
-- `backend/tests/test_calendar_token.py`
+2. **Krok 1 — API a auth vrstva**
+   - `credentials: 'include'` pro všechny requesty.
+   - typed API client pro auth, category, context, tag, task, calendar.
+   - automatický refresh po 401 a router redirect na login.
+   - TanStack Query provider a query/mutation hooks.
 
-Úkoly:
-- přidat `calendar_token` do `User` jako unikátní neveřejný bearer token pro ICS feed;
-- doplnit migraci;
-- otestovat, že token existuje a lze jej regenerovat pozdějším endpointem.
+3. **Krok 2 — Design system a shell**
+   - Theme provider, light/dark toggle.
+   - App shell se sidebar pohledy/kategoriemi a mobile bottom nav od 375 px.
+   - Middleware chrání privátní routy.
 
-### Krok 2 — Category a Context CRUD
+4. **Krok 3 — Dashboard, úkoly a inbox**
+   - Dashboard: dnešní úkoly, po termínu, rychlý přehled.
+   - List úkolů s filtry category/context/tag/status.
+   - Inbox pro nekategorizované položky.
+   - Vždy dostupný quick capture nahoře.
+   - Optimistické zaškrtnutí úkolu.
 
-Soubory:
-- `backend/app/models/category.py`
-- `backend/app/models/context.py`
-- `backend/app/schemas/category.py`
-- `backend/app/schemas/context.py`
-- `backend/app/services/category_service.py`
-- `backend/app/services/context_service.py`
-- `backend/app/api/routes/categories.py`
-- `backend/app/api/routes/contexts.py`
-- `backend/app/api/routes/__init__.py`
-- `backend/app/main.py`
-- `backend/alembic/versions/*_add_categories_contexts.py`
-- `backend/tests/test_categories.py`
-- `backend/tests/test_contexts.py`
+5. **Krok 4 — Detail úkolu a formuláře**
+   - Detail v postranním panelu, ne samostatná stránka.
+   - Create/update task přes RHF + Zod.
+   - Validace priority, status, termín, recurrence, tagy.
 
-Úkoly:
-- přidat owner-scoped modely Category a Context;
-- Category: `name`, `color`, `icon`, `parent_id`, `position`, `is_archived`, `owner_id`, timestamps, `deleted_at`;
-- Context: `name`, `position`, `is_archived`, `owner_id`, timestamps, `deleted_at`;
-- validovat hex color;
-- zajistit dvouúrovňové vnoření kategorií;
-- endpointy musí používat `get_current_user` a filtrovat podle `owner_id`.
+6. **Krok 5 — Nastavení**
+   - Profil a timezone.
+   - Calendar URL, kopírování do schránky, regenerace tokenu.
 
-### Krok 3 — Tag a M:N vazba na Task základ
+7. **Krok 6 — Command palette, klávesové zkratky, PWA**
+   - Cmd/Ctrl+K palette: vyhledání úkolu, skok do kategorie, založení úkolu.
+   - Zkratky pro quick capture, inbox, today/list/settings, theme.
+   - Manifest, ikony, service worker pouze statické assety.
 
-Soubory:
-- `backend/app/models/tag.py`
-- `backend/app/models/task.py`
-- `backend/app/schemas/tag.py`
-- `backend/app/schemas/task.py`
-- `backend/app/services/tag_service.py`
-- `backend/app/api/routes/tags.py`
-- `backend/alembic/versions/*_add_tags_tasks.py`
-- `backend/tests/test_tags.py`
+8. **Krok 7 — Finální smoke a push**
+   - `npm run lint`, `npm run typecheck`, `npm run build`.
+   - Backend + frontend live E2E smoke.
+   - Browser visual smoke desktop/mobile a console bez chyb.
+   - Commit + push.
 
-Úkoly:
-- přidat Tag s owner scopingem;
-- připravit M:N tabulku task_tags;
-- přidat minimální Task model potřebný pro vazbu;
-- CRUD tagů a owner izolace.
+### UX zásady
 
-### Krok 4 — Task CRUD, quick inbox a komplexní filtrování
-
-Soubory:
-- `backend/app/models/task.py`
-- `backend/app/schemas/task.py`
-- `backend/app/repositories/task_repository.py`
-- `backend/app/services/task_service.py`
-- `backend/app/api/routes/tasks.py`
-- `backend/tests/test_tasks.py`
-
-Úkoly:
-- Task fields: `title`, `description`, `status`, `priority`, `due_date`, `due_time`, `estimate_minutes`, `completed_at`, `category_id`, `context_id`, `parent_task_id`, `position`, `tags`, owner/timestamps/deleted_at;
-- enumy status/priority;
-- `POST /tasks/quick` přijímá jen holý text a vytváří inbox task;
-- `GET /tasks` filtry: status, category, context, tags, due date range, fulltext, pagination;
-- named views: `today`, `this_week`, `overdue`, `inbox`;
-- všechny dotazy owner-scoped.
-
-### Krok 5 — Opakované úkoly
-
-Soubory:
-- `backend/app/models/task.py`
-- `backend/app/schemas/task.py`
-- `backend/app/services/task_service.py`
-- `backend/tests/test_recurrence.py`
-
-Úkoly:
-- přidat `recurrence_rule` jako RRULE string a `recurrence_mode` (`fixed`, `after_completion`);
-- při dokončení opakované instance generovat další instanci, ne předem tisíce řádků;
-- fixed počítat podle RRULE, after_completion od dokončení;
-- otestovat oba režimy.
-
-### Krok 6 — Calendar ICS feed
-
-Soubory:
-- `backend/app/services/calendar_ics_service.py`
-- `backend/app/api/routes/calendar.py`
-- `backend/tests/test_calendar_ics.py`
-- případně `backend/app/core/config.py` a `.env.example` pro veřejný calendar hostname, pokud bude potřeba
-
-Úkoly:
-- `GET /calendar/{token}.ics` bez přihlášení, read-only podle `User.calendar_token`;
-- `POST /calendar/regenerate-token` chráněné přihlášením;
-- VEVENT, ne VTODO;
-- all-day `DTSTART;VALUE=DATE` pro task bez času;
-- timed event s délkou `estimate_minutes` nebo 30 minut;
-- vložit `VTIMEZONE` pro Europe/Prague;
-- stabilní UID podle task ID;
-- RRULE exportovat jako jednu událost;
-- správné hlavičky `Content-Type: text/calendar; charset=utf-8` a `Cache-Control`.
-
-### Krok 7 — Seed data migrace
-
-Soubory:
-- `backend/alembic/versions/*_seed_phase2_data.py`
-- `backend/tests/test_seed_data.py`
-
-Úkoly:
-- seed kategorie: KEXO, Ranč na Valech, Stavba, Hospodářství, Rodina, Kondice;
-- seed kontexty: @ranč, @Staré Buky, @počítač, @telefon, @město;
-- seed ukázkové úkoly včetně `Zkontrolovat zdivo a rozvody` a opakovaného krmení zvířat;
-- seed provést bezpečně pro existujícího nebo demo uživatele bez rozbití single-user auth.
-
-### Krok 8 — Finální audit, dokumentace a smoke
-
-Soubory:
-- `backend/README.md`
-- `backend/.env.example`
-- `PROGRESS.md`
-
-Úkoly:
-- aktualizovat dokumentaci endpointů;
-- spustit `ruff check`, `ruff format --check`, `mypy --strict`, `pytest -q`;
-- ověřit čerstvou SQLite DB přes `alembic upgrade head`;
-- vytvořit uživatele přes CLI;
-- smoke: login, quick task, list inbox, CRUD category/context/tag, calendar token regenerate, ICS feed;
-- commitnout finální stav.
+- Klidné minimalistické rozhraní, hodně bílého prostoru.
+- Barva jen tam, kde nese informaci: kategorie, priorita, po splatnosti.
+- Rychlý zápis bez modálu a povinných polí: text → Enter → hotovo → pole prázdné.
+- Detail úkolu je panel/drawer; běžná práce zůstává v seznamu.
+- Mobil od 375 px: žádné horizontálně rozbité layouty, spodní navigace, velké touch targety.
