@@ -4,6 +4,11 @@
 
 ## Hotovo
 
+- [x] 2026-09-06 19:02 UTC — Fáze 6B / Krok 6 — Full-stack gates a dokončení
+  - Backend full gate: `pytest -q` → 98 passed; `ruff check app tests`; `ruff format --check app tests`; `mypy --strict app tests` zelené.
+  - Frontend full gate: `npm run lint`; `npm run typecheck`; `npm run build` zelené, `/diary` zahrnuto v produkčním buildu.
+  - Fáze 6B dokončila první knowledge/diary vrstvu nad attachment subsystémem.
+
 - [x] 2026-09-06 18:55 UTC — Fáze 6B / Krok 5 — Frontend Deník/Notes UI
   - Přidána navigace `Deník` a route `/diary`.
   - Nový `NoteWorkspace` umí list poznámek, filtr typ/q, vytvoření, editaci, mazání, datum/čas, mood, kategorii a vizi.
@@ -229,11 +234,11 @@
 
 ## Rozpracováno
 
-- Fáze 6B / Krok 6 — Full-stack smoke/gates, PROGRESS, commity a push.
+- Nic — Fáze 6B je dokončená.
 
 ## Další krok
 
-Spustit celý backend gate (`pytest`, `ruff`, `mypy`), frontend gate (`lint`, `typecheck`, `build`), případně opravit regresi, dokončit PROGRESS a pushnout `main`.
+Navázat Fází 6C: media index/automatické vazby fotek do deníku, případně rychlý capture z Telegram hlasovek do Notes/Diary.
 
 ## Poznámky
 
