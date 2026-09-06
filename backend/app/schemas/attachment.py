@@ -30,6 +30,17 @@ class AttachmentUpdate(BaseModel):
     caption: str | None = None
 
 
+class TaskAttachmentCreate(BaseModel):
+    attachment_id: UUID
+    position: int = 0
+
+
+class TaskAttachmentRead(BaseModel):
+    task_id: UUID
+    attachment_id: UUID
+    position: int
+
+
 class StorageUsage(BaseModel):
     file_count: int
     used_bytes: int

@@ -1,5 +1,8 @@
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -8,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.routes.attachments import router as attachments_router
-from app.api.routes.attachments import storage_router
+from app.api.routes.attachments import storage_router, task_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.calendar import router as calendar_router
 from app.api.routes.categories import router as categories_router
@@ -22,12 +25,50 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.core.middleware import CSRFCookieMiddleware, SecurityHeadersMiddleware
 from app.core.rate_limit import limiter
+from app.db.session import AsyncSessionLocal
+from app.services.attachment_service import cleanup_deleted_and_orphaned_files
 
 configure_logging()
 logger = logging.getLogger("app")
 settings = get_settings()
 
-app = FastAPI(title="Personal OS Backend")
+scheduler = AsyncIOScheduler(timezone="Europe/Prague")
+
+
+async def run_attachment_cleanup() -> None:
+    result = await cleanup_deleted_and_orphaned_files(AsyncSessionLocal, settings)
+    logger.info("attachment cleanup finished", extra=result)
+
+
+def start_scheduler() -> None:
+    if settings.environment == "test" or scheduler.running:
+        return
+    scheduler.add_job(
+        run_attachment_cleanup,
+        trigger="cron",
+        hour=3,
+        minute=20,
+        id="attachment_cleanup",
+        replace_existing=True,
+    )
+    scheduler.start()
+
+
+def stop_scheduler() -> None:
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    start_scheduler()
+    try:
+        yield
+    finally:
+        stop_scheduler()
+
+
+app = FastAPI(title="Personal OS Backend", lifespan=lifespan)
 
 
 def rate_limit_exceeded_handler(request: Request, exc: Exception) -> Response:
@@ -52,6 +93,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(attachments_router)
 app.include_router(storage_router)
+app.include_router(task_router)
 app.include_router(auth_router)
 app.include_router(calendar_router)
 app.include_router(categories_router)

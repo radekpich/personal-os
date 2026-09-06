@@ -4,6 +4,15 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 15:38 — Fáze 6A / Krok 4 — Endpointy, task vazby a cleanup
+  - Doplněny endpointy `GET /attachments/{id}/thumb`, `PATCH /attachments/{id}`, `DELETE /attachments/{id}`.
+  - `GET`/thumb jsou chráněné vlastnictvím a po soft-delete vrací 404.
+  - `DELETE /attachments/{id}` dělá měkké mazání a smaže vazby z `task_attachments`; fyzické soubory zůstávají do cleanup retention.
+  - Doplněny `POST /tasks/{id}/attachments` a `DELETE /tasks/{id}/attachments/{attachment_id}` přes join tabulku `task_attachments` s `position`.
+  - Cizí task/attachment se maskuje 404.
+  - Přidána cleanup funkce a APScheduler daily job přes FastAPI lifespan; maže fyzické soubory u soft-delete záznamů starších 30 dní a osiřelé soubory bez DB záznamu.
+  - TDD ověřeno: attachment endpoint/processing/api testy → 11 passed; slice gates `ruff`, `mypy --strict` zelené.
+
 - [x] 2026-09-05 15:20 — Fáze 6A / Krok 3 — Background processing obrázků/PDF
   - Přidán processing po uploadu přes FastAPI `BackgroundTasks`; response stále vrací `processing_status=pending`, DB záznam po jobu přejde na `ready` nebo `failed`.
   - Obrázky se načítají přes Pillow, aplikuje se EXIF Orientation, delší hrana se zmenší na 2000 px a výsledek se uloží jako JPEG kvalita 85 bez EXIF metadat.
@@ -159,11 +168,11 @@
 
 ## Rozpracováno
 
-- Fáze 6A / Krok 4 — Attachment endpointy, vazby na úkoly a cleanup: thumb serving, patch caption, soft delete, task_attachments link/unlink a denní úklid.
+- Fáze 6A / Krok 5 — Frontend znovupoužitelný uploader a přílohy v detailu úkolu.
 
 ## Další krok
 
-Napsat RED testy pro `GET /attachments/{id}/thumb`, `PATCH /attachments/{id}`, `DELETE /attachments/{id}`, `POST/DELETE /tasks/{id}/attachments`, ownership 404 a cleanup starých soft-delete/osiřelých souborů.
+Doplnit frontend typy/API/hooky pro attachments, vytvořit reusable uploader/grid/lightbox komponenty a vložit sekci příloh do detailu úkolu.
 
 ## Poznámky
 

@@ -3,17 +3,19 @@ import os
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
 from fastapi import HTTPException, UploadFile, status
 from PIL import Image, ImageOps
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
-from app.models.attachment import Attachment, AttachmentProcessingStatus
+from app.models.attachment import Attachment, AttachmentProcessingStatus, TaskAttachment
+from app.models.task import Task
 from app.models.user import User
 
 try:
@@ -320,3 +322,149 @@ async def get_owned_attachment(
     if attachment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="attachment not found")
     return attachment
+
+
+async def update_attachment_caption(
+    db: AsyncSession, owner: User, attachment_id: uuid.UUID, caption: str | None
+) -> Attachment:
+    attachment = await get_owned_attachment(db, owner, attachment_id)
+    attachment.caption = caption
+    await db.commit()
+    await db.refresh(attachment)
+    return attachment
+
+
+async def soft_delete_attachment(db: AsyncSession, owner: User, attachment_id: uuid.UUID) -> None:
+    attachment = await get_owned_attachment(db, owner, attachment_id)
+    attachment.deleted_at = datetime.now(UTC)
+    await db.execute(sa_delete(TaskAttachment).where(TaskAttachment.attachment_id == attachment.id))
+    await db.commit()
+
+
+async def _get_owned_task(db: AsyncSession, owner: User, task_id: uuid.UUID) -> Task:
+    task = (
+        await db.execute(
+            select(Task).where(
+                Task.id == task_id,
+                Task.owner_id == owner.id,
+                Task.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+    return task
+
+
+async def attach_to_task(
+    db: AsyncSession,
+    owner: User,
+    task_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    position: int,
+) -> TaskAttachment:
+    await _get_owned_task(db, owner, task_id)
+    await get_owned_attachment(db, owner, attachment_id)
+    existing = (
+        await db.execute(
+            select(TaskAttachment).where(
+                TaskAttachment.task_id == task_id,
+                TaskAttachment.attachment_id == attachment_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        existing.position = position
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+    link = TaskAttachment(task_id=task_id, attachment_id=attachment_id, position=position)
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+    return link
+
+
+async def detach_from_task(
+    db: AsyncSession, owner: User, task_id: uuid.UUID, attachment_id: uuid.UUID
+) -> None:
+    await _get_owned_task(db, owner, task_id)
+    await get_owned_attachment(db, owner, attachment_id)
+    link = (
+        await db.execute(
+            select(TaskAttachment).where(
+                TaskAttachment.task_id == task_id,
+                TaskAttachment.attachment_id == attachment_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if link is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="attachment link not found"
+        )
+    await db.delete(link)
+    await db.commit()
+
+
+def _safe_unlink(path: str | None) -> int:
+    if not path:
+        return 0
+    file_path = Path(path)
+    if file_path.exists() and file_path.is_file():
+        file_path.unlink()
+        return 1
+    return 0
+
+
+async def cleanup_deleted_and_orphaned_files(
+    session_factory: async_sessionmaker[AsyncSession], settings: Settings, retention_days: int = 30
+) -> dict[str, int]:
+    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+    deleted_database_files = 0
+    async with session_factory() as db:
+        deleted_attachments = (
+            (
+                await db.execute(
+                    select(Attachment).where(
+                        Attachment.deleted_at.is_not(None),
+                        Attachment.deleted_at < cutoff,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for attachment in deleted_attachments:
+            deleted_database_files += _safe_unlink(attachment.storage_path)
+            deleted_database_files += _safe_unlink(attachment.thumbnail_path)
+
+        referenced_paths = set(
+            (
+                await db.execute(
+                    select(Attachment.storage_path).where(Attachment.storage_path.is_not(None))
+                )
+            ).scalars()
+        )
+        referenced_paths.update(
+            path
+            for path in (
+                await db.execute(
+                    select(Attachment.thumbnail_path).where(Attachment.thumbnail_path.is_not(None))
+                )
+            ).scalars()
+            if path is not None
+        )
+
+    attachments_dir = Path(settings.attachments_dir)
+    deleted_orphan_files = 0
+    if attachments_dir.exists():
+        for path in attachments_dir.rglob("*"):
+            if not path.is_file() or ".tmp" in path.parts:
+                continue
+            if str(path) not in referenced_paths:
+                path.unlink()
+                deleted_orphan_files += 1
+    return {
+        "deleted_database_files": deleted_database_files,
+        "deleted_orphan_files": deleted_orphan_files,
+    }
