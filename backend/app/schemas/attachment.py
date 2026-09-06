@@ -45,6 +45,17 @@ class TaskAttachmentRead(BaseModel):
     position: int
 
 
+class NoteAttachmentCreate(BaseModel):
+    attachment_id: UUID
+    position: int = 0
+
+
+class NoteAttachmentRead(BaseModel):
+    note_id: UUID
+    attachment_id: UUID
+    position: int
+
+
 class StorageUsage(BaseModel):
     file_count: int
     used_bytes: int

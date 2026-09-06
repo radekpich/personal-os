@@ -14,7 +14,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
-from app.models.attachment import Attachment, AttachmentProcessingStatus, TaskAttachment
+from app.models.attachment import (
+    Attachment,
+    AttachmentProcessingStatus,
+    NoteAttachment,
+    TaskAttachment,
+)
+from app.models.note import Note
 from app.models.task import Task
 from app.models.user import User
 
@@ -338,6 +344,7 @@ async def soft_delete_attachment(db: AsyncSession, owner: User, attachment_id: u
     attachment = await get_owned_attachment(db, owner, attachment_id)
     attachment.deleted_at = datetime.now(UTC)
     await db.execute(sa_delete(TaskAttachment).where(TaskAttachment.attachment_id == attachment.id))
+    await db.execute(sa_delete(NoteAttachment).where(NoteAttachment.attachment_id == attachment.id))
     await db.commit()
 
 
@@ -369,6 +376,38 @@ async def list_task_attachments(
             Attachment.deleted_at.is_(None),
         )
         .order_by(TaskAttachment.position, Attachment.created_at)
+    )
+    return list(result.scalars().all())
+
+
+async def _get_owned_note(db: AsyncSession, owner: User, note_id: uuid.UUID) -> Note:
+    note = (
+        await db.execute(
+            select(Note).where(
+                Note.id == note_id,
+                Note.owner_id == owner.id,
+                Note.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if note is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="note not found")
+    return note
+
+
+async def list_note_attachments(
+    db: AsyncSession, owner: User, note_id: uuid.UUID
+) -> list[Attachment]:
+    await _get_owned_note(db, owner, note_id)
+    result = await db.execute(
+        select(Attachment)
+        .join(NoteAttachment, NoteAttachment.attachment_id == Attachment.id)
+        .where(
+            NoteAttachment.note_id == note_id,
+            Attachment.owner_id == owner.id,
+            Attachment.deleted_at.is_(None),
+        )
+        .order_by(NoteAttachment.position, Attachment.created_at)
     )
     return list(result.scalars().all())
 
@@ -412,6 +451,56 @@ async def detach_from_task(
             select(TaskAttachment).where(
                 TaskAttachment.task_id == task_id,
                 TaskAttachment.attachment_id == attachment_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if link is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="attachment link not found"
+        )
+    await db.delete(link)
+    await db.commit()
+
+
+async def attach_to_note(
+    db: AsyncSession,
+    owner: User,
+    note_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    position: int,
+) -> NoteAttachment:
+    await _get_owned_note(db, owner, note_id)
+    await get_owned_attachment(db, owner, attachment_id)
+    existing = (
+        await db.execute(
+            select(NoteAttachment).where(
+                NoteAttachment.note_id == note_id,
+                NoteAttachment.attachment_id == attachment_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        existing.position = position
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+    link = NoteAttachment(note_id=note_id, attachment_id=attachment_id, position=position)
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+    return link
+
+
+async def detach_from_note(
+    db: AsyncSession, owner: User, note_id: uuid.UUID, attachment_id: uuid.UUID
+) -> None:
+    await _get_owned_note(db, owner, note_id)
+    await get_owned_attachment(db, owner, attachment_id)
+    link = (
+        await db.execute(
+            select(NoteAttachment).where(
+                NoteAttachment.note_id == note_id,
+                NoteAttachment.attachment_id == attachment_id,
             )
         )
     ).scalar_one_or_none()

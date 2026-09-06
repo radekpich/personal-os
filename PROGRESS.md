@@ -4,6 +4,14 @@
 
 ## Hotovo
 
+- [x] 2026-09-06 18:42 UTC — Fáze 6B / Krok 3 — Backend přílohy poznámek
+  - Přidány schémata `NoteAttachmentCreate` a `NoteAttachmentRead`.
+  - `attachment_service` nově umí `list_note_attachments`, `attach_to_note`, `detach_from_note` nad `NoteAttachment`.
+  - Soft-delete attachmentu čistí vazby z `task_attachments` i `note_attachments`.
+  - Router `/notes` má endpointy `GET/POST /notes/{note_id}/attachments` a `DELETE /notes/{note_id}/attachments/{attachment_id}`.
+  - TDD ověřeno: RED chybějící note attachment endpoint vracel 404; GREEN `pytest tests/test_note_attachments.py -q` → 2 passed.
+  - Slice gates: `pytest tests/test_notes_model.py tests/test_notes_api.py tests/test_note_attachments.py tests/test_attachments_endpoints.py -q` → 10 passed; `ruff`; `ruff format --check`; `mypy --strict` zelené.
+
 - [x] 2026-09-06 18:38 UTC — Fáze 6B / Krok 2 — Notes CRUD backend
   - Přidána schémata `NoteCreate`, `NoteUpdate`, `NoteRead`, `NoteList`.
   - Přidán `note_service` s create/list/get/patch/delete, soft-delete a filtry `kind`, `entry_date`, `date_from`, `date_to`, `q`, `category_id`, `vision_id`, `task_id`.
@@ -208,11 +216,11 @@
 
 ## Rozpracováno
 
-- Fáze 6B / Krok 3 — Backend přílohy poznámek přes TDD.
+- Fáze 6B / Krok 4 — Frontend API typy/client/hooky pro notes a note attachments.
 
 ## Další krok
 
-Napsat RED testy pro `GET/POST/DELETE /notes/{id}/attachments`, reuse existující `Attachment` ownership, pořadí `position`, maskování cizí note/attachment 404; potom doplnit service helpery nad `NoteAttachment`.
+Doplnit frontend typy `Note`, `NoteKind`, `NoteFilters`, client metody `notes` CRUD a note attachment link/list/unlink; přidat React Query hooks a ověřit `npm run lint && npm run typecheck`.
 
 ## Poznámky
 
