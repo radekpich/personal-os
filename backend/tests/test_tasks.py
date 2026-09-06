@@ -393,7 +393,10 @@ async def test_named_views_use_europe_prague_local_date(
     assert [t["id"] for t in inbox_view.json()["items"]] == [inbox_task.json()["id"]]
 
     today_view = await client.get("/tasks", params={"view": "today"})
-    assert [t["id"] for t in today_view.json()["items"]] == [today_task.json()["id"]]
+    expected_today_ids = {today_task.json()["id"]}
+    if this_week_day == today:
+        expected_today_ids.add(week_task.json()["id"])
+    assert {t["id"] for t in today_view.json()["items"]} == expected_today_ids
 
     week_view = await client.get("/tasks", params={"view": "this_week"})
     week_ids = {t["id"] for t in week_view.json()["items"]}

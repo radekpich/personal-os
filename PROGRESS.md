@@ -4,6 +4,12 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 16:18 — Fáze 6A / Krok 7 — Full-stack gates a dokončení
+  - Spuštěn celý backend gate: `pytest -q` → 91 passed; `ruff check app tests`; `ruff format --check app tests`; `mypy --strict app tests`.
+  - Spuštěn frontend gate: `npm run lint`; `npm run typecheck`; `npm run build` → Next.js production build úspěšný.
+  - Opraven starší datumově závislý test named views pro neděli v Europe/Prague.
+  - Fáze 6A připravena k pushi.
+
 - [x] 2026-09-05 16:03 — Fáze 6A / Krok 6 — Storage usage v Nastavení
   - Settings panel načítá `GET /storage/usage` přes nový hook `useStorageUsage`.
   - Přidán přehled využito/zbývá/počet souborů, progress bar, limit a ruční refresh.
@@ -181,11 +187,11 @@
 
 ## Rozpracováno
 
-- Fáze 6A / Krok 7 — Full-stack smoke/gates, PROGRESS, commity a push.
+- Nic — Fáze 6A je dokončená.
 
 ## Další krok
 
-Spustit backend test suite/gates, frontend lint/typecheck/build, případně lokální smoke backend+frontend, zapsat závěr do PROGRESS a pushnout větev.
+Navázat Fází 6B: využití univerzálních příloh v poznámkách/deníku, případně média index pro budoucí automatické deníkové vazby.
 
 ## Poznámky
 
