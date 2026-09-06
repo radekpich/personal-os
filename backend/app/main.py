@@ -18,6 +18,7 @@ from app.api.routes.categories import router as categories_router
 from app.api.routes.challenges import router as challenges_router
 from app.api.routes.contexts import router as contexts_router
 from app.api.routes.health import router as health_router
+from app.api.routes.notes import router as notes_router
 from app.api.routes.tags import router as tags_router
 from app.api.routes.tasks import router as tasks_router
 from app.api.routes.visions import router as visions_router
@@ -99,6 +100,7 @@ app.include_router(calendar_router)
 app.include_router(categories_router)
 app.include_router(challenges_router)
 app.include_router(contexts_router)
+app.include_router(notes_router)
 app.include_router(tags_router)
 app.include_router(tasks_router)
 app.include_router(visions_router)

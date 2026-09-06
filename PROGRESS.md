@@ -4,6 +4,14 @@
 
 ## Hotovo
 
+- [x] 2026-09-06 18:38 UTC — Fáze 6B / Krok 2 — Notes CRUD backend
+  - Přidána schémata `NoteCreate`, `NoteUpdate`, `NoteRead`, `NoteList`.
+  - Přidán `note_service` s create/list/get/patch/delete, soft-delete a filtry `kind`, `entry_date`, `date_from`, `date_to`, `q`, `category_id`, `vision_id`, `task_id`.
+  - Přidán router `/notes` a zapojení do FastAPI.
+  - Ownership ochrana: cizí poznámka i cizí vazby category/vision/task vrací 404.
+  - TDD ověřeno: RED `/notes` vracelo 404; GREEN `pytest tests/test_notes_api.py -q` → 3 passed.
+  - Slice gates: `pytest tests/test_notes_model.py tests/test_notes_api.py -q` → 5 passed; `ruff`; `ruff format --check`; `mypy --strict` zelené.
+
 - [x] 2026-09-06 18:32 UTC — Fáze 6B / Krok 1 — Backend datový model poznámek
   - Přidán model `Note` a enum `NoteKind` (`note`, `diary`, `meeting`, `idea`).
   - `notes` obsahuje Markdown body, diary datum/čas, mood a volitelné vazby na kategorii, vizi a úkol.
@@ -200,11 +208,11 @@
 
 ## Rozpracováno
 
-- Fáze 6B / Krok 2 — Backend Notes CRUD přes TDD.
+- Fáze 6B / Krok 3 — Backend přílohy poznámek přes TDD.
 
 ## Další krok
 
-Napsat RED testy pro `POST/GET/PATCH/DELETE /notes`, list filtry `kind`, `entry_date`, `q`, vazby category/vision/task a ownership 404; potom implementovat schémata, service a router.
+Napsat RED testy pro `GET/POST/DELETE /notes/{id}/attachments`, reuse existující `Attachment` ownership, pořadí `position`, maskování cizí note/attachment 404; potom doplnit service helpery nad `NoteAttachment`.
 
 ## Poznámky
 
