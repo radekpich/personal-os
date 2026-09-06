@@ -4,6 +4,14 @@
 
 ## Hotovo
 
+- [x] 2026-09-06 18:32 UTC — Fáze 6B / Krok 1 — Backend datový model poznámek
+  - Přidán model `Note` a enum `NoteKind` (`note`, `diary`, `meeting`, `idea`).
+  - `notes` obsahuje Markdown body, diary datum/čas, mood a volitelné vazby na kategorii, vizi a úkol.
+  - `note_attachments.note_id` má nově FK na `notes.id ON DELETE CASCADE`.
+  - Přidána migrace `e2a7b4c9d1f3_add_notes.py` včetně batch alteru pro existující `note_attachments`.
+  - TDD ověřeno: RED padal na chybějící `app.models.note`; GREEN `pytest tests/test_notes_model.py -q` → 2 passed.
+  - Slice gates: `ruff`, `ruff format --check`, `mypy --strict` pro nové soubory zelené.
+
 - [x] 2026-09-06 18:24 UTC — Fáze 6B / Krok 0 — Plán a baseline
   - Zapsána Fáze 6B do `PLAN.md`: Notes/diary model, API, frontend Deník, note attachments a budoucí media index.
   - Ověřen čistý `main` po Fázi 6A: `git status --short --branch` → `## main...origin/main`.
@@ -192,11 +200,11 @@
 
 ## Rozpracováno
 
-- Fáze 6B / Krok 1 — Backend datový model poznámek přes TDD.
+- Fáze 6B / Krok 2 — Backend Notes CRUD přes TDD.
 
 ## Další krok
 
-Napsat RED testy pro `notes` model/migraci, `NoteKind`, vazby category/vision/task a doplněný FK `note_attachments.note_id -> notes.id`; potom implementovat modely a migraci.
+Napsat RED testy pro `POST/GET/PATCH/DELETE /notes`, list filtry `kind`, `entry_date`, `q`, vazby category/vision/task a ownership 404; potom implementovat schémata, service a router.
 
 ## Poznámky
 

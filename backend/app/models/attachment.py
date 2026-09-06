@@ -66,9 +66,9 @@ class NoteAttachment(Base):
         sa.UniqueConstraint("note_id", "attachment_id", name="uq_note_attachments_pair"),
     )
 
-    # Notes/diary are introduced in Phase 6B. Keep the same join-table shape now,
-    # but add the note FK in the future migration when the notes table exists.
-    note_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True)
+    note_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid, sa.ForeignKey("notes.id", ondelete="CASCADE"), primary_key=True
+    )
     attachment_id: Mapped[uuid.UUID] = mapped_column(
         sa.Uuid, sa.ForeignKey("attachments.id", ondelete="CASCADE"), primary_key=True
     )
