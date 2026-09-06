@@ -11,6 +11,12 @@ import type {
   CheckInResult,
   Context,
   ListResponse,
+  Note,
+  NoteAttachment,
+  NoteCreate,
+  NoteFilters,
+  NoteList,
+  NoteUpdate,
   StagnatingVision,
   StorageUsage,
   Tag,
@@ -165,6 +171,19 @@ export const api = {
   deleteAttachment: (id: string) => request<void>(`/attachments/${id}`, { method: "DELETE" }),
   unlinkTaskAttachment: (taskId: string, attachmentId: string) =>
     request<void>(`/tasks/${taskId}/attachments/${attachmentId}`, { method: "DELETE" }),
+  notes: (filters: NoteFilters = {}) => request<NoteList>("/notes", { params: filters }),
+  note: (id: string) => request<Note>(`/notes/${id}`),
+  createNote: (payload: NoteCreate) => request<Note>("/notes", { method: "POST", json: payload }),
+  updateNote: (id: string, payload: NoteUpdate) => request<Note>(`/notes/${id}`, { method: "PATCH", json: payload }),
+  deleteNote: (id: string) => request<void>(`/notes/${id}`, { method: "DELETE" }),
+  noteAttachments: (noteId: string) => request<ListResponse<Attachment>>(`/notes/${noteId}/attachments`),
+  attachToNote: (noteId: string, attachmentId: string, position = 0) =>
+    request<NoteAttachment>(`/notes/${noteId}/attachments`, {
+      method: "POST",
+      json: { attachment_id: attachmentId, position },
+    }),
+  unlinkNoteAttachment: (noteId: string, attachmentId: string) =>
+    request<void>(`/notes/${noteId}/attachments/${attachmentId}`, { method: "DELETE" }),
   storageUsage: () => request<StorageUsage>("/storage/usage"),
   visions: () => request<ListResponse<Vision>>("/visions"),
   visionTree: () => request<ListResponse<VisionTreeNode>>("/visions/tree"),

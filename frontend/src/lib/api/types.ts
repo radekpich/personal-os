@@ -49,6 +49,64 @@ export type TaskAttachment = {
   position: number;
 };
 
+export type NoteKind = "note" | "diary" | "meeting" | "idea";
+
+export type Note = {
+  id: UUID;
+  owner_id: UUID;
+  title: string;
+  body: string | null;
+  kind: NoteKind;
+  entry_date: string | null;
+  entry_time: string | null;
+  mood: string | null;
+  category_id: UUID | null;
+  vision_id: UUID | null;
+  task_id: UUID | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NoteList = {
+  items: Note[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type NoteFilters = {
+  kind?: NoteKind | "all";
+  entry_date?: string;
+  date_from?: string;
+  date_to?: string;
+  q?: string;
+  category_id?: UUID | "all";
+  vision_id?: UUID | "all";
+  task_id?: UUID | "all";
+  page?: number;
+  page_size?: number;
+};
+
+export type NoteCreate = {
+  title: string;
+  body?: string | null;
+  kind?: NoteKind;
+  entry_date?: string | null;
+  entry_time?: string | null;
+  mood?: string | null;
+  category_id?: UUID | null;
+  vision_id?: UUID | null;
+  task_id?: UUID | null;
+};
+
+export type NoteUpdate = Partial<NoteCreate>;
+
+export type NoteAttachment = {
+  note_id: UUID;
+  attachment_id: UUID;
+  position: number;
+};
+
 export type StorageUsage = {
   file_count: number;
   used_bytes: number;

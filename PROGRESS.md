@@ -4,6 +4,12 @@
 
 ## Hotovo
 
+- [x] 2026-09-06 18:46 UTC — Fáze 6B / Krok 4 — Frontend API typy a hooky pro poznámky
+  - Doplněny typy `NoteKind`, `Note`, `NoteList`, `NoteFilters`, `NoteCreate`, `NoteUpdate`, `NoteAttachment`.
+  - `api` klient umí Notes CRUD a note attachment list/link/unlink.
+  - React Query má query keys a hooky `useNotes`, `useNote`, `useCreateNote`, `useUpdateNote`, `useDeleteNote`, `useNoteAttachments`, `useUploadNoteAttachment`, `useDeleteNoteAttachment`, `useUnlinkNoteAttachment`.
+  - Ověřeno: `npm run lint && npm run typecheck` zelené.
+
 - [x] 2026-09-06 18:42 UTC — Fáze 6B / Krok 3 — Backend přílohy poznámek
   - Přidány schémata `NoteAttachmentCreate` a `NoteAttachmentRead`.
   - `attachment_service` nově umí `list_note_attachments`, `attach_to_note`, `detach_from_note` nad `NoteAttachment`.
@@ -216,11 +222,11 @@
 
 ## Rozpracováno
 
-- Fáze 6B / Krok 4 — Frontend API typy/client/hooky pro notes a note attachments.
+- Fáze 6B / Krok 5 — Frontend Deník/Notes UI + reusable attachments.
 
 ## Další krok
 
-Doplnit frontend typy `Note`, `NoteKind`, `NoteFilters`, client metody `notes` CRUD a note attachment link/list/unlink; přidat React Query hooks a ověřit `npm run lint && npm run typecheck`.
+Udělat `/diary` nebo `/notes` route, notes workspace s listem, filtrem kind/q, editorem/create flow a detail panelem s přílohami; zobecnit attachment komponenty pro `task` i `note`.
 
 ## Poznámky
 

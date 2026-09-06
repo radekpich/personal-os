@@ -6,6 +6,9 @@ import type {
   ChallengeCreate,
   ChallengeUpdate,
   CheckInCreate,
+  NoteCreate,
+  NoteFilters,
+  NoteUpdate,
   Task,
   TaskFilters,
   TaskStatus,
@@ -26,6 +29,9 @@ export const queryKeys = {
   tasks: (filters: TaskFilters = {}) => ["tasks", filters] as const,
   task: (id: string | null) => ["task", id] as const,
   taskAttachments: (id: string | null) => ["task", id, "attachments"] as const,
+  notes: (filters: NoteFilters = {}) => ["notes", filters] as const,
+  note: (id: string | null) => ["note", id] as const,
+  noteAttachments: (id: string | null) => ["note", id, "attachments"] as const,
   visions: ["visions"] as const,
   visionTree: ["visions", "tree"] as const,
   visionProgress: (id: string | null) => ["visions", id, "progress"] as const,
@@ -161,6 +167,82 @@ export function useUnlinkTaskAttachment() {
 
 export function useStorageUsage() {
   return useQuery({ queryKey: ["storage", "usage"], queryFn: api.storageUsage });
+}
+
+export function useNotes(filters: NoteFilters = {}) {
+  return useQuery({ queryKey: queryKeys.notes(filters), queryFn: () => api.notes(filters) });
+}
+
+export function useNote(id: string | null) {
+  return useQuery({ queryKey: queryKeys.note(id), queryFn: () => api.note(id!), enabled: Boolean(id) });
+}
+
+function invalidateNotes(queryClient: ReturnType<typeof useQueryClient>, noteId?: string) {
+  queryClient.invalidateQueries({ queryKey: ["notes"] });
+  if (noteId) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.note(noteId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.noteAttachments(noteId) });
+  }
+}
+
+export function useCreateNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: NoteCreate) => api.createNote(payload),
+    onSuccess: (note) => invalidateNotes(queryClient, note.id),
+  });
+}
+
+export function useUpdateNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: NoteUpdate }) => api.updateNote(id, payload),
+    onSuccess: (note) => {
+      queryClient.setQueryData(queryKeys.note(note.id), note);
+      invalidateNotes(queryClient, note.id);
+    },
+  });
+}
+
+export function useDeleteNote() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: api.deleteNote, onSuccess: () => invalidateNotes(queryClient) });
+}
+
+export function useNoteAttachments(noteId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.noteAttachments(noteId),
+    queryFn: () => api.noteAttachments(noteId!),
+    enabled: Boolean(noteId),
+  });
+}
+
+export function useUploadNoteAttachment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ noteId, file, caption }: { noteId: string; file: File; caption?: string | null }) => {
+      const attachment = await api.uploadAttachment(file, caption);
+      await api.attachToNote(noteId, attachment.id);
+      return attachment;
+    },
+    onSuccess: (_attachment, variables) => invalidateNotes(queryClient, variables.noteId),
+  });
+}
+
+export function useDeleteNoteAttachment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ attachmentId }: { noteId: string; attachmentId: string }) => api.deleteAttachment(attachmentId),
+    onSuccess: (_result, variables) => invalidateNotes(queryClient, variables.noteId),
+  });
+}
+
+export function useUnlinkNoteAttachment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ noteId, attachmentId }: { noteId: string; attachmentId: string }) => api.unlinkNoteAttachment(noteId, attachmentId),
+    onSuccess: (_result, variables) => invalidateNotes(queryClient, variables.noteId),
+  });
 }
 
 export function useChallenges() {
