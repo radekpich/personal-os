@@ -1,5 +1,98 @@
 # PLAN.md — Personal OS
 
+## Fáze 6B — Poznámky, deník a média index
+
+Cíl: navázat na univerzální subsystém příloh a přidat první osobní knowledge/diary vrstvu. Notes/diary mají být jednoduché na každodenní zápis, propojené s úkoly, kategoriemi, vizemi a přílohami. Zároveň se připraví media index pro budoucí automatické párování fotek/videí s deníkovými záznamy a cíli.
+
+### Datový model
+
+`Note`:
+
+- `id`, `owner_id`
+- `title`
+- `body` — Markdown text
+- `kind` — `note`, `diary`, `meeting`, `idea`
+- `entry_date` — lokální datum pro deník, volitelné pro obecné poznámky
+- `entry_time` — volitelný lokální čas
+- `mood` — volitelné krátké označení/nálada
+- `category_id` — volitelná vazba na kategorii
+- `vision_id` — volitelná vazba na vizi/cíl
+- `task_id` — volitelná vazba na úkol
+- `created_at`, `updated_at`, `deleted_at`
+
+`NoteAttachment`:
+
+- doplnit FK `note_id -> notes.id ON DELETE CASCADE`
+- ponechat `attachment_id`, `position` a unikátní pár `(note_id, attachment_id)`
+
+Volitelný `MediaIndex` pozdější slice:
+
+- `attachment_id`, `captured_at`, GPS, `source`, `indexed_at`, automatické vazby na den podle `captured_at`.
+
+### API
+
+- `GET /notes` — seznam s filtry `kind`, `entry_date`, rozsah dat, `q`, `category_id`, `vision_id`, `task_id`, paging.
+- `POST /notes` — create.
+- `GET /notes/{id}` — detail.
+- `PATCH /notes/{id}` — update.
+- `DELETE /notes/{id}` — soft delete.
+- `GET /notes/{id}/attachments` — načtení příloh poznámky.
+- `POST /notes/{id}/attachments` — napojení existující attachment na poznámku.
+- `DELETE /notes/{id}/attachments/{attachment_id}` — odpojení vazby.
+- Později: `POST /notes/{id}/attachments/upload` může reuse frontend uploaderu přes obecné hooky.
+
+Bezpečnost:
+
+- Vše chráněné přihlášením a ownership kontrolou.
+- Cizí poznámka/vazba/příloha vrací 404.
+- Text zůstává Markdown/plain text, frontend ho nesmí renderovat jako nebezpečné HTML.
+
+### Frontend
+
+- Nová navigace „Deník“ / `/notes`.
+- Rychlý denní zápis: dnešní diary karta nahoře, vytvořit/upravit bez složitého modálu.
+- Seznam poznámek s filtrem druhů a hledáním.
+- Detail/editor: title, Markdown textarea, kind, datum/čas, mood, category/vision/task vazby.
+- Reuse attachment uploader/grid pro notes přes entity-agnostický wrapper.
+- Future-ready media section: zobrazit EXIF datum/GPS, připravit UI pro „přiřadit k dnešnímu deníku“.
+
+### Kroky
+
+1. **Krok 0 — Plán a baseline**
+   - Zapsat Fázi 6B do `PLAN.md`/`PROGRESS.md`.
+   - Ověřit čistý `main` po Fázi 6A.
+   - Commit `faze-6b/krok-0: plan deniku a poznamek`.
+
+2. **Krok 1 — Backend datový model přes TDD**
+   - RED testy migrace/modelu: `notes`, `note_attachments` FK, enum `NoteKind`, soft-delete sloupce a vazby na category/vision/task.
+   - Modely, migrace, schema skeleton.
+   - Fresh Alembic upgrade.
+   - Commit `faze-6b/krok-1: datovy model poznamek`.
+
+3. **Krok 2 — Notes CRUD přes TDD**
+   - RED/GREEN testy create/list/get/patch/delete, ownership 404, filtry `kind`, `entry_date`, `q`, vazby.
+   - Services/routy/schémata.
+   - Commit `faze-6b/krok-2: crud poznamek`.
+
+4. **Krok 3 — Přílohy poznámek přes TDD**
+   - RED/GREEN testy list/link/unlink note attachments, reuse existující attachments ownership a order `position`.
+   - Doplnit service helpery obecně pro `NoteAttachment`.
+   - Commit `faze-6b/krok-3: prilohy poznamek`.
+
+5. **Krok 4 — Frontend API/hooky pro notes**
+   - TS typy, client metody, TanStack query hooks, invalidace.
+   - Commit `faze-6b/krok-4: frontend api poznamek`.
+
+6. **Krok 5 — Frontend Deník/Notes UI**
+   - Route `/notes`, navigace, quick diary card, list, detail/editor.
+   - Reuse attachment components pro note detail.
+   - Commit `faze-6b/krok-5: frontend denik a poznamky`.
+
+7. **Krok 6 — Smoke/gates a push**
+   - Backend full gates, frontend lint/typecheck/build.
+   - Produkční E2E smoke: login, vytvořit dnešní diary note, přidat text, upload obrázku, ověřit attachment grid, odpojit/smazat, ověřit persistenci po navigaci.
+   - Aktualizovat `PROGRESS.md`, commit a push.
+
 ## Fáze 6A — Univerzální subsystém příloh / Attachments
 
 Cíl: přidat bezpečný a znovupoužitelný subsystém pro nahrávání souborů, který teď použijí úkoly a později deník/poznámky i další entity. Binární data jsou vždy na disku, metadata v DB. Model přílohy zůstává univerzální; vazba na entity se dělá přes konkrétní spojovací tabulky, ne přes polymorfní `entity_type + entity_id`.

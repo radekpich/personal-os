@@ -1,8 +1,13 @@
 # PROGRESS.md — Personal OS
 
-## Aktuální fáze — Fáze 6A: Univerzální subsystém příloh / Attachments
+## Aktuální fáze — Fáze 6B: Poznámky, deník a média index
 
 ## Hotovo
+
+- [x] 2026-09-06 18:24 UTC — Fáze 6B / Krok 0 — Plán a baseline
+  - Zapsána Fáze 6B do `PLAN.md`: Notes/diary model, API, frontend Deník, note attachments a budoucí media index.
+  - Ověřen čistý `main` po Fázi 6A: `git status --short --branch` → `## main...origin/main`.
+  - Založen pracovní checklist pro backend model, CRUD, přílohy poznámek, frontend API/UI a E2E smoke.
 
 - [x] 2026-09-05 16:18 — Fáze 6A / Krok 7 — Full-stack gates a dokončení
   - Spuštěn celý backend gate: `pytest -q` → 91 passed; `ruff check app tests`; `ruff format --check app tests`; `mypy --strict app tests`.
@@ -187,11 +192,11 @@
 
 ## Rozpracováno
 
-- Nic — Fáze 6A je dokončená.
+- Fáze 6B / Krok 1 — Backend datový model poznámek přes TDD.
 
 ## Další krok
 
-Navázat Fází 6B: využití univerzálních příloh v poznámkách/deníku, případně média index pro budoucí automatické deníkové vazby.
+Napsat RED testy pro `notes` model/migraci, `NoteKind`, vazby category/vision/task a doplněný FK `note_attachments.note_id -> notes.id`; potom implementovat modely a migraci.
 
 ## Poznámky
 
