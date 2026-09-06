@@ -20,6 +20,7 @@ from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.attachment import (
+    AttachmentList,
     AttachmentRead,
     AttachmentUpdate,
     StorageUsage,
@@ -109,6 +110,16 @@ async def delete_attachment(
 
 
 task_router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+
+@task_router.get("/{task_id}/attachments", response_model=AttachmentList)
+async def list_task_attachments(
+    task_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AttachmentList:
+    attachments = await attachment_service.list_task_attachments(db, current_user, task_id)
+    return AttachmentList(items=[AttachmentRead.model_validate(item) for item in attachments])
 
 
 @task_router.post(

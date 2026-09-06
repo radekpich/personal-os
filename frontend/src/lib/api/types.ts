@@ -17,6 +17,45 @@ export type RecurrenceMode = "fixed" | "after_completion";
 export type VisionHorizon = "life" | "5y" | "1y" | "quarter";
 export type VisionStatus = "active" | "paused" | "achieved" | "abandoned";
 export type ChallengeType = "daily_action" | "abstinence";
+export type AttachmentProcessingStatus = "pending" | "ready" | "failed";
+
+export type Attachment = {
+  id: UUID;
+  owner_id: UUID;
+  storage_path: string;
+  thumbnail_path: string | null;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  width: number | null;
+  height: number | null;
+  checksum_sha256: string;
+  captured_at: string | null;
+  gps_lat: number | null;
+  gps_lon: number | null;
+  caption: string | null;
+  processing_status: AttachmentProcessingStatus;
+  created_at: string;
+  deleted_at: string | null;
+};
+
+export type AttachmentUpdate = {
+  caption?: string | null;
+};
+
+export type TaskAttachment = {
+  task_id: UUID;
+  attachment_id: UUID;
+  position: number;
+};
+
+export type StorageUsage = {
+  file_count: number;
+  used_bytes: number;
+  max_bytes: number;
+  remaining_bytes: number;
+  used_percent: number;
+};
 
 export type Challenge = {
   id: UUID;

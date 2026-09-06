@@ -25,6 +25,7 @@ export const queryKeys = {
   challengeHeatmap: (id: string | null, year: number) => ["challenges", id, "heatmap", year] as const,
   tasks: (filters: TaskFilters = {}) => ["tasks", filters] as const,
   task: (id: string | null) => ["task", id] as const,
+  taskAttachments: (id: string | null) => ["task", id, "attachments"] as const,
   visions: ["visions"] as const,
   visionTree: ["visions", "tree"] as const,
   visionProgress: (id: string | null) => ["visions", id, "progress"] as const,
@@ -104,6 +105,62 @@ export function useToggleTaskDone() {
 export function useDeleteTask() {
   const queryClient = useQueryClient();
   return useMutation({ mutationFn: api.deleteTask, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }) });
+}
+
+function invalidateTaskAttachments(queryClient: ReturnType<typeof useQueryClient>, taskId: string) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.taskAttachments(taskId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.task(taskId) });
+}
+
+export function useTaskAttachments(taskId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.taskAttachments(taskId),
+    queryFn: () => api.taskAttachments(taskId!),
+    enabled: Boolean(taskId),
+  });
+}
+
+export function useUploadTaskAttachment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId, file, caption }: { taskId: string; file: File; caption?: string | null }) => {
+      const attachment = await api.uploadAttachment(file, caption);
+      await api.attachToTask(taskId, attachment.id);
+      return attachment;
+    },
+    onSuccess: (_attachment, variables) => invalidateTaskAttachments(queryClient, variables.taskId),
+  });
+}
+
+export function useUpdateAttachment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { caption?: string | null } }) => api.updateAttachment(id, payload),
+    onSuccess: (attachment) => {
+      queryClient.invalidateQueries({ queryKey: ["task"] });
+      queryClient.setQueryData(["attachment", attachment.id], attachment);
+    },
+  });
+}
+
+export function useDeleteTaskAttachment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ attachmentId }: { taskId: string; attachmentId: string }) => api.deleteAttachment(attachmentId),
+    onSuccess: (_result, variables) => invalidateTaskAttachments(queryClient, variables.taskId),
+  });
+}
+
+export function useUnlinkTaskAttachment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, attachmentId }: { taskId: string; attachmentId: string }) => api.unlinkTaskAttachment(taskId, attachmentId),
+    onSuccess: (_result, variables) => invalidateTaskAttachments(queryClient, variables.taskId),
+  });
+}
+
+export function useStorageUsage() {
+  return useQuery({ queryKey: ["storage", "usage"], queryFn: api.storageUsage });
 }
 
 export function useChallenges() {

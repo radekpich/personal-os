@@ -10,6 +10,8 @@ import type { Category, Context, Tag, Task, Vision } from "@/lib/api/types";
 import { useUpdateTask } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { AttachmentGrid } from "@/components/attachments/attachment-grid";
+import { AttachmentUploader } from "@/components/attachments/attachment-uploader";
 
 const schema = z.object({
   title: z.string().min(1),
@@ -63,6 +65,12 @@ export function TaskDetailPanel({ task, categories, contexts, tags, visions, onC
             <div className="grid gap-2"><p className="text-sm font-medium">Tagy</p><div className="flex flex-wrap gap-2">{tags.map((tag) => <label key={tag.id} className="flex items-center gap-2 rounded-full border border-[var(--border)] px-3 py-1 text-sm"><input type="checkbox" value={tag.id} {...form.register("tag_ids")} />#{tag.name}</label>)}</div></div>
             <Button disabled={update.isPending}>{update.isPending ? "Ukládám…" : "Uložit změny"}</Button>
           </form>
+          {task ? (
+            <section className="mt-6 grid gap-4 border-t border-[var(--border)] pt-5">
+              <AttachmentUploader taskId={task.id} />
+              <AttachmentGrid taskId={task.id} />
+            </section>
+          ) : null}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

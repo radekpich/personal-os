@@ -356,6 +356,23 @@ async def _get_owned_task(db: AsyncSession, owner: User, task_id: uuid.UUID) -> 
     return task
 
 
+async def list_task_attachments(
+    db: AsyncSession, owner: User, task_id: uuid.UUID
+) -> list[Attachment]:
+    await _get_owned_task(db, owner, task_id)
+    result = await db.execute(
+        select(Attachment)
+        .join(TaskAttachment, TaskAttachment.attachment_id == Attachment.id)
+        .where(
+            TaskAttachment.task_id == task_id,
+            Attachment.owner_id == owner.id,
+            Attachment.deleted_at.is_(None),
+        )
+        .order_by(TaskAttachment.position, Attachment.created_at)
+    )
+    return list(result.scalars().all())
+
+
 async def attach_to_task(
     db: AsyncSession,
     owner: User,

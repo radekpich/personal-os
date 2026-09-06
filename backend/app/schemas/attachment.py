@@ -30,6 +30,10 @@ class AttachmentUpdate(BaseModel):
     caption: str | None = None
 
 
+class AttachmentList(BaseModel):
+    items: list[AttachmentRead]
+
+
 class TaskAttachmentCreate(BaseModel):
     attachment_id: UUID
     position: int = 0

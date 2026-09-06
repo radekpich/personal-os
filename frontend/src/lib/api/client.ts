@@ -1,4 +1,6 @@
 import type {
+  Attachment,
+  AttachmentUpdate,
   Category,
   Challenge,
   ChallengeCreate,
@@ -10,8 +12,10 @@ import type {
   Context,
   ListResponse,
   StagnatingVision,
+  StorageUsage,
   Tag,
   Task,
+  TaskAttachment,
   TaskCreate,
   TaskFilters,
   TaskList,
@@ -58,6 +62,7 @@ function buildUrl(path: string, params?: Record<string, unknown>) {
 type RequestOptions = Omit<RequestInit, "body"> & {
   json?: unknown;
   text?: string;
+  formData?: FormData;
   params?: Record<string, unknown>;
   retryOnUnauthorized?: boolean;
 };
@@ -89,7 +94,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     method,
     headers,
     credentials: "include",
-    body: options.json !== undefined ? JSON.stringify(options.json) : options.text,
+    body: options.json !== undefined ? JSON.stringify(options.json) : options.text ?? options.formData,
   });
 
   if (response.status === 401 && options.retryOnUnauthorized !== false && path !== "/auth/login" && path !== "/auth/refresh") {
@@ -143,6 +148,24 @@ export const api = {
   createTask: (payload: TaskCreate) => request<Task>("/tasks", { method: "POST", json: payload }),
   updateTask: (id: string, payload: TaskUpdate) => request<Task>(`/tasks/${id}`, { method: "PATCH", json: payload }),
   deleteTask: (id: string) => request<void>(`/tasks/${id}`, { method: "DELETE" }),
+  taskAttachments: (taskId: string) => request<ListResponse<Attachment>>(`/tasks/${taskId}/attachments`),
+  uploadAttachment: (file: File, caption?: string | null) => {
+    const formData = new FormData();
+    formData.set("file", file);
+    if (caption) formData.set("caption", caption);
+    return request<Attachment>("/attachments", { method: "POST", formData });
+  },
+  attachToTask: (taskId: string, attachmentId: string, position = 0) =>
+    request<TaskAttachment>(`/tasks/${taskId}/attachments`, {
+      method: "POST",
+      json: { attachment_id: attachmentId, position },
+    }),
+  updateAttachment: (id: string, payload: AttachmentUpdate) =>
+    request<Attachment>(`/attachments/${id}`, { method: "PATCH", json: payload }),
+  deleteAttachment: (id: string) => request<void>(`/attachments/${id}`, { method: "DELETE" }),
+  unlinkTaskAttachment: (taskId: string, attachmentId: string) =>
+    request<void>(`/tasks/${taskId}/attachments/${attachmentId}`, { method: "DELETE" }),
+  storageUsage: () => request<StorageUsage>("/storage/usage"),
   visions: () => request<ListResponse<Vision>>("/visions"),
   visionTree: () => request<ListResponse<VisionTreeNode>>("/visions/tree"),
   visionProgress: (id: string) => request<VisionProgress>(`/visions/${id}/progress`),
@@ -155,4 +178,8 @@ export const api = {
 
 export function calendarUrl(token: string) {
   return buildUrl(`/calendar/${token}.ics`);
+}
+
+export function attachmentUrl(id: string, variant: "original" | "thumb" = "original") {
+  return buildUrl(variant === "thumb" ? `/attachments/${id}/thumb` : `/attachments/${id}`);
 }

@@ -108,6 +108,11 @@ async def test_task_attachment_link_and_unlink(
     assert linked.json()["attachment_id"] == attachment_id
     assert linked.json()["position"] == 2
 
+    listed = await client.get(f"/tasks/{task.id}/attachments")
+    assert listed.status_code == 200
+    assert listed.json()["items"][0]["id"] == attachment_id
+    assert listed.json()["items"][0]["original_filename"].endswith("photo.jpg")
+
     foreign = await client.post(
         f"/tasks/{foreign_task.id}/attachments",
         json={"attachment_id": attachment_id, "position": 0},

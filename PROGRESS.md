@@ -4,6 +4,14 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 15:55 — Fáze 6A / Krok 5 — Frontend uploader/grid/lightbox v task detailu
+  - Doplněny frontend typy `Attachment`, `TaskAttachment`, `StorageUsage` a multipart podpora ve fetch clientu.
+  - Přidány API metody/hooky pro upload, link/list příloh úkolu, popisky, smazání/odpojení a storage usage.
+  - Vytvořeny reusable komponenty `AttachmentUploader` a `AttachmentGrid` s drag & drop/file inputem, náhledy, PDF fallbackem, lightboxem, popiskem, odpojením a smazáním.
+  - Detail úkolu nyní obsahuje sekci příloh pod editačním formulářem.
+  - Backend doplněn o `GET /tasks/{id}/attachments`, aby frontend mohl načítat vazby úkolu.
+  - Ověřeno: frontend `npm run lint && npm run typecheck`; backend attachment slice 11 passed + `ruff` + `mypy --strict`.
+
 - [x] 2026-09-05 15:38 — Fáze 6A / Krok 4 — Endpointy, task vazby a cleanup
   - Doplněny endpointy `GET /attachments/{id}/thumb`, `PATCH /attachments/{id}`, `DELETE /attachments/{id}`.
   - `GET`/thumb jsou chráněné vlastnictvím a po soft-delete vrací 404.
@@ -168,11 +176,11 @@
 
 ## Rozpracováno
 
-- Fáze 6A / Krok 5 — Frontend znovupoužitelný uploader a přílohy v detailu úkolu.
+- Fáze 6A / Krok 6 — Frontend storage usage v Settings.
 
 ## Další krok
 
-Doplnit frontend typy/API/hooky pro attachments, vytvořit reusable uploader/grid/lightbox komponenty a vložit sekci příloh do detailu úkolu.
+Doplnit panel využití attachment storage v nastavení s daty z `GET /storage/usage`, progress barem a čitelnými velikostmi.
 
 ## Poznámky
 

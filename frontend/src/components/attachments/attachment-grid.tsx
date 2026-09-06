@@ -1,0 +1,124 @@
+"use client";
+
+import * as Dialog from "@radix-ui/react-dialog";
+import { Download, FileText, Loader2, Pencil, Trash2, Unlink, X } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { attachmentUrl } from "@/lib/api/client";
+import { useDeleteTaskAttachment, useTaskAttachments, useUnlinkTaskAttachment, useUpdateAttachment } from "@/lib/api/hooks";
+import type { Attachment } from "@/lib/api/types";
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+function isImage(attachment: Attachment) {
+  return attachment.mime_type.startsWith("image/");
+}
+
+export function AttachmentGrid({ taskId }: { taskId: string }) {
+  const attachments = useTaskAttachments(taskId);
+  const update = useUpdateAttachment();
+  const remove = useDeleteTaskAttachment();
+  const unlink = useUnlinkTaskAttachment();
+  const [active, setActive] = useState<Attachment | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
+
+  const items = attachments.data?.items ?? [];
+
+  async function saveCaption(attachment: Attachment) {
+    await update.mutateAsync({ id: attachment.id, payload: { caption: caption.trim() || null } });
+    setEditingId(null);
+    await attachments.refetch();
+  }
+
+  async function deleteAttachment(attachment: Attachment) {
+    await remove.mutateAsync({ taskId, attachmentId: attachment.id });
+  }
+
+  async function unlinkAttachment(attachment: Attachment) {
+    await unlink.mutateAsync({ taskId, attachmentId: attachment.id });
+  }
+
+  if (attachments.isLoading) {
+    return <p className="text-sm text-[var(--muted)]">Načítám přílohy…</p>;
+  }
+
+  if (items.length === 0) {
+    return <p className="text-sm text-[var(--muted)]">Zatím žádné přílohy.</p>;
+  }
+
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {items.map((attachment) => (
+          <article key={attachment.id} className="overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)]">
+            <button type="button" className="block h-36 w-full bg-[var(--surface-muted)] text-left" onClick={() => setActive(attachment)}>
+              {isImage(attachment) && attachment.processing_status === "ready" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={attachmentUrl(attachment.id, "thumb")} alt={attachment.caption ?? attachment.original_filename} className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full items-center justify-center gap-2 text-sm text-[var(--muted)]">
+                  {attachment.processing_status === "pending" ? <Loader2 className="animate-spin" size={18} /> : <FileText size={18} />}
+                  {attachment.processing_status === "pending" ? "Zpracovávám…" : "Otevřít soubor"}
+                </span>
+              )}
+            </button>
+            <div className="grid gap-2 p-3">
+              <div>
+                <p className="truncate text-sm font-medium">{attachment.original_filename}</p>
+                <p className="text-xs text-[var(--muted)]">{formatBytes(attachment.size_bytes)}</p>
+              </div>
+              {editingId === attachment.id ? (
+                <div className="flex gap-2">
+                  <Input value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Popisek" />
+                  <Button type="button" size="sm" onClick={() => void saveCaption(attachment)}>OK</Button>
+                </div>
+              ) : (
+                <p className="min-h-5 text-sm text-[var(--muted)]">{attachment.caption ?? "Bez popisku"}</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" variant="secondary" onClick={() => { setEditingId(attachment.id); setCaption(attachment.caption ?? ""); }}>
+                  <Pencil size={14} />Popisek
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => void unlinkAttachment(attachment)}>
+                  <Unlink size={14} />Odpojit
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => void deleteAttachment(attachment)}>
+                  <Trash2 size={14} />Smazat
+                </Button>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+      <Dialog.Root open={Boolean(active)} onOpenChange={(open) => { if (!open) setActive(null); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/60" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[61] max-h-[92dvh] w-[92vw] max-w-5xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[var(--radius)] bg-[var(--surface)] shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] p-3">
+              <Dialog.Title className="truncate text-sm font-semibold">{active?.original_filename}</Dialog.Title>
+              <div className="flex gap-2">
+                {active ? <Button asChild size="sm" variant="secondary"><a href={attachmentUrl(active.id)} target="_blank" rel="noreferrer"><Download size={14} />Stáhnout</a></Button> : null}
+                <Dialog.Close asChild><Button size="sm" variant="ghost"><X size={16} /></Button></Dialog.Close>
+              </div>
+            </div>
+            <div className="flex max-h-[80dvh] items-center justify-center bg-black/5 p-4">
+              {active && isImage(active) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={attachmentUrl(active.id)} alt={active.caption ?? active.original_filename} className="max-h-[76dvh] max-w-full rounded object-contain" />
+              ) : active ? (
+                <iframe src={attachmentUrl(active.id)} title={active.original_filename} className="h-[76dvh] w-full rounded border border-[var(--border)] bg-white" />
+              ) : null}
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </>
+  );
+}
