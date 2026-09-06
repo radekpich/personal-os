@@ -4,6 +4,15 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 15:20 — Fáze 6A / Krok 3 — Background processing obrázků/PDF
+  - Přidán processing po uploadu přes FastAPI `BackgroundTasks`; response stále vrací `processing_status=pending`, DB záznam po jobu přejde na `ready` nebo `failed`.
+  - Obrázky se načítají přes Pillow, aplikuje se EXIF Orientation, delší hrana se zmenší na 2000 px a výsledek se uloží jako JPEG kvalita 85 bez EXIF metadat.
+  - Před smazáním EXIF se ukládá `DateTimeOriginal` a GPS do `captured_at`, `gps_lat`, `gps_lon`.
+  - HEIC je podporované přes `pillow-heif` a po zpracování se převádí na JPEG.
+  - Náhledy se generují jako JPEG s delší hranou max 400 px.
+  - PDF se nekomprimuje ani nepřepisuje; přes `pypdfium2` se generuje JPEG náhled první stránky.
+  - TDD ověřeno: `pytest tests/test_attachments_api.py tests/test_attachments_processing.py -q` → 8 passed; slice gates `ruff`, `mypy --strict` zelené.
+
 - [x] 2026-09-05 15:05 — Fáze 6A / Krok 2 — Upload příloh a limity
   - Přidány endpointy `POST /attachments`, `GET /attachments/{id}` a `GET /storage/usage`.
   - Upload čte `UploadFile` po chunkech, hlídá `MAX_ATTACHMENT_SIZE_MB`, zapisuje do temp souboru a až potom atomicky `os.replace` na serverem generovanou UUID cestu.
@@ -150,11 +159,11 @@
 
 ## Rozpracováno
 
-- Fáze 6A / Krok 3 — Processing obrázků/PDF mimo request: Pillow/pillow-heif/PDF náhledy, EXIF Orientation/DateTimeOriginal/GPS, JPEG normalizace a thumbnails.
+- Fáze 6A / Krok 4 — Attachment endpointy, vazby na úkoly a cleanup: thumb serving, patch caption, soft delete, task_attachments link/unlink a denní úklid.
 
 ## Další krok
 
-Doplnit zpracování v `BackgroundTasks`: obrázky max 2000 px JPEG kvalita 85 bez EXIF, náhled 400 px, HEIC převod na JPEG a PDF thumbnail první stránky.
+Napsat RED testy pro `GET /attachments/{id}/thumb`, `PATCH /attachments/{id}`, `DELETE /attachments/{id}`, `POST/DELETE /tasks/{id}/attachments`, ownership 404 a cleanup starých soft-delete/osiřelých souborů.
 
 ## Poznámky
 

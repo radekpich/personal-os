@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,7 @@ async def upload_attachment(
     current_user: Annotated[User, Depends(get_current_user)],
     settings: Annotated[Settings, Depends(get_settings)],
     response: Response,
+    background_tasks: BackgroundTasks,
     _csrf: Annotated[None, Depends(verify_csrf)],
     file: Annotated[UploadFile, File()],
     caption: Annotated[str | None, Form()] = None,
@@ -31,6 +32,10 @@ async def upload_attachment(
     )
     if not created:
         response.status_code = status.HTTP_200_OK
+    else:
+        background_tasks.add_task(
+            attachment_service.process_attachment_in_session, db, attachment.id
+        )
     return AttachmentRead.model_validate(attachment)
 
 
