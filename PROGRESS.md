@@ -4,6 +4,11 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 16:03 — Fáze 6A / Krok 6 — Storage usage v Nastavení
+  - Settings panel načítá `GET /storage/usage` přes nový hook `useStorageUsage`.
+  - Přidán přehled využito/zbývá/počet souborů, progress bar, limit a ruční refresh.
+  - Ověřeno: `npm run lint && npm run typecheck`.
+
 - [x] 2026-09-05 15:55 — Fáze 6A / Krok 5 — Frontend uploader/grid/lightbox v task detailu
   - Doplněny frontend typy `Attachment`, `TaskAttachment`, `StorageUsage` a multipart podpora ve fetch clientu.
   - Přidány API metody/hooky pro upload, link/list příloh úkolu, popisky, smazání/odpojení a storage usage.
@@ -176,11 +181,11 @@
 
 ## Rozpracováno
 
-- Fáze 6A / Krok 6 — Frontend storage usage v Settings.
+- Fáze 6A / Krok 7 — Full-stack smoke/gates, PROGRESS, commity a push.
 
 ## Další krok
 
-Doplnit panel využití attachment storage v nastavení s daty z `GET /storage/usage`, progress barem a čitelnými velikostmi.
+Spustit backend test suite/gates, frontend lint/typecheck/build, případně lokální smoke backend+frontend, zapsat závěr do PROGRESS a pushnout větev.
 
 ## Poznámky
 
