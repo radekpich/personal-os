@@ -77,6 +77,20 @@ async def test_user() -> User:
 
 
 @pytest.fixture
+async def other_user() -> User:
+    async with TestSessionLocal() as session:
+        user = User(
+            email="other@example.com",
+            hashed_password=hash_password("correct-password"),
+            display_name="Other User",
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return user
+
+
+@pytest.fixture
 def csrf_headers() -> CsrfHeaders:
     async def _get_csrf_headers(client: AsyncClient) -> dict[str, str]:
         await client.get("/health")

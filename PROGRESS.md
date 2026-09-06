@@ -4,6 +4,15 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 15:05 — Fáze 6A / Krok 2 — Upload příloh a limity
+  - Přidány endpointy `POST /attachments`, `GET /attachments/{id}` a `GET /storage/usage`.
+  - Upload čte `UploadFile` po chunkech, hlídá `MAX_ATTACHMENT_SIZE_MB`, zapisuje do temp souboru a až potom atomicky `os.replace` na serverem generovanou UUID cestu.
+  - Typ souboru se určuje podle magic bytes, ne podle přípony ani `Content-Type`; povoleny JPEG, PNG, WebP, HEIC a PDF.
+  - Přidána sanitizace původního názvu proti path traversal; fyzická cesta se nikdy negeneruje z klientského filename.
+  - Přidána kontrola `MAX_STORAGE_MB`, storage usage payload a ownership ochrana: cizí attachment vrací 404.
+  - Deduplikace přes `(owner_id, checksum_sha256)`: opakovaný stejný upload vrací existující attachment a nevytváří druhý fyzický soubor.
+  - TDD ověřeno: `pytest tests/test_attachments_api.py -q` → 6 passed; slice gates `ruff`, `mypy --strict` zelené.
+
 - [x] 2026-09-05 14:45 — Fáze 6A / Krok 1 — Backend datový model a config
   - Přidán model `Attachment` s požadovanými metadaty, `processing_status` a soft-delete `deleted_at`.
   - Přidány spojovací modely/tabulky `task_attachments(task_id, attachment_id, position)` a připravený vzor `note_attachments(note_id, attachment_id, position)` bez polymorfního `entity_type`.
@@ -141,11 +150,11 @@
 
 ## Rozpracováno
 
-- Fáze 6A / Krok 2 — Upload a bezpečnostní validace: multipart `POST /attachments`, magic bytes, stream limit, atomický zápis, checksum dedupe a storage usage.
+- Fáze 6A / Krok 3 — Processing obrázků/PDF mimo request: Pillow/pillow-heif/PDF náhledy, EXIF Orientation/DateTimeOriginal/GPS, JPEG normalizace a thumbnails.
 
 ## Další krok
 
-Napsat RED endpoint testy: povolený JPEG/PNG/PDF, zakázaný typ, path traversal filename, per-file limit, MAX_STORAGE_MB, cizí attachment 404 a deduplikace stejného souboru.
+Doplnit zpracování v `BackgroundTasks`: obrázky max 2000 px JPEG kvalita 85 bez EXIF, náhled 400 px, HEIC převod na JPEG a PDF thumbnail první stránky.
 
 ## Poznámky
 
