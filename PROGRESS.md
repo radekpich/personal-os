@@ -4,6 +4,13 @@
 
 ## Hotovo
 
+- [x] 2026-09-05 14:45 — Fáze 6A / Krok 1 — Backend datový model a config
+  - Přidán model `Attachment` s požadovanými metadaty, `processing_status` a soft-delete `deleted_at`.
+  - Přidány spojovací modely/tabulky `task_attachments(task_id, attachment_id, position)` a připravený vzor `note_attachments(note_id, attachment_id, position)` bez polymorfního `entity_type`.
+  - Přidána migrace `c8f2a1d9e0b4_add_attachments.py` a storage settings `ATTACHMENTS_DIR`, `MAX_ATTACHMENT_SIZE_MB`, `MAX_STORAGE_MB`.
+  - TDD RED potvrzeno: testy padaly na chybějící settings/tabulky/migraci.
+  - GREEN ověřeno: `pytest tests/test_attachments_model.py -q` → 3 passed; slice gates `ruff`, `mypy --strict` zelené.
+
 - [x] 2026-09-05 14:24 — Fáze 5 / Krok 7 — E2E smoke a finální ověření
   - Přidán `npm run phase5:smoke` a Playwright smoke script `frontend/scripts/phase5-smoke.mjs`.
   - Smoke běží proti čerstvé SQLite DB, Alembic `head`, reálnému FastAPI backendu a produkčnímu `next start`.
@@ -134,11 +141,11 @@
 
 ## Rozpracováno
 
-- Fáze 6A / Krok 0 — Plán a baseline: zapsat plán univerzálního attachment subsystému, ověřit čistý `main` po Fázi 5 a připravit TDD řezy.
+- Fáze 6A / Krok 2 — Upload a bezpečnostní validace: multipart `POST /attachments`, magic bytes, stream limit, atomický zápis, checksum dedupe a storage usage.
 
 ## Další krok
 
-Napsat RED testy pro backend datový model/config: `attachments`, `task_attachments`, připravený vzor `note_attachments`, storage limity a fresh Alembic upgrade.
+Napsat RED endpoint testy: povolený JPEG/PNG/PDF, zakázaný typ, path traversal filename, per-file limit, MAX_STORAGE_MB, cizí attachment 404 a deduplikace stejného souboru.
 
 ## Poznámky
 

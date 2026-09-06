@@ -26,6 +26,18 @@ class Settings(BaseSettings):
 
     environment: str
 
+    attachments_dir: str = "./data/attachments"
+    max_attachment_size_mb: int = 15
+    max_storage_mb: int = 17_000
+
+    @property
+    def max_attachment_size_bytes(self) -> int:
+        return self.max_attachment_size_mb * 1024 * 1024
+
+    @property
+    def max_storage_bytes(self) -> int:
+        return self.max_storage_mb * 1024 * 1024
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
