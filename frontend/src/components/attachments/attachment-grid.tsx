@@ -6,8 +6,20 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { attachmentUrl } from "@/lib/api/client";
-import { useDeleteTaskAttachment, useTaskAttachments, useUnlinkTaskAttachment, useUpdateAttachment } from "@/lib/api/hooks";
+import {
+  useDeleteNoteAttachment,
+  useDeleteTaskAttachment,
+  useNoteAttachments,
+  useTaskAttachments,
+  useUnlinkNoteAttachment,
+  useUnlinkTaskAttachment,
+  useUpdateAttachment,
+} from "@/lib/api/hooks";
 import type { Attachment } from "@/lib/api/types";
+
+type AttachmentGridProps =
+  | { taskId: string; noteId?: never }
+  | { noteId: string; taskId?: never };
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -20,11 +32,17 @@ function isImage(attachment: Attachment) {
   return attachment.mime_type.startsWith("image/");
 }
 
-export function AttachmentGrid({ taskId }: { taskId: string }) {
-  const attachments = useTaskAttachments(taskId);
+export function AttachmentGrid(props: AttachmentGridProps) {
+  const taskId = "taskId" in props ? props.taskId ?? null : null;
+  const noteId = "noteId" in props ? props.noteId ?? null : null;
+  const taskAttachments = useTaskAttachments(taskId);
+  const noteAttachments = useNoteAttachments(noteId);
+  const attachments = taskId ? taskAttachments : noteAttachments;
   const update = useUpdateAttachment();
-  const remove = useDeleteTaskAttachment();
-  const unlink = useUnlinkTaskAttachment();
+  const removeTask = useDeleteTaskAttachment();
+  const removeNote = useDeleteNoteAttachment();
+  const unlinkTask = useUnlinkTaskAttachment();
+  const unlinkNote = useUnlinkNoteAttachment();
   const [active, setActive] = useState<Attachment | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
@@ -38,11 +56,19 @@ export function AttachmentGrid({ taskId }: { taskId: string }) {
   }
 
   async function deleteAttachment(attachment: Attachment) {
-    await remove.mutateAsync({ taskId, attachmentId: attachment.id });
+    if (taskId) {
+      await removeTask.mutateAsync({ taskId, attachmentId: attachment.id });
+    } else if (noteId) {
+      await removeNote.mutateAsync({ noteId, attachmentId: attachment.id });
+    }
   }
 
   async function unlinkAttachment(attachment: Attachment) {
-    await unlink.mutateAsync({ taskId, attachmentId: attachment.id });
+    if (taskId) {
+      await unlinkTask.mutateAsync({ taskId, attachmentId: attachment.id });
+    } else if (noteId) {
+      await unlinkNote.mutateAsync({ noteId, attachmentId: attachment.id });
+    }
   }
 
   if (attachments.isLoading) {

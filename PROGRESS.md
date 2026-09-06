@@ -4,6 +4,13 @@
 
 ## Hotovo
 
+- [x] 2026-09-06 18:55 UTC — Fáze 6B / Krok 5 — Frontend Deník/Notes UI
+  - Přidána navigace `Deník` a route `/diary`.
+  - Nový `NoteWorkspace` umí list poznámek, filtr typ/q, vytvoření, editaci, mazání, datum/čas, mood, kategorii a vizi.
+  - Attachment komponenty `AttachmentUploader` a `AttachmentGrid` jsou zobecněné pro `taskId` i `noteId`.
+  - Detail poznámky podporuje upload/list/lightbox/popisky/odpojení/smazání příloh přes note attachments API.
+  - Ověřeno: `npm run lint && npm run typecheck` zelené.
+
 - [x] 2026-09-06 18:46 UTC — Fáze 6B / Krok 4 — Frontend API typy a hooky pro poznámky
   - Doplněny typy `NoteKind`, `Note`, `NoteList`, `NoteFilters`, `NoteCreate`, `NoteUpdate`, `NoteAttachment`.
   - `api` klient umí Notes CRUD a note attachment list/link/unlink.
@@ -222,11 +229,11 @@
 
 ## Rozpracováno
 
-- Fáze 6B / Krok 5 — Frontend Deník/Notes UI + reusable attachments.
+- Fáze 6B / Krok 6 — Full-stack smoke/gates, PROGRESS, commity a push.
 
 ## Další krok
 
-Udělat `/diary` nebo `/notes` route, notes workspace s listem, filtrem kind/q, editorem/create flow a detail panelem s přílohami; zobecnit attachment komponenty pro `task` i `note`.
+Spustit celý backend gate (`pytest`, `ruff`, `mypy`), frontend gate (`lint`, `typecheck`, `build`), případně opravit regresi, dokončit PROGRESS a pushnout `main`.
 
 ## Poznámky
 

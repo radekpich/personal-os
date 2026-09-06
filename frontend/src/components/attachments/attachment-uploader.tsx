@@ -3,14 +3,20 @@
 import { ImagePlus, Loader2, UploadCloud } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useUploadTaskAttachment } from "@/lib/api/hooks";
+import { useUploadNoteAttachment, useUploadTaskAttachment } from "@/lib/api/hooks";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"];
 
-export function AttachmentUploader({ taskId }: { taskId: string }) {
+type AttachmentUploaderProps =
+  | { taskId: string; noteId?: never }
+  | { noteId: string; taskId?: never };
+
+export function AttachmentUploader(props: AttachmentUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const upload = useUploadTaskAttachment();
+  const taskUpload = useUploadTaskAttachment();
+  const noteUpload = useUploadNoteAttachment();
+  const isPending = taskUpload.isPending || noteUpload.isPending;
 
   async function uploadFiles(files: FileList | File[]) {
     const selected = Array.from(files);
@@ -22,7 +28,11 @@ export function AttachmentUploader({ taskId }: { taskId: string }) {
           setMessage(`Soubor ${file.name} nemá podporovaný typ.`);
           continue;
         }
-        await upload.mutateAsync({ taskId, file });
+        if ("taskId" in props && props.taskId) {
+          await taskUpload.mutateAsync({ taskId: props.taskId, file });
+        } else if ("noteId" in props && props.noteId) {
+          await noteUpload.mutateAsync({ noteId: props.noteId, file });
+        }
       }
       setMessage(selected.length === 1 ? "Příloha nahraná." : "Přílohy nahrané.");
     } catch (error) {
@@ -51,9 +61,9 @@ export function AttachmentUploader({ taskId }: { taskId: string }) {
             <p className="text-xs text-[var(--muted)]">Přetáhni fotky/PDF nebo vyber soubor. Podporuje JPG, PNG, WebP, HEIC a PDF.</p>
           </div>
         </div>
-        <Button type="button" variant="secondary" disabled={upload.isPending} onClick={() => inputRef.current?.click()}>
-          {upload.isPending ? <Loader2 className="animate-spin" size={16} /> : <UploadCloud size={16} />}
-          {upload.isPending ? "Nahrávám…" : "Přidat"}
+        <Button type="button" variant="secondary" disabled={isPending} onClick={() => inputRef.current?.click()}>
+          {isPending ? <Loader2 className="animate-spin" size={16} /> : <UploadCloud size={16} />}
+          {isPending ? "Nahrávám…" : "Přidat"}
         </Button>
       </div>
       <input
