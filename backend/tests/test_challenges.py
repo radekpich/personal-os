@@ -81,7 +81,17 @@ async def test_check_in_same_date_is_idempotent_and_recalculates_streak(
     client: AsyncClient,
     test_user: User,
     csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 5, 9, 0, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
     headers = await _login(client, csrf_headers, test_user)
     challenge = await client.post(
         "/challenges",

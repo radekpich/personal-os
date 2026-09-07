@@ -4,6 +4,15 @@
 
 ## Hotovo
 
+- [x] 2026-09-07 08:18 UTC — Fáze 7 / Krok 2 — Versioning, audit původu a konflikty
+  - Přidána `version`, `created_by`, `updated_by`, `api_key_id` pole do `tasks` i `notes` v modelech, schématech a Alembic migraci.
+  - PATCH/DELETE pro Tasks i Notes vyžadují `If-Match`; chybějící hlavička vrací `428 if_match_required`.
+  - Version mismatch vrací `409 version_conflict` v jednotném JSON tvaru včetně `current_state` aktuálního záznamu.
+  - Přidán service helper `app.services.concurrency` s `MutationActor`, `VersionConflict`, `FreshUserEditConflict`, `ensure_can_mutate`, `apply_mutation_audit`.
+  - Agentí změna čerstvě člověkem upraveného záznamu vrací 409 přes configurable `FRESH_USER_EDIT_GUARD_MINUTES`.
+  - Aktualizovány backend testy na nový kontrakt a opravena determinističnost jednoho staršího challenge testu.
+  - Ověření: `pytest -q` → 106 passed; `ruff check`, `ruff format --check`, `mypy --strict`; čerstvý Alembic `upgrade head`.
+
 - [x] 2026-09-07 07:56 UTC — Fáze 7 / Krok 1 — API klíče pro stroje
   - Přidán `ApiKey` model a Alembic migrace `api_keys`: `owner_id`, `name`, `key_hash`, `key_prefix`, `scopes`, `last_used_at`, `expires_at`, `revoked_at`, `created_at`.
   - Klíč se generuje jako plaintext jen při vytvoření (`pos_...`), do DB jde jen SHA-256 hash a zobrazovací prefix.
@@ -257,11 +266,11 @@
 
 ## Rozpracováno
 
-- Fáze 7 / Krok 2 — `version`, audit původu a konflikt helper přes TDD.
+- Fáze 7 / Krok 3 — Tasks/Notes UI posílá `version`, používá polling/focus refetch a zobrazuje nové agent položky.
 
 ## Další krok
 
-Přidat RED testy pro optimistické zamykání: `If-Match` povinné u PATCH/DELETE, version increment, 409 s aktuálním stavem při neshodě a 409 při agent změně čerstvě člověkem upraveného záznamu.
+Doplnit frontend API typy a mutace tak, aby PATCH/DELETE posílaly `If-Match`; nastavit TanStack Query `refetchInterval: 30000`, focus refetch a vizuální odlišení položek `created_by=agent`/nově přibylých po pollingu.
 
 ## Poznámky
 

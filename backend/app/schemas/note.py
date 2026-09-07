@@ -48,6 +48,10 @@ class NoteRead(BaseModel):
     category_id: uuid.UUID | None
     vision_id: uuid.UUID | None
     task_id: uuid.UUID | None
+    version: int
+    created_by: str
+    updated_by: str
+    api_key_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 

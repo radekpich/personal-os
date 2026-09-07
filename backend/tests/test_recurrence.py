@@ -64,7 +64,9 @@ async def test_fixed_recurring_task_generates_next_instance_from_rule(
     assert created.status_code == 201
 
     done = await client.patch(
-        f"/tasks/{created.json()['id']}", json={"status": "done"}, headers=headers
+        f"/tasks/{created.json()['id']}",
+        json={"status": "done"},
+        headers={**headers, "If-Match": str(created.json()["version"])},
     )
     assert done.status_code == 200
 
@@ -104,7 +106,7 @@ async def test_after_completion_recurring_task_generates_from_completed_at(
     done = await client.patch(
         f"/tasks/{created.json()['id']}",
         json={"status": "done", "completed_at": completed_at},
-        headers=headers,
+        headers={**headers, "If-Match": str(created.json()["version"])},
     )
     assert done.status_code == 200
 

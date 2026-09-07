@@ -99,6 +99,10 @@ class TaskRead(BaseModel):
     recurrence_rule: str | None
     recurrence_mode: RecurrenceMode | None
     position: int
+    version: int
+    created_by: str
+    updated_by: str
+    api_key_id: uuid.UUID | None
     tags: list[TagRead]
     created_at: datetime
     updated_at: datetime

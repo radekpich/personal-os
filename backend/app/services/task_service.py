@@ -11,8 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.tag import Tag
 from app.models.task import RecurrenceMode, Task, TaskPriority, TaskStatus, task_tags
 from app.models.user import User
-from app.schemas.task import TaskCreate, TaskUpdate, TaskView
+from app.schemas.task import TaskCreate, TaskRead, TaskUpdate, TaskView
 from app.services import category_service, context_service, vision_service
+from app.services.concurrency import (
+    MutationActor,
+    apply_mutation_audit,
+    ensure_can_mutate,
+    state_from_schema,
+)
 
 LOCAL_TIMEZONE = ZoneInfo("Europe/Prague")
 WEEKDAY_TO_INDEX = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
@@ -222,7 +228,14 @@ async def quick_create_task(db: AsyncSession, owner: User, title: str) -> Task:
     return task
 
 
-async def create_task(db: AsyncSession, owner: User, payload: TaskCreate) -> Task:
+async def create_task(
+    db: AsyncSession,
+    owner: User,
+    payload: TaskCreate,
+    *,
+    actor: MutationActor = MutationActor.USER,
+    api_key_id: uuid.UUID | None = None,
+) -> Task:
     if payload.category_id is not None:
         await category_service.get_category(db, owner, payload.category_id)
     if payload.context_id is not None:
@@ -253,6 +266,10 @@ async def create_task(db: AsyncSession, owner: User, payload: TaskCreate) -> Tas
         if payload.recurrence_mode is not None
         else None,
         position=payload.position,
+        version=1,
+        created_by=actor.value,
+        updated_by=actor.value,
+        api_key_id=api_key_id,
         tags=tags,
     )
     db.add(task)
@@ -262,9 +279,24 @@ async def create_task(db: AsyncSession, owner: User, payload: TaskCreate) -> Tas
 
 
 async def update_task(
-    db: AsyncSession, owner: User, task_id: uuid.UUID, payload: TaskUpdate
+    db: AsyncSession,
+    owner: User,
+    task_id: uuid.UUID,
+    payload: TaskUpdate,
+    *,
+    expected_version: int | None = None,
+    actor: MutationActor = MutationActor.USER,
+    api_key_id: uuid.UUID | None = None,
+    fresh_user_edit_guard_minutes: int = 5,
 ) -> Task:
     task = await get_task(db, owner, task_id)
+    ensure_can_mutate(
+        task,
+        expected_version=expected_version,
+        actor=actor,
+        current_state=state_from_schema(TaskRead, task),
+        fresh_user_edit_guard_minutes=fresh_user_edit_guard_minutes,
+    )
     changes = payload.model_dump(exclude_unset=True)
 
     if "category_id" in changes:
@@ -325,14 +357,32 @@ async def update_task(
             task.completed_at = None
         task.status = new_status.value
 
+    apply_mutation_audit(task, actor=actor, api_key_id=api_key_id)
     db.add(task)
     await db.commit()
     await db.refresh(task)
     return task
 
 
-async def delete_task(db: AsyncSession, owner: User, task_id: uuid.UUID) -> None:
+async def delete_task(
+    db: AsyncSession,
+    owner: User,
+    task_id: uuid.UUID,
+    *,
+    expected_version: int | None = None,
+    actor: MutationActor = MutationActor.USER,
+    api_key_id: uuid.UUID | None = None,
+    fresh_user_edit_guard_minutes: int = 5,
+) -> None:
     task = await get_task(db, owner, task_id)
+    ensure_can_mutate(
+        task,
+        expected_version=expected_version,
+        actor=actor,
+        current_state=state_from_schema(TaskRead, task),
+        fresh_user_edit_guard_minutes=fresh_user_edit_guard_minutes,
+    )
     task.deleted_at = datetime.now(UTC)
+    apply_mutation_audit(task, actor=actor, api_key_id=api_key_id)
     db.add(task)
     await db.commit()

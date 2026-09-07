@@ -8,8 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.note import Note, NoteKind
 from app.models.user import User
-from app.schemas.note import NoteCreate, NoteUpdate
+from app.schemas.note import NoteCreate, NoteRead, NoteUpdate
 from app.services import category_service, task_service, vision_service
+from app.services.concurrency import (
+    MutationActor,
+    apply_mutation_audit,
+    ensure_can_mutate,
+    state_from_schema,
+)
 
 
 @dataclass(frozen=True)
@@ -90,7 +96,14 @@ async def get_note(db: AsyncSession, owner: User, note_id: uuid.UUID) -> Note:
     return note
 
 
-async def create_note(db: AsyncSession, owner: User, payload: NoteCreate) -> Note:
+async def create_note(
+    db: AsyncSession,
+    owner: User,
+    payload: NoteCreate,
+    *,
+    actor: MutationActor = MutationActor.USER,
+    api_key_id: uuid.UUID | None = None,
+) -> Note:
     await _validate_links(db, owner, payload.category_id, payload.vision_id, payload.task_id)
     note = Note(
         owner_id=owner.id,
@@ -103,6 +116,10 @@ async def create_note(db: AsyncSession, owner: User, payload: NoteCreate) -> Not
         category_id=payload.category_id,
         vision_id=payload.vision_id,
         task_id=payload.task_id,
+        version=1,
+        created_by=actor.value,
+        updated_by=actor.value,
+        api_key_id=api_key_id,
     )
     db.add(note)
     await db.commit()
@@ -111,9 +128,24 @@ async def create_note(db: AsyncSession, owner: User, payload: NoteCreate) -> Not
 
 
 async def update_note(
-    db: AsyncSession, owner: User, note_id: uuid.UUID, payload: NoteUpdate
+    db: AsyncSession,
+    owner: User,
+    note_id: uuid.UUID,
+    payload: NoteUpdate,
+    *,
+    expected_version: int | None = None,
+    actor: MutationActor = MutationActor.USER,
+    api_key_id: uuid.UUID | None = None,
+    fresh_user_edit_guard_minutes: int = 5,
 ) -> Note:
     note = await get_note(db, owner, note_id)
+    ensure_can_mutate(
+        note,
+        expected_version=expected_version,
+        actor=actor,
+        current_state=state_from_schema(NoteRead, note),
+        fresh_user_edit_guard_minutes=fresh_user_edit_guard_minutes,
+    )
     changes = payload.model_dump(exclude_unset=True)
     category_id = changes.get("category_id", note.category_id)
     vision_id = changes.get("vision_id", note.vision_id)
@@ -136,14 +168,32 @@ async def update_note(
     if "kind" in changes and payload.kind is not None:
         note.kind = payload.kind.value
 
+    apply_mutation_audit(note, actor=actor, api_key_id=api_key_id)
     db.add(note)
     await db.commit()
     await db.refresh(note)
     return note
 
 
-async def delete_note(db: AsyncSession, owner: User, note_id: uuid.UUID) -> None:
+async def delete_note(
+    db: AsyncSession,
+    owner: User,
+    note_id: uuid.UUID,
+    *,
+    expected_version: int | None = None,
+    actor: MutationActor = MutationActor.USER,
+    api_key_id: uuid.UUID | None = None,
+    fresh_user_edit_guard_minutes: int = 5,
+) -> None:
     note = await get_note(db, owner, note_id)
+    ensure_can_mutate(
+        note,
+        expected_version=expected_version,
+        actor=actor,
+        current_state=state_from_schema(NoteRead, note),
+        fresh_user_edit_guard_minutes=fresh_user_edit_guard_minutes,
+    )
     note.deleted_at = datetime.now(UTC)
+    apply_mutation_audit(note, actor=actor, api_key_id=api_key_id)
     db.add(note)
     await db.commit()

@@ -1,19 +1,46 @@
 import uuid
 from datetime import date
-from typing import Annotated
+from typing import Annotated, NoReturn
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, verify_csrf
+from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models.task import Task, TaskStatus
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskList, TaskRead, TaskUpdate, TaskView
 from app.services import task_service
+from app.services.concurrency import ConflictError
 from app.services.task_service import TaskListFilters
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+
+def _require_if_match(if_match: int | None) -> int:
+    if if_match is None:
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail={
+                "code": "if_match_required",
+                "message": "If-Match header with expected version is required",
+                "field": "If-Match",
+            },
+        )
+    return if_match
+
+
+def _raise_conflict(exc: ConflictError) -> NoReturn:
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={
+            "code": exc.code,
+            "message": exc.message,
+            "field": "If-Match" if exc.code == "version_conflict" else None,
+            "current_state": exc.current_state,
+        },
+    ) from exc
 
 
 @router.get("", response_model=TaskList)
@@ -97,8 +124,20 @@ async def update_task(
     payload: TaskUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    if_match: Annotated[int | None, Header(alias="If-Match")] = None,
 ) -> Task:
-    return await task_service.update_task(db, current_user, task_id, payload)
+    try:
+        return await task_service.update_task(
+            db,
+            current_user,
+            task_id,
+            payload,
+            expected_version=_require_if_match(if_match),
+            fresh_user_edit_guard_minutes=settings.fresh_user_edit_guard_minutes,
+        )
+    except ConflictError as exc:
+        _raise_conflict(exc)
 
 
 @router.delete(
@@ -110,6 +149,17 @@ async def delete_task(
     task_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    if_match: Annotated[int | None, Header(alias="If-Match")] = None,
 ) -> Response:
-    await task_service.delete_task(db, current_user, task_id)
+    try:
+        await task_service.delete_task(
+            db,
+            current_user,
+            task_id,
+            expected_version=_require_if_match(if_match),
+            fresh_user_edit_guard_minutes=settings.fresh_user_edit_guard_minutes,
+        )
+    except ConflictError as exc:
+        _raise_conflict(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

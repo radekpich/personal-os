@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     rate_limit_login: str
     rate_limit_default: str
     rate_limit_api_key_default: str = "120/minute"
+    fresh_user_edit_guard_minutes: int = 5
 
     environment: str
 

@@ -39,6 +39,12 @@ class Note(Base):
     task_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid, sa.ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    version: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    created_by: Mapped[str] = mapped_column(sa.String(20), nullable=False, default="user")
+    updated_by: Mapped[str] = mapped_column(sa.String(20), nullable=False, default="user")
+    api_key_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid, sa.ForeignKey("api_keys.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
     )

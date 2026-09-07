@@ -237,7 +237,11 @@ async def test_vision_progress_counts_linked_tasks_and_stagnation(
     await client.post(
         "/tasks", json={"title": "Další krok", "vision_id": vision_id}, headers=headers
     )
-    await client.patch(f"/tasks/{task1.json()['id']}", json={"status": "done"}, headers=headers)
+    await client.patch(
+        f"/tasks/{task1.json()['id']}",
+        json={"status": "done"},
+        headers={**headers, "If-Match": str(task1.json()["version"])},
+    )
 
     response = await client.get(f"/visions/{vision_id}/progress")
 

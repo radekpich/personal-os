@@ -98,14 +98,16 @@ async def test_create_list_get_update_and_delete_note(
     updated = await client.patch(
         f"/notes/{note['id']}",
         json={"title": "Upravený zápis", "mood": None, "task_id": None},
-        headers=headers,
+        headers={**headers, "If-Match": str(note["version"])},
     )
     assert updated.status_code == 200
     assert updated.json()["title"] == "Upravený zápis"
     assert updated.json()["mood"] is None
     assert updated.json()["task_id"] is None
 
-    deleted = await client.delete(f"/notes/{note['id']}", headers=headers)
+    deleted = await client.delete(
+        f"/notes/{note['id']}", headers={**headers, "If-Match": str(updated.json()["version"])}
+    )
     assert deleted.status_code == 204
     assert (await client.get(f"/notes/{note['id']}")).status_code == 404
     remaining_ids = {item["id"] for item in (await client.get("/notes")).json()["items"]}
@@ -144,6 +146,12 @@ async def test_note_rejects_foreign_links_and_masks_foreign_note(
 
     assert (await client.get(f"/notes/{foreign_note_id}")).status_code == 404
     assert (
-        await client.patch(f"/notes/{foreign_note_id}", json={"title": "x"}, headers=headers)
+        await client.patch(
+            f"/notes/{foreign_note_id}",
+            json={"title": "x"},
+            headers={**headers, "If-Match": "1"},
+        )
     ).status_code == 404
-    assert (await client.delete(f"/notes/{foreign_note_id}", headers=headers)).status_code == 404
+    assert (
+        await client.delete(f"/notes/{foreign_note_id}", headers={**headers, "If-Match": "1"})
+    ).status_code == 404

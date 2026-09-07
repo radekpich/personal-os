@@ -208,17 +208,27 @@ async def test_get_update_and_soft_delete_task(
     assert fetched.status_code == 200
     assert fetched.json()["title"] == "Napsat report"
 
-    done_update = await client.patch(f"/tasks/{task_id}", json={"status": "done"}, headers=headers)
+    done_update = await client.patch(
+        f"/tasks/{task_id}",
+        json={"status": "done"},
+        headers={**headers, "If-Match": str(created.json()["version"])},
+    )
     assert done_update.status_code == 200
     assert done_update.json()["status"] == "done"
     assert done_update.json()["completed_at"] is not None
 
-    reopened = await client.patch(f"/tasks/{task_id}", json={"status": "todo"}, headers=headers)
+    reopened = await client.patch(
+        f"/tasks/{task_id}",
+        json={"status": "todo"},
+        headers={**headers, "If-Match": str(done_update.json()["version"])},
+    )
     assert reopened.status_code == 200
     assert reopened.json()["status"] == "todo"
     assert reopened.json()["completed_at"] is None
 
-    deleted = await client.delete(f"/tasks/{task_id}", headers=headers)
+    deleted = await client.delete(
+        f"/tasks/{task_id}", headers={**headers, "If-Match": str(reopened.json()["version"])}
+    )
     assert deleted.status_code == 204
 
     missing = await client.get(f"/tasks/{task_id}")
@@ -254,11 +264,15 @@ async def test_task_owner_isolation(
     assert get_response.status_code == 404
 
     patch_response = await client.patch(
-        f"/tasks/{foreign_task.id}", json={"title": "hack"}, headers=headers
+        f"/tasks/{foreign_task.id}",
+        json={"title": "hack"},
+        headers={**headers, "If-Match": "1"},
     )
     assert patch_response.status_code == 404
 
-    delete_response = await client.delete(f"/tasks/{foreign_task.id}", headers=headers)
+    delete_response = await client.delete(
+        f"/tasks/{foreign_task.id}", headers={**headers, "If-Match": "1"}
+    )
     assert delete_response.status_code == 404
 
     listed = await client.get("/tasks")
@@ -432,7 +446,7 @@ async def test_task_tags_can_be_replaced_on_update(
     updated = await client.patch(
         f"/tasks/{created.json()['id']}",
         json={"tag_ids": [str(tag_b.id)]},
-        headers=headers,
+        headers={**headers, "If-Match": str(created.json()["version"])},
     )
     assert updated.status_code == 200
     assert [t["id"] for t in updated.json()["tags"]] == [str(tag_b.id)]
@@ -440,7 +454,7 @@ async def test_task_tags_can_be_replaced_on_update(
     cleared = await client.patch(
         f"/tasks/{created.json()['id']}",
         json={"tag_ids": []},
-        headers=headers,
+        headers={**headers, "If-Match": str(updated.json()["version"])},
     )
     assert cleared.json()["tags"] == []
 
@@ -477,7 +491,9 @@ async def test_task_cannot_be_its_own_parent(
     task_id = created.json()["id"]
 
     response = await client.patch(
-        f"/tasks/{task_id}", json={"parent_task_id": task_id}, headers=headers
+        f"/tasks/{task_id}",
+        json={"parent_task_id": task_id},
+        headers={**headers, "If-Match": str(created.json()["version"])},
     )
     assert response.status_code == 400
 
