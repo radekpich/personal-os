@@ -1,7 +1,8 @@
 "use client";
 
 import { BookOpen, CalendarDays, FileText, Lightbulb, MessageSquareText, Plus, Save, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AttachmentGrid } from "@/components/attachments/attachment-grid";
 import { AttachmentUploader } from "@/components/attachments/attachment-uploader";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ import {
   useVisions,
 } from "@/lib/api/hooks";
 import type { Note, NoteKind } from "@/lib/api/types";
+import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 const kindLabels: Record<NoteKind, string> = {
@@ -63,6 +65,7 @@ export function NoteWorkspace() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [editing, setEditing] = useState<Note | null>(null);
+  const [conflict, setConflict] = useState<string | null>(null);
   const notes = useNotes({ kind, q: query, page_size: 80 });
   const { categories } = useTaxonomy();
   const visions = useVisions();
@@ -71,15 +74,33 @@ export function NoteWorkspace() {
   const remove = useDeleteNote();
 
   const items = useMemo(() => notes.data?.items ?? [], [notes.data?.items]);
+  const [highlightedIds, setHighlightedIds] = useState<Set<string>>(() => new Set());
+  const seenIds = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const current = notes.data?.items.map((note) => note.id) ?? null;
+    if (!current) return;
+    if (seenIds.current === null) {
+      seenIds.current = new Set(current);
+      return;
+    }
+    const added = current.filter((id) => !seenIds.current?.has(id));
+    seenIds.current = new Set(current);
+    if (added.length === 0) return;
+    setHighlightedIds(new Set(added));
+    const timeout = window.setTimeout(() => setHighlightedIds(new Set()), 10_000);
+    return () => window.clearTimeout(timeout);
+  }, [notes.data?.items]);
   const selected = useMemo(() => items.find((item) => item.id === selectedId) ?? editing ?? items[0] ?? null, [editing, items, selectedId]);
 
   function startNew(nextKind: NoteKind = "diary") {
+    setConflict(null);
     setEditing(null);
     setSelectedId(null);
     setDraft(emptyDraft(nextKind));
   }
 
   function edit(note: Note) {
+    setConflict(null);
     setEditing(note);
     setSelectedId(note.id);
     setDraft({
@@ -107,13 +128,21 @@ export function NoteWorkspace() {
       vision_id: draft.vision_id || null,
       task_id: draft.task_id || null,
     };
-    const saved = editing ? await update.mutateAsync({ id: editing.id, payload }) : await create.mutateAsync(payload);
-    setEditing(saved);
-    setSelectedId(saved.id);
+    try {
+      const saved = editing ? await update.mutateAsync({ note: editing, payload }) : await create.mutateAsync(payload);
+      setEditing(saved);
+      setSelectedId(saved.id);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        setConflict("Poznámku mezitím upravil web nebo agent. Načti aktuální stav a zkus změnu znovu.");
+        return;
+      }
+      throw error;
+    }
   }
 
   async function deleteSelected(note: Note) {
-    await remove.mutateAsync(note.id);
+    await remove.mutateAsync(note);
     setEditing(null);
     setSelectedId(null);
     setDraft(emptyDraft());
@@ -143,7 +172,7 @@ export function NoteWorkspace() {
         {!notes.isLoading && items.length === 0 ? <p className="panel p-5 text-[var(--muted)]">Zatím žádné poznámky. Založ první zápis vpravo.</p> : null}
 
         <div className="grid gap-3 md:grid-cols-2">
-          {items.map((note) => <NoteCard key={note.id} note={note} selected={selected?.id === note.id} onSelect={() => edit(note)} />)}
+          {items.map((note) => <NoteCard key={note.id} note={note} selected={selected?.id === note.id} highlighted={highlightedIds.has(note.id)} onSelect={() => edit(note)} />)}
         </div>
       </section>
 
@@ -157,6 +186,7 @@ export function NoteWorkspace() {
             {editing ? <Badge>{kindLabels[editing.kind]}</Badge> : null}
           </div>
           <Input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Název" />
+          {conflict ? <p className="rounded-[var(--radius-sm)] border border-[var(--warning)] bg-[var(--warning)]/10 p-3 text-sm text-[var(--warning)]">{conflict}</p> : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <Select label="Typ" value={draft.kind} onChange={(value) => setDraft({ ...draft, kind: value as NoteKind, entry_date: draft.entry_date || (value === "diary" ? todayIso() : "") })}>
               {Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -198,32 +228,44 @@ export function NoteWorkspace() {
   );
 }
 
-function NoteCard({ note, selected, onSelect }: { note: Note; selected: boolean; onSelect: () => void }) {
+function noteAgentActivityHref(note: Note) {
+  return `/agent?action=add_note&entity_type=note&entity_id=${note.id}`;
+}
+
+function NoteCard({ note, selected, highlighted, onSelect }: { note: Note; selected: boolean; highlighted: boolean; onSelect: () => void }) {
   const Icon = kindIcons[note.kind];
   return (
-    <button type="button" onClick={onSelect} className={cn("panel p-5 text-left transition hover:-translate-y-0.5", selected && "ring-2 ring-[var(--primary)]")}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--muted)]"><Icon size={17} /></span>
-            <div className="min-w-0">
-              <h3 className="truncate font-semibold">{note.title}</h3>
-              <p className="text-xs text-[var(--muted)]">{kindLabels[note.kind]}</p>
+    <article className={cn("panel p-5 transition hover:-translate-y-0.5", selected && "ring-2 ring-[var(--primary)]", (note.created_by === "agent" || highlighted) && "border-[var(--accent)]/70 bg-[var(--accent)]/5")}>
+      <button type="button" onClick={onSelect} className="block w-full text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="flex size-9 items-center justify-center rounded-2xl bg-[var(--surface-muted)] text-[var(--muted)]"><Icon size={17} /></span>
+              <div className="min-w-0">
+                <h3 className="truncate font-semibold">{note.title}</h3>
+                <p className="text-xs text-[var(--muted)]">{kindLabels[note.kind]}</p>
+              </div>
             </div>
+            {note.body ? <p className="mt-3 line-clamp-3 text-sm text-[var(--muted)]">{note.body}</p> : null}
           </div>
-          {note.body ? <p className="mt-3 line-clamp-3 text-sm text-[var(--muted)]">{note.body}</p> : null}
+          <div className="shrink-0 text-right text-xs text-[var(--muted)]">
+            <CalendarDays className="ml-auto mb-1" size={15} />
+            {formatDate(note.entry_date)}
+          </div>
         </div>
-        <div className="shrink-0 text-right text-xs text-[var(--muted)]">
-          <CalendarDays className="ml-auto mb-1" size={15} />
-          {formatDate(note.entry_date)}
-        </div>
-      </div>
+      </button>
       <div className="mt-4 flex flex-wrap gap-2">
         {note.mood ? <Badge>{note.mood}</Badge> : null}
         {note.category_id ? <Badge>kategorie</Badge> : null}
         {note.vision_id ? <Badge>vize</Badge> : null}
+        {note.created_by === "agent" ? (
+          <Link href={noteAgentActivityHref(note)} aria-label="Zobrazit akci agenta pro tuto poznámku">
+            <Badge className="border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/10">agent</Badge>
+          </Link>
+        ) : null}
+        {highlighted ? <Badge className="border-[var(--success)] text-[var(--success)]">nové</Badge> : null}
       </div>
-    </button>
+    </article>
   );
 }
 

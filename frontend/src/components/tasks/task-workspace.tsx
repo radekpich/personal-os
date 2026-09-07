@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Task, TaskFilters, TaskStatus, TaskView } from "@/lib/api/types";
 import { useTasks, useTaxonomy, useVisions } from "@/lib/api/hooks";
 import { TaskDetailPanel } from "@/components/tasks/task-detail-panel";
@@ -23,6 +23,22 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
     page_size: 50,
   }), [params, initialView]);
   const tasks = useTasks(filters);
+  const [highlightedIds, setHighlightedIds] = useState<Set<string>>(() => new Set());
+  const seenIds = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const current = tasks.data?.items.map((task) => task.id) ?? null;
+    if (!current) return;
+    if (seenIds.current === null) {
+      seenIds.current = new Set(current);
+      return;
+    }
+    const added = current.filter((id) => !seenIds.current?.has(id));
+    seenIds.current = new Set(current);
+    if (added.length === 0) return;
+    setHighlightedIds(new Set(added));
+    const timeout = window.setTimeout(() => setHighlightedIds(new Set()), 10_000);
+    return () => window.clearTimeout(timeout);
+  }, [tasks.data?.items]);
   const { categories, contexts, tags } = useTaxonomy();
   const visions = useVisions();
 
@@ -39,7 +55,7 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <section className="grid gap-4">
         <Filters status={filters.status ?? "all"} categoryId={filters.category_id ?? "all"} contextId={filters.context_id ?? "all"} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} onStatus={(value) => setParam("status", value)} onCategory={(value) => setParam("category_id", value)} onContext={(value) => setParam("context_id", value)} />
-        {tasks.isLoading ? <div className="panel p-8 text-[var(--muted)]">Načítám úkoly…</div> : tasks.isError ? <div className="panel p-8 text-[var(--danger)]">Úkoly se nepodařilo načíst.</div> : <TaskList tasks={tasks.data?.items ?? []} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} selectedId={activeSelected?.id} onSelect={setSelected} />}
+        {tasks.isLoading ? <div className="panel p-8 text-[var(--muted)]">Načítám úkoly…</div> : tasks.isError ? <div className="panel p-8 text-[var(--danger)]">Úkoly se nepodařilo načíst.</div> : <TaskList tasks={tasks.data?.items ?? []} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} selectedId={activeSelected?.id} highlightedIds={highlightedIds} onSelect={setSelected} />}
       </section>
       <aside className="panel hidden h-fit p-5 xl:block">
         <h2 className="font-semibold">Tipy</h2>

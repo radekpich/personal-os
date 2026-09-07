@@ -1,4 +1,6 @@
 import type {
+  AgentActionFilters,
+  AgentActionList,
   Attachment,
   AttachmentUpdate,
   Category,
@@ -17,6 +19,7 @@ import type {
   NoteFilters,
   NoteList,
   NoteUpdate,
+  RevertResult,
   StagnatingVision,
   StorageUsage,
   Tag,
@@ -70,6 +73,7 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   text?: string;
   formData?: FormData;
   params?: Record<string, unknown>;
+  ifMatch?: number;
   retryOnUnauthorized?: boolean;
 };
 
@@ -92,6 +96,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const headers = new Headers(options.headers);
   if (options.json !== undefined) headers.set("Content-Type", "application/json");
   if (options.text !== undefined) headers.set("Content-Type", "text/plain; charset=utf-8");
+  if (options.ifMatch !== undefined) headers.set("If-Match", String(options.ifMatch));
   const csrf = getCookie(CSRF_COOKIE_NAME);
   if (mutates && csrf) headers.set(CSRF_HEADER_NAME, csrf);
 
@@ -133,6 +138,10 @@ export const api = {
   logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
   me: () => request<User>("/auth/me"),
   refresh: refreshSession,
+  agentActions: (filters: AgentActionFilters = {}) => request<AgentActionList>("/agent/actions", { params: filters }),
+  revertAgentAction: (id: string) => request<RevertResult>(`/agent/actions/${id}/revert`, { method: "POST" }),
+  revertAgentActionBatch: (payload: { batch_id?: string | null; created_from?: string | null; created_to?: string | null }) =>
+    request<RevertResult>("/agent/actions/revert-batch", { method: "POST", json: payload }),
   categories: () => request<ListResponse<Category>>("/categories"),
   createCategory: (payload: Pick<Category, "name" | "color" | "icon"> & Partial<Pick<Category, "parent_id" | "position" | "is_archived">>) => request<Category>("/categories", { method: "POST", json: payload }),
   contexts: () => request<ListResponse<Context>>("/contexts"),
@@ -152,8 +161,8 @@ export const api = {
   task: (id: string) => request<Task>(`/tasks/${id}`),
   quickTask: (title: string) => request<Task>("/tasks/quick", { method: "POST", text: title }),
   createTask: (payload: TaskCreate) => request<Task>("/tasks", { method: "POST", json: payload }),
-  updateTask: (id: string, payload: TaskUpdate) => request<Task>(`/tasks/${id}`, { method: "PATCH", json: payload }),
-  deleteTask: (id: string) => request<void>(`/tasks/${id}`, { method: "DELETE" }),
+  updateTask: (id: string, payload: TaskUpdate, version: number) => request<Task>(`/tasks/${id}`, { method: "PATCH", json: payload, ifMatch: version }),
+  deleteTask: (id: string, version: number) => request<void>(`/tasks/${id}`, { method: "DELETE", ifMatch: version }),
   taskAttachments: (taskId: string) => request<ListResponse<Attachment>>(`/tasks/${taskId}/attachments`),
   uploadAttachment: (file: File, caption?: string | null) => {
     const formData = new FormData();
@@ -174,8 +183,8 @@ export const api = {
   notes: (filters: NoteFilters = {}) => request<NoteList>("/notes", { params: filters }),
   note: (id: string) => request<Note>(`/notes/${id}`),
   createNote: (payload: NoteCreate) => request<Note>("/notes", { method: "POST", json: payload }),
-  updateNote: (id: string, payload: NoteUpdate) => request<Note>(`/notes/${id}`, { method: "PATCH", json: payload }),
-  deleteNote: (id: string) => request<void>(`/notes/${id}`, { method: "DELETE" }),
+  updateNote: (id: string, payload: NoteUpdate, version: number) => request<Note>(`/notes/${id}`, { method: "PATCH", json: payload, ifMatch: version }),
+  deleteNote: (id: string, version: number) => request<void>(`/notes/${id}`, { method: "DELETE", ifMatch: version }),
   noteAttachments: (noteId: string) => request<ListResponse<Attachment>>(`/notes/${noteId}/attachments`),
   attachToNote: (noteId: string, attachmentId: string, position = 0) =>
     request<NoteAttachment>(`/notes/${noteId}/attachments`, {

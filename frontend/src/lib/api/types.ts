@@ -51,7 +51,72 @@ export type TaskAttachment = {
 
 export type NoteKind = "note" | "diary" | "meeting" | "idea";
 
-export type Note = {
+export type MutationOrigin = "user" | "agent";
+
+export type AgentActionType =
+  | "create_task"
+  | "update_task"
+  | "complete_task"
+  | "add_note"
+  | "update_note"
+  | "checkin"
+  | "attach_file"
+  | "schedule_task"
+  | "revert_action"
+  | "revert_batch"
+  | string;
+
+export type AgentAction = {
+  id: UUID;
+  owner_id: UUID;
+  api_key_id: UUID | null;
+  action: AgentActionType;
+  entity_type: string;
+  entity_id: UUID | null;
+  payload_json: unknown;
+  before_json: Record<string, unknown> | null;
+  result_json: unknown;
+  reasoning: string;
+  source: string;
+  source_system: string | null;
+  batch_id: string | null;
+  reverted_at: string | null;
+  latency_ms: number | null;
+  created_at: string;
+};
+
+export type AgentActionList = {
+  items: AgentAction[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type AgentActionFilters = {
+  action?: string;
+  source?: string;
+  source_system?: string;
+  entity_type?: string;
+  entity_id?: UUID;
+  created_from?: string;
+  created_to?: string;
+  only_unreverted?: boolean;
+  page?: number;
+  page_size?: number;
+};
+
+export type RevertResult = {
+  reverted_action_ids: UUID[];
+};
+
+export type VersionedAuditFields = {
+  version: number;
+  created_by: MutationOrigin;
+  updated_by: MutationOrigin;
+  api_key_id: UUID | null;
+};
+
+export type Note = VersionedAuditFields & {
   id: UUID;
   owner_id: UUID;
   title: string;
@@ -275,7 +340,7 @@ export type VisionCreate = {
 
 export type VisionUpdate = Partial<VisionCreate>;
 
-export type Task = {
+export type Task = VersionedAuditFields & {
   id: UUID;
   owner_id: UUID;
   title: string;

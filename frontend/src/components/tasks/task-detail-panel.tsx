@@ -3,10 +3,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { X } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import type { Category, Context, Tag, Task, Vision } from "@/lib/api/types";
+import { ApiError } from "@/lib/api/client";
 import { useUpdateTask } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -31,13 +32,22 @@ type Values = z.infer<typeof schema>;
 
 export function TaskDetailPanel({ task, categories, contexts, tags, visions, onClose }: { task: Task | null; categories: Category[]; contexts: Context[]; tags: Tag[]; visions: Vision[]; onClose: () => void }) {
   const update = useUpdateTask();
+  const [conflict, setConflict] = useState<string | null>(null);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: emptyValues });
-  useEffect(() => { if (task) form.reset({ title: task.title, description: task.description ?? "", status: task.status, priority: task.priority, due_date: task.due_date, due_time: task.due_time, category_id: task.category_id, context_id: task.context_id, vision_id: task.vision_id, recurrence_rule: task.recurrence_rule, recurrence_mode: task.recurrence_mode, tag_ids: task.tags.map((tag) => tag.id) }); }, [task, form]);
+  useEffect(() => { if (task) { setConflict(null); form.reset({ title: task.title, description: task.description ?? "", status: task.status, priority: task.priority, due_date: task.due_date, due_time: task.due_time, category_id: task.category_id, context_id: task.context_id, vision_id: task.vision_id, recurrence_rule: task.recurrence_rule, recurrence_mode: task.recurrence_mode, tag_ids: task.tags.map((tag) => tag.id) }); } }, [task, form]);
   const open = Boolean(task);
   async function submit(values: Values) {
     if (!task) return;
-    await update.mutateAsync({ id: task.id, payload: { ...values, description: values.description || null, due_date: values.due_date || null, due_time: values.due_time || null, category_id: values.category_id || null, context_id: values.context_id || null, vision_id: values.vision_id || null, recurrence_rule: values.recurrence_rule || null, recurrence_mode: values.recurrence_rule ? values.recurrence_mode ?? "fixed" : null } });
-    onClose();
+    try {
+      await update.mutateAsync({ task, payload: { ...values, description: values.description || null, due_date: values.due_date || null, due_time: values.due_time || null, category_id: values.category_id || null, context_id: values.context_id || null, vision_id: values.vision_id || null, recurrence_rule: values.recurrence_rule || null, recurrence_mode: values.recurrence_rule ? values.recurrence_mode ?? "fixed" : null } });
+      onClose();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        setConflict("Záznam mezitím upravil web nebo agent. Načti aktuální stav a zkus změnu znovu.");
+        return;
+      }
+      throw error;
+    }
   }
   return (
     <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
@@ -49,6 +59,7 @@ export function TaskDetailPanel({ task, categories, contexts, tags, visions, onC
             <Dialog.Close asChild><Button variant="ghost" size="sm"><X size={18}/></Button></Dialog.Close>
           </div>
           <form className="grid gap-4" onSubmit={form.handleSubmit(submit)}>
+            {conflict ? <p className="rounded-[var(--radius-sm)] border border-[var(--warning)] bg-[var(--warning)]/10 p-3 text-sm text-[var(--warning)]">{conflict}</p> : null}
             <label className="grid gap-1 text-sm font-medium">Název<Input {...form.register("title")} /></label>
             <label className="grid gap-1 text-sm font-medium">Poznámka<Textarea {...form.register("description")} /></label>
             <div className="grid gap-3 sm:grid-cols-2">

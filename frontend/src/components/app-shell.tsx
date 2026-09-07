@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, CheckSquare, Flame, Inbox, LayoutDashboard, ListTodo, LogOut, Moon, Settings, Sparkles, Sun } from "lucide-react";
+import { BookOpen, Bot, CheckSquare, Flame, Inbox, LayoutDashboard, ListTodo, LogOut, Moon, Settings, Sparkles, Sun } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -20,6 +20,7 @@ const nav = [
   { href: "/challenges", label: "Návyky", icon: Flame },
   { href: "/diary", label: "Deník", icon: BookOpen },
   { href: "/visions", label: "Vize", icon: Sparkles },
+  { href: "/agent", label: "Agent", icon: Bot },
   { href: "/settings", label: "Nastavení", icon: Settings },
 ];
 

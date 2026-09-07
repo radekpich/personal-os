@@ -3,9 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type {
+  AgentActionFilters,
   ChallengeCreate,
   ChallengeUpdate,
   CheckInCreate,
+  Note,
   NoteCreate,
   NoteFilters,
   NoteUpdate,
@@ -19,6 +21,7 @@ import type {
 
 export const queryKeys = {
   me: ["me"] as const,
+  agentActions: (filters: AgentActionFilters = {}) => ["agent-actions", filters] as const,
   categories: ["categories"] as const,
   contexts: ["contexts"] as const,
   tags: ["tags"] as const,
@@ -42,6 +45,39 @@ export function useMe() {
   return useQuery({ queryKey: queryKeys.me, queryFn: api.me });
 }
 
+export function useAgentActions(filters: AgentActionFilters = {}) {
+  return useQuery({
+    queryKey: queryKeys.agentActions(filters),
+    queryFn: () => api.agentActions(filters),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useRevertAgentAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.revertAgentAction,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agent-actions"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
+  });
+}
+
+export function useRevertAgentActionBatch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.revertAgentActionBatch,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agent-actions"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
+  });
+}
+
 export function useTaxonomy() {
   const categories = useQuery({ queryKey: queryKeys.categories, queryFn: api.categories });
   const contexts = useQuery({ queryKey: queryKeys.contexts, queryFn: api.contexts });
@@ -50,7 +86,12 @@ export function useTaxonomy() {
 }
 
 export function useTasks(filters: TaskFilters = {}) {
-  return useQuery({ queryKey: queryKeys.tasks(filters), queryFn: () => api.tasks(filters) });
+  return useQuery({
+    queryKey: queryKeys.tasks(filters),
+    queryFn: () => api.tasks(filters),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
 }
 
 export function useQuickTask() {
@@ -72,7 +113,8 @@ export function useCreateTask() {
 export function useUpdateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: TaskUpdate }) => api.updateTask(id, payload),
+    mutationFn: ({ task, payload }: { task: Task; payload: TaskUpdate }) =>
+      api.updateTask(task.id, payload, task.version),
     onSuccess: (task) => {
       queryClient.setQueryData(queryKeys.task(task.id), task);
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -85,10 +127,14 @@ export function useToggleTaskDone() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ task, status }: { task: Task; status: TaskStatus }) =>
-      api.updateTask(task.id, {
-        status,
-        completed_at: status === "done" ? new Date().toISOString() : null,
-      }),
+      api.updateTask(
+        task.id,
+        {
+          status,
+          completed_at: status === "done" ? new Date().toISOString() : null,
+        },
+        task.version,
+      ),
     onMutate: async ({ task, status }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
       const snapshots = queryClient.getQueriesData<{ items: Task[]; total: number }>({ queryKey: ["tasks"] });
@@ -110,7 +156,10 @@ export function useToggleTaskDone() {
 
 export function useDeleteTask() {
   const queryClient = useQueryClient();
-  return useMutation({ mutationFn: api.deleteTask, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }) });
+  return useMutation({
+    mutationFn: (task: Task) => api.deleteTask(task.id, task.version),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+  });
 }
 
 function invalidateTaskAttachments(queryClient: ReturnType<typeof useQueryClient>, taskId: string) {
@@ -170,7 +219,12 @@ export function useStorageUsage() {
 }
 
 export function useNotes(filters: NoteFilters = {}) {
-  return useQuery({ queryKey: queryKeys.notes(filters), queryFn: () => api.notes(filters) });
+  return useQuery({
+    queryKey: queryKeys.notes(filters),
+    queryFn: () => api.notes(filters),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
 }
 
 export function useNote(id: string | null) {
@@ -196,7 +250,8 @@ export function useCreateNote() {
 export function useUpdateNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: NoteUpdate }) => api.updateNote(id, payload),
+    mutationFn: ({ note, payload }: { note: Note; payload: NoteUpdate }) =>
+      api.updateNote(note.id, payload, note.version),
     onSuccess: (note) => {
       queryClient.setQueryData(queryKeys.note(note.id), note);
       invalidateNotes(queryClient, note.id);
@@ -206,7 +261,10 @@ export function useUpdateNote() {
 
 export function useDeleteNote() {
   const queryClient = useQueryClient();
-  return useMutation({ mutationFn: api.deleteNote, onSuccess: () => invalidateNotes(queryClient) });
+  return useMutation({
+    mutationFn: (note: Note) => api.deleteNote(note.id, note.version),
+    onSuccess: () => invalidateNotes(queryClient),
+  });
 }
 
 export function useNoteAttachments(noteId: string | null) {

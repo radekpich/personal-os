@@ -1,3 +1,4 @@
+from app.models.agent_action import AgentAction, AgentActionType
 from app.models.api_key import ApiKey
 from app.models.attachment import (
     Attachment,
@@ -16,6 +17,8 @@ from app.models.user import User
 from app.models.vision import Vision, VisionHorizon, VisionStatus
 
 __all__ = [
+    "AgentAction",
+    "AgentActionType",
     "ApiKey",
     "Attachment",
     "AttachmentProcessingStatus",

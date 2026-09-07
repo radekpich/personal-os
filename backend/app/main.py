@@ -10,6 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from app.api.routes.agent_actions import router as agent_actions_router
 from app.api.routes.attachments import router as attachments_router
 from app.api.routes.attachments import storage_router, task_router
 from app.api.routes.auth import router as auth_router
@@ -27,6 +28,7 @@ from app.core.logging import configure_logging
 from app.core.middleware import CSRFCookieMiddleware, SecurityHeadersMiddleware
 from app.core.rate_limit import limiter
 from app.db.session import AsyncSessionLocal
+from app.services.agent_action_service import AgentActionAuditMiddleware
 from app.services.attachment_service import cleanup_deleted_and_orphaned_files
 
 configure_logging()
@@ -80,6 +82,7 @@ def rate_limit_exceeded_handler(request: Request, exc: Exception) -> Response:
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_middleware(AgentActionAuditMiddleware)
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CSRFCookieMiddleware)
@@ -92,6 +95,7 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(agent_actions_router)
 app.include_router(attachments_router)
 app.include_router(storage_router)
 app.include_router(task_router)

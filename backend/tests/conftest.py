@@ -43,6 +43,7 @@ async def _override_get_db() -> AsyncIterator[AsyncSession]:
 
 
 app.dependency_overrides[get_db] = _override_get_db
+app.state.agent_action_sessionmaker = TestSessionLocal
 
 
 @pytest.fixture(autouse=True)

@@ -208,7 +208,14 @@ async def _resolve_tags(db: AsyncSession, owner: User, tag_ids: list[uuid.UUID])
     return tags
 
 
-async def quick_create_task(db: AsyncSession, owner: User, title: str) -> Task:
+async def quick_create_task(
+    db: AsyncSession,
+    owner: User,
+    title: str,
+    *,
+    actor: MutationActor = MutationActor.USER,
+    api_key_id: uuid.UUID | None = None,
+) -> Task:
     title = title.strip()
     if not title:
         raise HTTPException(
@@ -221,6 +228,10 @@ async def quick_create_task(db: AsyncSession, owner: User, title: str) -> Task:
         title=title,
         status=TaskStatus.INBOX.value,
         priority=TaskPriority.NONE.value,
+        version=1,
+        created_by=actor.value,
+        updated_by=actor.value,
+        api_key_id=api_key_id,
     )
     db.add(task)
     await db.commit()

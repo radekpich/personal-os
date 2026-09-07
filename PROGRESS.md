@@ -1,8 +1,18 @@
 # PROGRESS.md — Personal OS
 
-## Aktuální fáze — Fáze 7: Agent bridge, API klíče a bezpečný obousměrný zápis
+## Aktuální fáze — Fáze 8A: Agent activity log a bezpečný revert
 
 ## Hotovo
+
+- [x] 2026-09-07 16:26 UTC — Fáze 8A / Část A — AgentAction audit, activity timeline a revert
+  - Přidán `AgentAction` model, schéma a Alembic migrace `b9e0f1a2c3d4_add_agent_action_audit_log.py` s payload/before/result snapshoty, reasoning, source/source_system, batch_id, latency a reverted_at.
+  - API-key mutace přes Tasks/Notes se automaticky logují middlewarem; mutace přes `X-API-Key` vyžadují `X-Agent-Reasoning` a podporují `X-Agent-Batch-Id`.
+  - Přidáno `/agent/actions` API: timeline, filtry action/source/source_system/entity/date/only_unreverted, single revert a batch revert s optimistic conflict ochranou.
+  - Přidána frontend stránka `/agent`: timeline, filtry, checkbox výběr, bulk revert, diff rozbalení před/po a conflict náhled.
+  - Agent badge v seznamech úkolů/poznámek odkazuje do filtrované Agent aktivity pro daný záznam; doplněno `AGENT.md` pravidlo pro reasoning/source/batch hlavičky.
+  - Ověření backend: `ruff check app tests`; `ruff format --check app tests`; `mypy --strict app tests`; `pytest -q` → 112 passed; čerstvý Alembic `upgrade head`.
+  - Ověření frontend: `npm run lint`; `npm run typecheck`; `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8018 npm run build`.
+  - Produkční E2E smoke: čerstvá SQLite DB, reálný API key přes CLI, živý FastAPI + `next start`, `npm run phase8a:smoke` → `ok: true`, task `758be7ed-290e-49cf-876b-ac1ba0666133`, screenshoty `/tmp/personal-os-phase8a-desktop.png` a `/tmp/personal-os-phase8a-mobile.png`.
 
 - [x] 2026-09-07 08:18 UTC — Fáze 7 / Krok 2 — Versioning, audit původu a konflikty
   - Přidána `version`, `created_by`, `updated_by`, `api_key_id` pole do `tasks` i `notes` v modelech, schématech a Alembic migraci.
