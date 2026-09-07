@@ -1,8 +1,15 @@
 # PROGRESS.md — Personal OS
 
-## Aktuální fáze — Fáze 6B: Poznámky, deník a média index
+## Aktuální fáze — Fáze 7: Agent bridge, API klíče a bezpečný obousměrný zápis
 
 ## Hotovo
+
+- [x] 2026-09-07 07:53 UTC — Fáze 7 / Krok 0 — Plán a baseline
+  - Zapsána Fáze 7 do `PLAN.md`: API klíče, oddělená strojová autentizace, scopes, optimistic locking přes `version`/`If-Match`, audit původu, fresh-edit guard, idempotence, agent endpointy, calendar loop guard, AGENT.md a volitelný MCP server.
+  - Ověřen čistý `main` po Fázi 6B: `git status --short --branch` → `## main...origin/main`.
+  - Založen pracovní checklist pro model API klíčů, concurrency/audit, agent endpointy, frontend polling/conflicts, dokumentaci a smoke.
+
+### Fáze 6B — Poznámky, deník a média index
 
 - [x] 2026-09-07 10:15 UTC — Fáze 6B / Krok 7 — Produkční E2E smoke Deníku
   - Doplněn `frontend/scripts/phase6b-smoke.mjs` a npm script `phase6b:smoke`.
@@ -241,11 +248,11 @@
 
 ## Rozpracováno
 
-- Nic — Fáze 6B je dokončená.
+- Fáze 7 / Krok 1 — ApiKey model, hashování, dependency a CLI přes TDD.
 
 ## Další krok
 
-Navázat Fází 6C: media index/automatické vazby fotek do deníku, případně rychlý capture z Telegram hlasovek do Notes/Diary. Fáze 6B má nyní i produkční E2E smoke regresní skript.
+Přidat RED testy pro API klíče: CLI create ukládá jen hash+prefix a vypíše plaintext jednou, `X-API-Key` auth funguje odděleně od cookie auth, revoked/expired/scopes se odmítají a `last_used_at` se aktualizuje.
 
 ## Poznámky
 

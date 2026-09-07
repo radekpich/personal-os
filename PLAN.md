@@ -1,5 +1,157 @@
 # PLAN.md — Personal OS
 
+## Fáze 7 — Agent bridge, API klíče a bezpečný obousměrný zápis
+
+Cíl: umožnit externímu AI agentovi na stejném serveru obousměrně pracovat s Personal OS bez vlastní AI vrstvy v aplikaci. Agent musí číst kontext/deník/úkoly, zakládat a upravovat záznamy přes strojovou autentizaci, respektovat ruční webové úpravy a nevytvářet kalendářovou smyčku.
+
+### Kritické principy
+
+- Aplikace nemá vlastního bota ani AI vrstvu; agent je samostatný klient API.
+- Lidské cookie auth a strojové `X-API-Key` auth jsou oddělené FastAPI dependencies.
+- Současný zápis člověk+agent se řeší datově: `version`, `If-Match`, audit původu a fresh-edit guard.
+- Všechny zápisové agent endpointy jsou idempotentní 24 hodin přes `idempotency_key`.
+- Kalendářový zápis z aplikace je pouze `.ics` feed; Google Calendar zápisy jsou věc agenta.
+- `.ics` feed musí nést `UID=personalos-{task_id}@{domain}` a `X-PERSONALOS-TASK-ID`, agent tyto události ignoruje.
+
+### Datový model
+
+`ApiKey`:
+
+- `id`, `owner_id`
+- `name`
+- `key_hash` — nikdy plain text
+- `key_prefix` — prvních 8 znaků pro zobrazení
+- `scopes` — seznam/JSON scope hodnot
+- `last_used_at`, `expires_at`, `revoked_at`, `created_at`
+
+Scopes:
+
+- `tasks:read`, `tasks:write`
+- `journal:read`, `journal:write`
+- `streaks:write`
+- `visions:read`
+- `attachments:write`
+- `calendar:read`
+
+Audit a concurrency na relevantních tabulkách:
+
+- `version` integer, default 1, inkrementace při každé změně
+- `created_by` enum/string `user | agent`
+- `updated_by` enum/string `user | agent`
+- `api_key_id` nullable FK na `api_keys.id`
+- task externí reference: `source_system`, `external_id`, `external_updated_at`
+- unikátní index nad `(owner_id, source_system, external_id)` pouze pro nenulové externí reference
+
+Relevantní tabulky pro Fázi 7 MVP: `tasks`, `notes`, `challenges/check_ins`, `attachments`.
+
+`IdempotencyKey`:
+
+- `owner_id`, `api_key_id`, `idempotency_key`, `scope`, `request_hash`, `response_body`, `status_code`, `created_at`, `expires_at`
+- unique `(api_key_id, idempotency_key)`
+- TTL 24 hodin; opakovaný stejný klíč vrací původní výsledek bez duplicity.
+
+### Konflikty a ochrana čerstvých úprav
+
+- `PATCH` a `DELETE` přes agenta i UI posílají `If-Match` s očekávanou verzí.
+- Při chybějícím/neshodném `If-Match` vrátit `409 Conflict` s jednotným payloadem:
+  - `code`, `message`, `field`, `current`
+- Když agent mění záznam, který člověk (`updated_by=user`) upravil v posledním konfigurovatelném intervalu, vrátit `409` s vysvětlením a aktuálním stavem.
+- Interval default 5 minut: `AGENT_FRESH_EDIT_GUARD_SECONDS=300`.
+
+### API klíče
+
+- Header `X-API-Key`.
+- Samostatná FastAPI dependency pro API klíče vedle cookie auth.
+- Vlastní rate limit oddělený od uživatelského: např. `RATE_LIMIT_API_KEY_DEFAULT`.
+- CLI:
+  - `python -m app.cli create-api-key --email ... --name ... --scopes ... [--expires-at ...]`
+  - `python -m app.cli revoke-api-key --prefix ...` nebo `--id ...`
+- Klíč zobrazit jen jednou při vytvoření.
+
+### Agent endpointy
+
+- `GET /agent/context` — kategorie, kontexty, aktivní vize, otevřené úkoly, aktuální datum, den v týdnu, timezone; s `ETag`.
+- `POST /agent/capture` — hlavní vstup pro `task | note | receipt | idea`; nikdy nezakládá nové kategorie ani kontexty z textu.
+- `POST /agent/complete` — dokončení podle ID nebo názvu; při více shodách vrátí kandidáty.
+- `POST /agent/checkin` — check-in výzvy.
+- `GET /agent/digest?scope=today|week` — kompaktní přehled: dnešní úkoly, po termínu, stav šňůr, stagnující vize.
+- `GET /agent/schedule?from=&to=` — úkoly s termínem pro porovnání s kalendářem.
+- `PATCH /agent/tasks/{id}/schedule` — agent posune/nastaví termín a čas přes version/If-Match.
+- `GET /journal/notes`, `GET /journal/search` — čtení deníku pro agenta.
+- `POST /attachments` a související upload auth doplnit o API key `attachments:write`.
+
+### Frontend
+
+- API typy nesou `version`, `created_by`, `updated_by`, `api_key_id`, externí reference.
+- Mutace posílají `If-Match` podle načtené verze.
+- React Query refetch:
+  - `refetchInterval: 30_000` na relevantních listech/detailu
+  - `refetchOnWindowFocus: true`
+- Nově přibylé položky vizuálně odlišit, zejména `created_by=agent` a/nebo itemy novější než poslední lokální snapshot.
+- Konflikt `409` zobrazit lidsky: „Mezitím upravil agent/uživatel, obnov a rozhodni.“
+
+### Dokumentace pro agenta
+
+- Doplnit OpenAPI popisy endpointů, polí, enumů, examples a jednotné strojové chyby.
+- Vygenerovat `AGENT.md` do rootu:
+  - dostupné akce
+  - curl ukázky
+  - API key auth
+  - idempotence
+  - `If-Match`/version konflikty
+  - pravidla pro kalendářovou smyčku: ignorovat `UID` prefix `personalos-` a `X-PERSONALOS-TASK-ID`
+
+### Volitelně MCP server
+
+Pokud to nebude velký zásah: `app/mcp/` za konfiguračním přepínačem, vystavit stejné operace jako tools interně přes service vrstvu, ne HTTP samo na sebe.
+
+### Kroky
+
+1. **Krok 0 — Plán a baseline**
+   - Zapsat Fázi 7 do `PLAN.md`/`PROGRESS.md`.
+   - Ověřit čistý `main` po Fázi 6B.
+   - Commit `faze-7/krok-0: plan agent bridge`.
+
+2. **Krok 1 — ApiKey model, hashování, dependency a CLI přes TDD**
+   - RED/GREEN testy: create key zobrazí plaintext jednou, DB ukládá hash+prefix, auth přes `X-API-Key`, revoked/expired odmítnuté, scopes enforced, `last_used_at`, oddělený rate limit config.
+   - Commit `faze-7/krok-1: api klice pro agenta`.
+
+3. **Krok 2 — Version/audit původu a konflikt helper přes TDD**
+   - Migrace `version`, `created_by`, `updated_by`, `api_key_id` na tasks/notes/challenges/check_ins/attachments podle MVP.
+   - RED/GREEN helpery: `If-Match` required for agent writes, mismatch 409 s current, fresh user edit guard.
+   - Commit `faze-7/krok-2: optimistic lock a audit puvodu`.
+
+4. **Krok 3 — Tasks/Notes services a UI posílají version**
+   - Upravit PATCH/DELETE tasků a notes pro `If-Match`, inkrementace verze, audit původu.
+   - Frontend typy/client/hooky posílají `If-Match`, konflikty zobrazují přehledně, polling 30 s + focus refetch, agent-created zvýraznění.
+   - Commit `faze-7/krok-3: soubezne upravy tasku a poznamek`.
+
+5. **Krok 4 — Agent context/capture/idempotence přes TDD**
+   - `IdempotencyKey` model a service.
+   - `GET /agent/context` s ETag.
+   - `POST /agent/capture` pro task/note/idea/receipt s inbox fallbackem, externí refs a DB unique pojistkou.
+   - Commit `faze-7/krok-4: agent context capture idempotence`.
+
+6. **Krok 5 — Agent complete/checkin/digest/schedule přes TDD**
+   - `POST /agent/complete`, `POST /agent/checkin`, `GET /agent/digest`, `GET /agent/schedule`, `PATCH /agent/tasks/{id}/schedule`.
+   - Nehádat při více shodách; vracet kandidáty.
+   - Commit `faze-7/krok-5: agent operace a schedule`.
+
+7. **Krok 6 — Calendar loop guard a AGENT.md**
+   - Upravit `.ics` UID/property.
+   - Doplnit `AGENT.md` s curl examples a pravidly ignorování vlastních eventů.
+   - Commit `faze-7/krok-6: agent dokumentace a calendar loop guard`.
+
+8. **Krok 7 — API key upload + OpenAPI examples**
+   - `POST /attachments` a nutné attachment endpointy podporují API key auth se scope `attachments:write`.
+   - Popisy/errors/examples v OpenAPI.
+   - Commit `faze-7/krok-7: openapi a attachment auth pro agenta`.
+
+9. **Krok 8 — Full gates, produkční E2E smoke a push**
+   - Backend full gates, frontend lint/typecheck/build.
+   - Produkční smoke: API key create přes CLI, agent context/capture/duplicate idempotency, UI polling/focus, If-Match conflict, calendar ICS UID/property.
+   - Commit a push.
+
 ## Fáze 6B — Poznámky, deník a média index
 
 Cíl: navázat na univerzální subsystém příloh a přidat první osobní knowledge/diary vrstvu. Notes/diary mají být jednoduché na každodenní zápis, propojené s úkoly, kategoriemi, vizemi a přílohami. Zároveň se připraví media index pro budoucí automatické párování fotek/videí s deníkovými záznamy a cíli.
