@@ -1,3 +1,4 @@
+from app.models.api_key import ApiKey
 from app.models.attachment import (
     Attachment,
     AttachmentProcessingStatus,
@@ -15,6 +16,7 @@ from app.models.user import User
 from app.models.vision import Vision, VisionHorizon, VisionStatus
 
 __all__ = [
+    "ApiKey",
     "Attachment",
     "AttachmentProcessingStatus",
     "Category",

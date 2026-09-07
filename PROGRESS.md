@@ -4,6 +4,15 @@
 
 ## Hotovo
 
+- [x] 2026-09-07 07:56 UTC — Fáze 7 / Krok 1 — API klíče pro stroje
+  - Přidán `ApiKey` model a Alembic migrace `api_keys`: `owner_id`, `name`, `key_hash`, `key_prefix`, `scopes`, `last_used_at`, `expires_at`, `revoked_at`, `created_at`.
+  - Klíč se generuje jako plaintext jen při vytvoření (`pos_...`), do DB jde jen SHA-256 hash a zobrazovací prefix.
+  - Přidána samostatná `X-API-Key` FastAPI dependency oddělená od cookie auth: `get_current_api_key`, `require_api_key_scope`.
+  - Přidáno ověření revokace, expirace, scopes a aktualizace `last_used_at`.
+  - Přidán config `RATE_LIMIT_API_KEY_DEFAULT` jako samostatný limit pro machine klienty.
+  - Přidán CLI příkaz `create-api-key` a `revoke-api-key`.
+  - TDD ověření: `pytest tests/test_api_keys.py -q` → 4 passed; `ruff check`, `ruff format --check`, `mypy --strict`; Alembic `upgrade head` na čerstvé DB.
+
 - [x] 2026-09-07 07:53 UTC — Fáze 7 / Krok 0 — Plán a baseline
   - Zapsána Fáze 7 do `PLAN.md`: API klíče, oddělená strojová autentizace, scopes, optimistic locking přes `version`/`If-Match`, audit původu, fresh-edit guard, idempotence, agent endpointy, calendar loop guard, AGENT.md a volitelný MCP server.
   - Ověřen čistý `main` po Fázi 6B: `git status --short --branch` → `## main...origin/main`.
@@ -248,11 +257,11 @@
 
 ## Rozpracováno
 
-- Fáze 7 / Krok 1 — ApiKey model, hashování, dependency a CLI přes TDD.
+- Fáze 7 / Krok 2 — `version`, audit původu a konflikt helper přes TDD.
 
 ## Další krok
 
-Přidat RED testy pro API klíče: CLI create ukládá jen hash+prefix a vypíše plaintext jednou, `X-API-Key` auth funguje odděleně od cookie auth, revoked/expired/scopes se odmítají a `last_used_at` se aktualizuje.
+Přidat RED testy pro optimistické zamykání: `If-Match` povinné u PATCH/DELETE, version increment, 409 s aktuálním stavem při neshodě a 409 při agent změně čerstvě člověkem upraveného záznamu.
 
 ## Poznámky
 

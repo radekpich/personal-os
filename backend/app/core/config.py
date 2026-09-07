@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     rate_limit_login: str
     rate_limit_default: str
+    rate_limit_api_key_default: str = "120/minute"
 
     environment: str
 
