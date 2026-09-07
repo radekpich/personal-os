@@ -4,6 +4,13 @@
 
 ## Hotovo
 
+- [x] 2026-09-07 10:15 UTC — Fáze 6B / Krok 7 — Produkční E2E smoke Deníku
+  - Doplněn `frontend/scripts/phase6b-smoke.mjs` a npm script `phase6b:smoke`.
+  - Smoke běží přes Playwright proti reálnému loginu a `/diary`: vytvoří dnešní diary note, ověří persistenci po navigaci, nahraje PNG přílohu, ověří attachment grid/lightbox/download URL a odpojí přílohu.
+  - Mobile smoke ověřuje `/diary` a viditelnost bottom nav.
+  - Reálný smoke výstup: `ok: true`, `diaryTitle=Smoke deník 1788766468504`, screenshoty `/tmp/personal-os-phase6b-desktop.png` a `/tmp/personal-os-phase6b-mobile.png`.
+  - Ověřeno: čerstvá SQLite DB + Alembic `head`, seed user, živý FastAPI backend, `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:53961 npm run build`, `next start`, `npm run phase6b:smoke`, `npm run lint`, `npm run typecheck`.
+
 - [x] 2026-09-06 19:02 UTC — Fáze 6B / Krok 6 — Full-stack gates a dokončení
   - Backend full gate: `pytest -q` → 98 passed; `ruff check app tests`; `ruff format --check app tests`; `mypy --strict app tests` zelené.
   - Frontend full gate: `npm run lint`; `npm run typecheck`; `npm run build` zelené, `/diary` zahrnuto v produkčním buildu.
@@ -238,7 +245,7 @@
 
 ## Další krok
 
-Navázat Fází 6C: media index/automatické vazby fotek do deníku, případně rychlý capture z Telegram hlasovek do Notes/Diary.
+Navázat Fází 6C: media index/automatické vazby fotek do deníku, případně rychlý capture z Telegram hlasovek do Notes/Diary. Fáze 6B má nyní i produkční E2E smoke regresní skript.
 
 ## Poznámky
 

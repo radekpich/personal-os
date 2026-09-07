@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "phase3:smoke": "node scripts/phase3-smoke.mjs",
     "phase4:smoke": "node scripts/phase4-smoke.mjs",
-    "phase5:smoke": "node scripts/phase5-smoke.mjs"
+    "phase5:smoke": "node scripts/phase5-smoke.mjs",
+    "phase6b:smoke": "node scripts/phase6b-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
