@@ -11,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.routes.agent_actions import router as agent_actions_router
+from app.api.routes.agent_registry import router as agent_registry_router
 from app.api.routes.attachments import router as attachments_router
 from app.api.routes.attachments import storage_router, task_router
 from app.api.routes.auth import router as auth_router
@@ -29,6 +30,7 @@ from app.core.middleware import CSRFCookieMiddleware, SecurityHeadersMiddleware
 from app.core.rate_limit import limiter
 from app.db.session import AsyncSessionLocal
 from app.services.agent_action_service import AgentActionAuditMiddleware
+from app.services.agent_registry_service import aggregate_old_agent_runs
 from app.services.attachment_service import cleanup_deleted_and_orphaned_files
 
 configure_logging()
@@ -43,6 +45,12 @@ async def run_attachment_cleanup() -> None:
     logger.info("attachment cleanup finished", extra=result)
 
 
+async def run_agent_run_retention() -> None:
+    async with AsyncSessionLocal() as session:
+        result = await aggregate_old_agent_runs(session, retention_days=90)
+    logger.info("agent run retention finished", extra=result)
+
+
 def start_scheduler() -> None:
     if settings.environment == "test" or scheduler.running:
         return
@@ -52,6 +60,13 @@ def start_scheduler() -> None:
         hour=3,
         minute=20,
         id="attachment_cleanup",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        run_agent_run_retention,
+        trigger="cron",
+        minute=17,
+        id="agent_run_retention",
         replace_existing=True,
     )
     scheduler.start()
@@ -95,6 +110,7 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(agent_registry_router)
 app.include_router(agent_actions_router)
 app.include_router(attachments_router)
 app.include_router(storage_router)

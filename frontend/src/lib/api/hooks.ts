@@ -22,6 +22,14 @@ import type {
 export const queryKeys = {
   me: ["me"] as const,
   agentActions: (filters: AgentActionFilters = {}) => ["agent-actions", filters] as const,
+  agentOverview: ["agent-overview"] as const,
+  agentJobs: ["agent-jobs"] as const,
+  agentIntegrations: ["agent-integrations"] as const,
+  agentWatches: ["agent-watches"] as const,
+  agentChannels: ["agent-channels"] as const,
+  agentRuns: (filters: { job_id?: string; trigger?: string; status?: string; q?: string; page?: number; page_size?: number } = {}) => ["agent-runs", filters] as const,
+  agentConfigChanges: (filters: { acknowledged?: boolean } = {}) => ["agent-config-changes", filters] as const,
+  agentKeys: ["agent-keys"] as const,
   categories: ["categories"] as const,
   contexts: ["contexts"] as const,
   tags: ["tags"] as const,
@@ -51,6 +59,57 @@ export function useAgentActions(filters: AgentActionFilters = {}) {
     queryFn: () => api.agentActions(filters),
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
+  });
+}
+
+export function useAgentOverview() {
+  return useQuery({ queryKey: queryKeys.agentOverview, queryFn: api.agentOverview, refetchInterval: 30_000 });
+}
+
+export function useAgentJobs() {
+  return useQuery({ queryKey: queryKeys.agentJobs, queryFn: api.agentJobs, refetchInterval: 30_000 });
+}
+
+export function useAgentIntegrations() {
+  return useQuery({ queryKey: queryKeys.agentIntegrations, queryFn: api.agentIntegrations, refetchInterval: 30_000 });
+}
+
+export function useAgentWatches() {
+  return useQuery({ queryKey: queryKeys.agentWatches, queryFn: api.agentWatches, refetchInterval: 30_000 });
+}
+
+export function useAgentChannels() {
+  return useQuery({ queryKey: queryKeys.agentChannels, queryFn: api.agentChannels, refetchInterval: 30_000 });
+}
+
+export function useAgentRuns(filters: { job_id?: string; trigger?: string; status?: string; q?: string; page?: number; page_size?: number } = {}) {
+  return useQuery({ queryKey: queryKeys.agentRuns(filters), queryFn: () => api.agentRuns(filters), refetchInterval: 30_000 });
+}
+
+export function useAgentConfigChanges(filters: { acknowledged?: boolean } = {}) {
+  return useQuery({ queryKey: queryKeys.agentConfigChanges(filters), queryFn: () => api.agentConfigChanges(filters), refetchInterval: 30_000 });
+}
+
+export function useAgentKeys() {
+  return useQuery({ queryKey: queryKeys.agentKeys, queryFn: api.agentKeys, refetchInterval: 30_000 });
+}
+
+export function useAcknowledgeAgentConfigChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.acknowledgeAgentConfigChange,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agent-config-changes"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agentOverview });
+    },
+  });
+}
+
+export function useRevokeAllAgentKeys() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.revokeAllAgentKeys,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agent-keys"] }),
   });
 }
 

@@ -109,6 +109,130 @@ export type RevertResult = {
   reverted_action_ids: UUID[];
 };
 
+export type AgentInstance = {
+  id: UUID;
+  name: string;
+  version: string | null;
+  host: string;
+  started_at: string | null;
+  last_heartbeat_at: string | null;
+  status: "running" | "stale" | "unknown" | string;
+  last_error: string | null;
+  config_hash: string | null;
+};
+
+export type AgentOverview = {
+  agent: AgentInstance | null;
+  active_job_count: number;
+  active_integration_count: number;
+  run_count_24h: number;
+  cost_estimate_month: number;
+  unacknowledged_change_count: number;
+  warnings: string[];
+};
+
+export type AgentJob = {
+  id: UUID;
+  agent_id: UUID;
+  name: string;
+  description: string | null;
+  schedule: string | null;
+  schedule_description: string | null;
+  is_enabled: boolean;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  last_status: string | null;
+  last_duration_ms: number | null;
+  consecutive_failures: number;
+  run_count: number;
+  tags: string[];
+};
+
+export type AgentIntegration = {
+  id: UUID;
+  agent_id: UUID;
+  name: string;
+  kind: string;
+  scopes: string[];
+  status: string;
+  last_used_at: string | null;
+  error_count: number;
+  added_at: string;
+  notes: string | null;
+};
+
+export type AgentWatch = {
+  id: UUID;
+  agent_id: UUID;
+  name: string;
+  description: string | null;
+  kind: string;
+  config_json: Record<string, unknown>;
+  schedule: string | null;
+  is_active: boolean;
+  last_checked_at: string | null;
+  last_triggered_at: string | null;
+  trigger_count: number;
+  last_result: string | null;
+};
+
+export type AgentChannel = {
+  id: UUID;
+  agent_id: UUID;
+  channel_type: string;
+  identifier: string;
+  is_active: boolean;
+  last_message_at: string | null;
+  message_count_24h: number;
+  message_count_month: number;
+};
+
+export type AgentRun = {
+  id: UUID;
+  agent_id: UUID;
+  job_id: UUID | null;
+  trigger: string;
+  summary: string;
+  detail: string | null;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number | null;
+  tokens_used: number | null;
+  cost_estimate: number | null;
+  error: string | null;
+  tags: string[];
+};
+
+export type AgentConfigChange = {
+  id: UUID;
+  agent_id: UUID;
+  timestamp: string;
+  change_type: string;
+  target_type: string;
+  target_name: string;
+  diff_json: Record<string, unknown>;
+  acknowledged_at: string | null;
+};
+
+export type AgentKey = {
+  id: UUID;
+  name: string;
+  key_prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+};
+
+export type AgentList<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
 export type VersionedAuditFields = {
   version: number;
   created_by: MutationOrigin;

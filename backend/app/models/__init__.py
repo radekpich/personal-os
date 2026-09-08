@@ -1,4 +1,15 @@
 from app.models.agent_action import AgentAction, AgentActionType
+from app.models.agent_registry import (
+    AgentCapability,
+    AgentChannel,
+    AgentConfigChange,
+    AgentInstance,
+    AgentIntegration,
+    AgentJob,
+    AgentRun,
+    AgentRunDailySummary,
+    AgentWatch,
+)
 from app.models.api_key import ApiKey
 from app.models.attachment import (
     Attachment,
@@ -19,6 +30,15 @@ from app.models.vision import Vision, VisionHorizon, VisionStatus
 __all__ = [
     "AgentAction",
     "AgentActionType",
+    "AgentCapability",
+    "AgentChannel",
+    "AgentConfigChange",
+    "AgentInstance",
+    "AgentIntegration",
+    "AgentJob",
+    "AgentRun",
+    "AgentRunDailySummary",
+    "AgentWatch",
     "ApiKey",
     "Attachment",
     "AttachmentProcessingStatus",

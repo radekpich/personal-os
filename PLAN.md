@@ -1,5 +1,107 @@
 # PLAN.md — Personal OS
 
+## Fáze 8 — Agent observability a kontrolní panel
+
+Cíl: mít v aplikaci jedno read-only místo pro kompletní nastavení a provoz Hermese: kam má přístup, jaké má úlohy, co hlídá, přes jaké kanály komunikuje a co dělal i mimo úkolovník. Aplikace Hermese nespouští ani neřídí; agent sám reportuje snapshoty a běhy. Jediná výjimka je nouzové odebrání agentních API klíčů.
+
+### Část A — AgentAction audit a revert
+
+Dokončeno: viz `PROGRESS.md`. Týká se mutací aplikačních dat přes API key a drží se odděleně od provozní observability.
+
+### Část B — Hermes registry a provozní přehled
+
+#### Kritické principy
+
+- Data jsou oddělená od Aktivity z části A; sdílí jen menu sekci Agent.
+- Aplikace nic nespouští ani neřídí, pouze přijímá reporty a zobrazuje read-only přehled.
+- Zápisové reporting endpointy vyžadují API key scope `agent:report`.
+- Čtení jde přes běžné přihlášení.
+- Nikdy neukládat tokeny, klíče ani hesla; pouze název, typ, rozsah a stav přístupu.
+- Registry sync je kompletní snapshot a nahrazuje předchozí stav daného agenta.
+- `snapshot_hash` je idempotency klíč. Odlišný hash generuje `AgentConfigChange` diff proti předchozí verzi.
+- Nepotvrzené nové integrace/úlohy musí být vidět výrazně jako bezpečnostní signál.
+- Volitelné čtení config adresáře z disku je za .env přepínačem, read-only; mismatch se snapshotem se zobrazí jako výstraha.
+
+#### Datový model
+
+- `AgentInstance`: name, version, host, started_at, last_heartbeat_at, status, last_error, config_hash.
+- `AgentJob`: name, description, schedule, schedule_description, is_enabled, last_run_at, next_run_at, last_status, last_duration_ms, consecutive_failures, run_count, tags.
+- `AgentIntegration`: name, kind, scopes, status, last_used_at, error_count, added_at, notes.
+- `AgentWatch`: name, description, kind, config_json, schedule, is_active, last_checked_at, last_triggered_at, trigger_count, last_result.
+- `AgentChannel`: channel_type, identifier, is_active, last_message_at, message_count_24h, message_count_month.
+- `AgentCapability`: name, description, is_enabled, metadata_json.
+- `AgentRun`: agent_id, job_id, trigger, summary, detail, status, started_at, finished_at, duration_ms, tokens_used, cost_estimate, error, tags.
+- `AgentConfigChange`: timestamp, change_type, target_type, target_name, diff_json, acknowledged_at.
+- `AgentRunDailySummary`: denní agregace starých běhů po retention cleanupu.
+
+#### Endpointy
+
+Reporting pod `agent:report`:
+
+- `POST /agent/heartbeat`
+- `POST /agent/registry/sync`
+- `POST /agent/runs` — přijímá single i batch payload.
+- `POST /agent/watches/{id}/report`
+
+Uživatelské:
+
+- `GET /agent/overview`
+- `GET /agent/jobs`
+- `GET /agent/integrations`
+- `GET /agent/watches`
+- `GET /agent/channels`
+- `GET /agent/runs`
+- `GET /agent/config-changes`
+- `POST /agent/config-changes/{id}/acknowledge`
+- `GET /agent/keys`
+- `POST /agent/keys/revoke-all` — nouzově zneplatní všechny agentní klíče okamžitě.
+
+#### Hlídání samotného agenta
+
+Aplikace vyhodnocuje sama:
+
+- Heartbeat nedorazil déle než konfigurovaný interval → `stale` a varování.
+- Úloha nespustila v očekávaném čase podle `next_run_at`.
+- Úloha selhala vícekrát za sebou.
+- Integrace je `error` nebo `expired`.
+- Nová integrace nebo úloha není potvrzená v `AgentConfigChange`.
+
+#### Frontend obrazovka
+
+Sekce Agent má záložky:
+
+- Aktivita — existující část A.
+- Přehled — stav běží/neběží, poslední heartbeat, aktivní úlohy/integrace, běhy za 24 h, měsíční spotřeba, pruh nepotvrzených změn.
+- Úlohy — tabulka se schedule, posledním/příštím během, stavem, úspěšností, filtr na chybující a proklik do historie úlohy.
+- Přístupy — karty podle typu, scopes, stav, poslední použití, vizuálně odlišit zápisové scopes a nové položky.
+- Hlídání — watches a poslední výsledek.
+- Historie — časová osa běhů s filtrem job/trigger/status/date/q a rychlým stránkováním.
+- Změny — diff a potvrzení.
+- Klíče — prefix, scopes, poslední použití, revokace; nouzový vypínač oddělený potvrzovacím dialogem.
+
+#### Retence
+
+Přidat service/job funkci, která `AgentRun` starší než 90 dní agreguje do denních souhrnů a maže detail. Spouštění každou hodinu může zůstat jako interní callable/CLI připravená pro scheduler.
+
+#### Kroky
+
+1. **Krok 0 — Plán a baseline**
+   - Zapsat Fázi 8B do `PLAN.md`/`PROGRESS.md`, ověřit čistý `main`.
+2. **Krok 1 — Modely a migrace přes TDD**
+   - RED/GREEN pro všechny nové tabulky, enumy, FK a unikátní identitu snapshot prvků.
+3. **Krok 2 — Registry sync + diff přes TDD**
+   - Idempotentní hash, replace snapshot, diff změn, heartbeat update, stale výpočet.
+4. **Krok 3 — Runs/watch reporting + retence přes TDD**
+   - Batch `/agent/runs`, watch report, daily aggregation cleanup.
+5. **Krok 4 — Read API + emergency revoke-all přes TDD**
+   - Overview, listy, filtry, acknowledge, keys view/revoke all.
+6. **Krok 5 — Frontend registry panel**
+   - Tabs a všechny read-only přehledy, emergency confirm dialog.
+7. **Krok 6 — AGENT.md reporting kontrakt**
+   - Curl ukázky, kdy posílat heartbeat/sync/runs/watch report, žádné secrety.
+8. **Krok 7 — Full gates, produkční E2E smoke a push**
+   - Backend/frontend gates, Playwright smoke registry/runs/changes/keys/revoke-all.
+
 ## Fáze 7 — Agent bridge, API klíče a bezpečný obousměrný zápis
 
 Cíl: umožnit externímu AI agentovi na stejném serveru obousměrně pracovat s Personal OS bez vlastní AI vrstvy v aplikaci. Agent musí číst kontext/deník/úkoly, zakládat a upravovat záznamy přes strojovou autentizaci, respektovat ruční webové úpravy a nevytvářet kalendářovou smyčku.

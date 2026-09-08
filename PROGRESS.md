@@ -1,8 +1,21 @@
 # PROGRESS.md — Personal OS
 
-## Aktuální fáze — Fáze 8A: Agent activity log a bezpečný revert
+## Aktuální fáze — Fáze 8B: Hermes registry a provozní přehled
 
 ## Hotovo
+
+- [x] 2026-09-08 06:17 UTC — Fáze 8B / Krok 7 — Full-stack gates, production smoke a dokončení
+  - Backend registry hotovo: modely/migrace `c1d2e3f4a5b6_add_agent_registry_observability_tables.py`, reporting endpointy `/agent/registry/sync`, `/agent/runs`, read API `/agent/overview`, `/agent/jobs`, `/agent/integrations`, `/agent/watches`, `/agent/channels`, `/agent/config-changes`, `/agent/keys`, emergency `/agent/keys/revoke-all`.
+  - Frontend `/agent` rozšířen na záložky Aktivita / Přehled / Úlohy / Přístupy / Hlídání / Historie / Změny / Klíče; původní 8A activity timeline zůstává zachovaná jako samostatná záložka.
+  - `AGENT.md` doplněn o reporting kontrakt pro Hermes agenta včetně curl ukázek, rozsahu `agent:report`, snapshot idempotence a pravidla „neukládat plaintext tokeny do registry“.
+  - Backend full gate: `ruff check app tests`; `ruff format --check app tests`; `mypy --strict app tests`; `pytest -q` → 118 passed.
+  - Frontend full gate: `npm run lint`; `npm run typecheck`; `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8028 npm run build` → production build OK.
+  - Produkční E2E smoke: čerstvá SQLite DB, Alembic `head`, seed user, reálný `phase8b-report` API key, živý FastAPI `:8028` + `next start :3028`, `npm run phase8b:smoke` → `ok: true`, snapshot `phase8b-smoke-1788848063688`, ověřen registry sync/idempotence, run history, UI záložky, confirm změny, revoke-all a následné `401` pro revokovaný report key; screenshoty `/tmp/personal-os-phase8b-desktop.png` a `/tmp/personal-os-phase8b-mobile.png`.
+
+- [x] 2026-09-07 — Fáze 8B / Krok 0 — Plán a baseline
+  - Zapsána Fáze 8B do `PLAN.md`: read-only Hermes registry, reporting endpointy, snapshot diff, runs/history, watches, keys emergency revoke-all, frontend záložky a retention cleanup.
+  - Ověřen čistý `main`: `git status --short --branch` → `## main...origin/main`.
+  - Založen pracovní checklist pro modely, registry sync, run reporting, read API, frontend, AGENT.md a produkční smoke.
 
 - [x] 2026-09-07 16:26 UTC — Fáze 8A / Část A — AgentAction audit, activity timeline a revert
   - Přidán `AgentAction` model, schéma a Alembic migrace `b9e0f1a2c3d4_add_agent_action_audit_log.py` s payload/before/result snapshoty, reasoning, source/source_system, batch_id, latency a reverted_at.
