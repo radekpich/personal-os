@@ -249,6 +249,18 @@ def _active_days_in_range(start: date, end: date, pauses: list[ChallengePause]) 
     return total
 
 
+def _active_days_for_window(
+    challenge: Challenge,
+    pauses: list[ChallengePause],
+    today: date,
+    days: int,
+    owner: User,
+) -> int:
+    started_date = challenge.started_at.astimezone(_user_zone(owner)).date()
+    start = max(today - timedelta(days=days - 1), started_date)
+    return _active_days_in_range(start, today, pauses)
+
+
 def _success_rate(
     challenge: Challenge,
     check_ins: list[CheckIn],
@@ -290,12 +302,16 @@ async def get_stats(db: AsyncSession, owner: User, challenge_id: uuid.UUID) -> C
     check_ins = list(result.scalars().all())
     pauses = await _challenge_pauses(db, owner, challenge)
     today = _today_for_user(owner)
+    active_days_30 = _active_days_for_window(challenge, pauses, today, 30, owner)
+    active_days_90 = _active_days_for_window(challenge, pauses, today, 90, owner)
     return ChallengeStats(
         current_streak=challenge.current_streak,
         longest_streak=challenge.longest_streak,
         total_count=len(check_ins),
         success_rate_30=_success_rate(challenge, check_ins, pauses, today, 30, owner),
         success_rate_90=_success_rate(challenge, check_ins, pauses, today, 90, owner),
+        active_days_30=active_days_30,
+        active_days_90=active_days_90,
     )
 
 

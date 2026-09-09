@@ -45,7 +45,8 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(params.toString());
     if (!value || value === "all") next.delete(key); else next.set(key, value);
-    router.push(`/tasks?${next.toString()}`);
+    const query = next.toString();
+    router.push(query ? `/tasks?${query}` : "/tasks");
   }
 
   const selectedFromUrl = params.get("selected");
@@ -65,7 +66,7 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
           <li>Klik na kolečko úkol optimisticky dokončí.</li>
         </ul>
       </aside>
-      <TaskDetailPanel task={activeSelected} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} onClose={() => { setSelected(null); if (selectedFromUrl) router.push('/tasks'); }} />
+      <TaskDetailPanel task={activeSelected} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} onClose={() => { setSelected(null); if (selectedFromUrl) { const next = new URLSearchParams(params.toString()); next.delete("selected"); const query = next.toString(); router.push(query ? `/tasks?${query}` : "/tasks"); } }} />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import type {
   NoteCreate,
   NoteFilters,
   NoteUpdate,
+  Tag,
   Task,
   TaskFilters,
   TaskStatus,
@@ -142,6 +143,19 @@ export function useTaxonomy() {
   const contexts = useQuery({ queryKey: queryKeys.contexts, queryFn: api.contexts });
   const tags = useQuery({ queryKey: queryKeys.tags, queryFn: api.tags });
   return { categories, contexts, tags };
+}
+
+export function useCreateTag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { name: string }) => api.createTag(payload),
+    onSuccess: (tag: Tag) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tags });
+      queryClient.setQueryData(queryKeys.tags, (current: { items: Tag[] } | undefined) =>
+        current ? { ...current, items: [...current.items.filter((item) => item.id !== tag.id), tag] } : current,
+      );
+    },
+  });
 }
 
 export function useTasks(filters: TaskFilters = {}) {

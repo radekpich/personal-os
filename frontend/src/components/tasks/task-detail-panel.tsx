@@ -2,13 +2,13 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Plus, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import type { Category, Context, Tag, Task, Vision } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/client";
-import { useUpdateTask } from "@/lib/api/hooks";
+import { useCreateTag, useUpdateTask } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { AttachmentGrid } from "@/components/attachments/attachment-grid";
@@ -32,10 +32,42 @@ type Values = z.infer<typeof schema>;
 
 export function TaskDetailPanel({ task, categories, contexts, tags, visions, onClose }: { task: Task | null; categories: Category[]; contexts: Context[]; tags: Tag[]; visions: Vision[]; onClose: () => void }) {
   const update = useUpdateTask();
+  const createTag = useCreateTag();
   const [conflict, setConflict] = useState<string | null>(null);
+  const [tagName, setTagName] = useState("");
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: emptyValues });
-  useEffect(() => { if (task) { setConflict(null); form.reset({ title: task.title, description: task.description ?? "", status: task.status, priority: task.priority, due_date: task.due_date, due_time: task.due_time, category_id: task.category_id, context_id: task.context_id, vision_id: task.vision_id, recurrence_rule: task.recurrence_rule, recurrence_mode: task.recurrence_mode, tag_ids: task.tags.map((tag) => tag.id) }); } }, [task, form]);
+  const watchedTagIds = form.watch("tag_ids");
+  const selectedTagIds = useMemo(() => watchedTagIds ?? [], [watchedTagIds]);
+  const selectedTags = useMemo(() => selectedTagIds.map((id) => tags.find((tag) => tag.id === id)).filter(Boolean) as Tag[], [selectedTagIds, tags]);
+  const availableTags = tags.filter((tag) => !selectedTagIds.includes(tag.id));
+
+  useEffect(() => {
+    if (task) {
+      setConflict(null);
+      setTagName("");
+      form.reset({ title: task.title, description: task.description ?? "", status: task.status, priority: task.priority, due_date: task.due_date, due_time: task.due_time, category_id: task.category_id, context_id: task.context_id, vision_id: task.vision_id, recurrence_rule: task.recurrence_rule, recurrence_mode: task.recurrence_mode, tag_ids: task.tags.map((tag) => tag.id) });
+    }
+  }, [task, form]);
+
   const open = Boolean(task);
+
+  function addTagId(id: string) {
+    if (!selectedTagIds.includes(id)) form.setValue("tag_ids", [...selectedTagIds, id], { shouldDirty: true, shouldValidate: true });
+  }
+
+  function removeTagId(id: string) {
+    form.setValue("tag_ids", selectedTagIds.filter((tagId) => tagId !== id), { shouldDirty: true, shouldValidate: true });
+  }
+
+  async function createAndAddTag() {
+    const name = tagName.trim().replace(/^#/, "");
+    if (!name) return;
+    const existing = tags.find((tag) => tag.name.toLocaleLowerCase("cs-CZ") === name.toLocaleLowerCase("cs-CZ"));
+    const tag = existing ?? await createTag.mutateAsync({ name });
+    addTagId(tag.id);
+    setTagName("");
+  }
+
   async function submit(values: Values) {
     if (!task) return;
     try {
@@ -49,16 +81,17 @@ export function TaskDetailPanel({ task, categories, contexts, tags, visions, onC
       throw error;
     }
   }
+
   return (
     <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/25" />
-        <Dialog.Content className="fixed right-0 top-0 z-50 h-dvh w-full max-w-xl overflow-y-auto border-l border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl sm:p-7">
-          <div className="mb-6 flex items-start justify-between gap-4">
-            <div><Dialog.Title className="text-xl font-semibold">Detail úkolu</Dialog.Title><Dialog.Description className="text-sm text-[var(--muted)]">Uprav bez odchodu ze seznamu.</Dialog.Description></div>
+        <Dialog.Content className="fixed right-0 top-0 z-50 h-dvh w-full max-w-xl overflow-y-auto border-l border-[var(--border)] bg-[var(--surface)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:p-7">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div><Dialog.Title className="text-lg font-semibold sm:text-xl">Detail úkolu</Dialog.Title><Dialog.Description className="text-sm text-[var(--muted)]">Uprav bez odchodu ze seznamu.</Dialog.Description></div>
             <Dialog.Close asChild><Button variant="ghost" size="sm"><X size={18}/></Button></Dialog.Close>
           </div>
-          <form className="grid gap-4" onSubmit={form.handleSubmit(submit)}>
+          <form className="grid gap-3 sm:gap-4" onSubmit={form.handleSubmit(submit)}>
             {conflict ? <p className="rounded-[var(--radius-sm)] border border-[var(--warning)] bg-[var(--warning)]/10 p-3 text-sm text-[var(--warning)]">{conflict}</p> : null}
             <label className="grid gap-1 text-sm font-medium">Název<Input {...form.register("title")} /></label>
             <label className="grid gap-1 text-sm font-medium">Poznámka<Textarea {...form.register("description")} /></label>
@@ -73,7 +106,21 @@ export function TaskDetailPanel({ task, categories, contexts, tags, visions, onC
             </div>
             <label className="grid gap-1 text-sm font-medium">RRULE opakování<Input placeholder="FREQ=WEEKLY;BYDAY=MO" {...form.register("recurrence_rule")} /></label>
             <Select label="Typ opakování" {...form.register("recurrence_mode")}><option value="">Bez opakování</option><option value="fixed">Pevný rytmus</option><option value="after_completion">Po dokončení</option></Select>
-            <div className="grid gap-2"><p className="text-sm font-medium">Tagy</p><div className="flex flex-wrap gap-2">{tags.map((tag) => <label key={tag.id} className="flex items-center gap-2 rounded-full border border-[var(--border)] px-3 py-1 text-sm"><input type="checkbox" value={tag.id} {...form.register("tag_ids")} />#{tag.name}</label>)}</div></div>
+            <div className="grid gap-2">
+              <p className="text-sm font-medium">Tagy</p>
+              {selectedTags.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedTags.map((tag) => <button key={tag.id} type="button" onClick={() => removeTagId(tag.id)} className="focus-ring rounded-full border border-[var(--border)] px-2.5 py-1 text-sm">#{tag.name} ×</button>)}
+                </div>
+              ) : <p className="text-sm text-[var(--muted)]">Žádné tagy.</p>}
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map((tag) => <button key={tag.id} type="button" onClick={() => addTagId(tag.id)} className="focus-ring rounded-full border border-[var(--border)] px-2.5 py-1 text-sm text-[var(--muted)]">+ #{tag.name}</button>)}
+              </div>
+              <div className="flex gap-2">
+                <Input value={tagName} onChange={(event) => setTagName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void createAndAddTag(); } }} placeholder="Nový tag…" />
+                <Button type="button" variant="secondary" onClick={() => void createAndAddTag()} disabled={createTag.isPending || !tagName.trim()}><Plus size={15}/>Přidat</Button>
+              </div>
+            </div>
             <Button disabled={update.isPending}>{update.isPending ? "Ukládám…" : "Uložit změny"}</Button>
           </form>
           {task ? (
@@ -91,5 +138,5 @@ export function TaskDetailPanel({ task, categories, contexts, tags, visions, onC
 const emptyValues: Values = { title: "", description: "", status: "inbox", priority: "none", due_date: null, due_time: null, category_id: null, context_id: null, vision_id: null, recurrence_rule: null, recurrence_mode: null, tag_ids: [] };
 
 function Select({ label, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {
-  return <label className="grid gap-1 text-sm font-medium">{label}<select className="focus-ring min-h-11 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-base" {...props}>{children}</select></label>;
+  return <label className="grid gap-1 text-sm font-medium">{label}<select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm sm:min-h-11 sm:text-base" {...props}>{children}</select></label>;
 }

@@ -113,6 +113,8 @@ class ChallengeStats(BaseModel):
     total_count: int
     success_rate_30: float
     success_rate_90: float
+    active_days_30: int
+    active_days_90: int
 
 
 class ChallengeHeatmapDay(BaseModel):

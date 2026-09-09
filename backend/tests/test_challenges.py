@@ -420,6 +420,8 @@ async def test_challenge_stats_include_streak_totals_and_success_rates(
         "total_count": 3,
         "success_rate_30": 33.33,
         "success_rate_90": 33.33,
+        "active_days_30": 9,
+        "active_days_90": 9,
     }
 
 

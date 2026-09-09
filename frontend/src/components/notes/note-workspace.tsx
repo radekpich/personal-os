@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, CalendarDays, FileText, Lightbulb, MessageSquareText, Plus, Save, Trash2 } from "lucide-react";
+import { BookOpen, CalendarDays, FileText, Lightbulb, MessageSquareText, Plus, Save, Send, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AttachmentGrid } from "@/components/attachments/attachment-grid";
@@ -66,6 +66,8 @@ export function NoteWorkspace() {
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [editing, setEditing] = useState<Note | null>(null);
   const [conflict, setConflict] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [quickNote, setQuickNote] = useState("");
   const notes = useNotes({ kind, q: query, page_size: 80 });
   const { categories } = useTaxonomy();
   const visions = useVisions();
@@ -94,6 +96,7 @@ export function NoteWorkspace() {
 
   function startNew(nextKind: NoteKind = "diary") {
     setConflict(null);
+    setSaveError(null);
     setEditing(null);
     setSelectedId(null);
     setDraft(emptyDraft(nextKind));
@@ -101,6 +104,7 @@ export function NoteWorkspace() {
 
   function edit(note: Note) {
     setConflict(null);
+    setSaveError(null);
     setEditing(note);
     setSelectedId(note.id);
     setDraft({
@@ -129,6 +133,8 @@ export function NoteWorkspace() {
       task_id: draft.task_id || null,
     };
     try {
+      setConflict(null);
+      setSaveError(null);
       const saved = editing ? await update.mutateAsync({ note: editing, payload }) : await create.mutateAsync(payload);
       setEditing(saved);
       setSelectedId(saved.id);
@@ -137,7 +143,22 @@ export function NoteWorkspace() {
         setConflict("Poznámku mezitím upravil web nebo agent. Načti aktuální stav a zkus změnu znovu.");
         return;
       }
-      throw error;
+      setSaveError(error instanceof Error ? error.message : "Zápis se nepodařilo uložit. Zkus to prosím znovu.");
+    }
+  }
+
+  async function createQuickNote() {
+    const body = quickNote.trim();
+    if (!body) return;
+    setQuickNote("");
+    setSaveError(null);
+    try {
+      const saved = await create.mutateAsync({ title: "Rychlá poznámka", body, kind: "note", entry_date: todayIso() });
+      setEditing(saved);
+      setSelectedId(saved.id);
+    } catch (error) {
+      setQuickNote(body);
+      setSaveError(error instanceof Error ? error.message : "Poznámku se nepodařilo uložit. Zkus to prosím znovu.");
     }
   }
 
@@ -151,15 +172,23 @@ export function NoteWorkspace() {
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_28rem]">
       <section className="grid gap-4">
-        <div className="panel flex flex-wrap items-center justify-between gap-3 p-5">
+        <div className="panel flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
           <div>
             <p className="text-sm text-[var(--muted)]">Denní zápisy, nápady a poznámky propojené s přílohami.</p>
-            <h2 className="text-xl font-semibold">Deník a poznámky</h2>
+            <h2 className="text-lg font-semibold sm:text-xl">Deník a poznámky</h2>
           </div>
           <Button onClick={() => startNew("diary")}><Plus size={16} />Nový zápis</Button>
         </div>
 
-        <div className="panel flex flex-wrap gap-3 p-3">
+        <div className="panel grid gap-1 p-2">
+          <div className="flex items-center gap-2">
+            <Input value={quickNote} onChange={(event) => setQuickNote(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void createQuickNote(); }} placeholder="Rychle zapsat poznámku…" aria-label="Rychlá poznámka" className="min-w-0 border-0 bg-transparent text-sm shadow-none focus-visible:outline-none sm:text-base" />
+            <Button type="button" size="sm" onClick={() => void createQuickNote()} disabled={create.isPending || !quickNote.trim()} aria-label="Uložit rychlou poznámku"><Send size={15}/></Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => { setDraft({ ...emptyDraft("note"), body: quickNote }); setQuickNote(""); }}><Plus size={15}/>Plný</Button>
+          </div>
+        </div>
+
+        <div className="panel flex flex-wrap gap-2 p-3 sm:gap-3">
           <select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3" value={kind} onChange={(event) => setKind(event.target.value as NoteKind | "all")}>
             <option value="all">Všechny typy</option>
             {Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -169,7 +198,7 @@ export function NoteWorkspace() {
 
         {notes.isLoading ? <p className="panel p-5 text-[var(--muted)]">Načítám poznámky…</p> : null}
         {notes.isError ? <p className="panel p-5 text-[var(--danger)]">Poznámky se nepodařilo načíst.</p> : null}
-        {!notes.isLoading && items.length === 0 ? <p className="panel p-5 text-[var(--muted)]">Zatím žádné poznámky. Založ první zápis vpravo.</p> : null}
+        {!notes.isLoading && items.length === 0 ? <p className="panel p-5 text-[var(--muted)]">Zatím žádné poznámky. Založ první zápis tlačítkem nahoře.</p> : null}
 
         <div className="grid gap-3 md:grid-cols-2">
           {items.map((note) => <NoteCard key={note.id} note={note} selected={selected?.id === note.id} highlighted={highlightedIds.has(note.id)} onSelect={() => edit(note)} />)}
@@ -187,6 +216,7 @@ export function NoteWorkspace() {
           </div>
           <Input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Název" />
           {conflict ? <p className="rounded-[var(--radius-sm)] border border-[var(--warning)] bg-[var(--warning)]/10 p-3 text-sm text-[var(--warning)]">{conflict}</p> : null}
+          {saveError ? <p className="rounded-[var(--radius-sm)] border border-[var(--danger)] bg-[var(--danger)]/10 p-3 text-sm text-[var(--danger)]">Uložení se nepovedlo: {saveError}</p> : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <Select label="Typ" value={draft.kind} onChange={(value) => setDraft({ ...draft, kind: value as NoteKind, entry_date: draft.entry_date || (value === "diary" ? todayIso() : "") })}>
               {Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}

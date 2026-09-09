@@ -371,6 +371,8 @@ export type ChallengeStats = {
   total_count: number;
   success_rate_30: number;
   success_rate_90: number;
+  active_days_30: number;
+  active_days_90: number;
 };
 
 export type ChallengeHeatmapDay = {

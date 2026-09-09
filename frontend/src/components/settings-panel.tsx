@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Copy, RefreshCcw } from "lucide-react";
+import { Check, Copy, Moon, RefreshCcw, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, calendarUrl } from "@/lib/api/client";
@@ -19,6 +20,7 @@ export function SettingsPanel() {
   const { data: me, isLoading } = useMe();
   const storage = useStorageUsage();
   const queryClient = useQueryClient();
+  const { resolvedTheme, setTheme } = useTheme();
   const [copied, setCopied] = useState(false);
   const regenerate = useMutation({ mutationFn: api.regenerateCalendarToken, onSuccess: (user) => queryClient.setQueryData(queryKeys.me, user) });
   const url = me ? calendarUrl(me.calendar_token) : "";
@@ -75,6 +77,13 @@ export function SettingsPanel() {
         <p className="mt-1 text-sm text-[var(--muted)]">Read-only iCalendar feed pro Google/Apple/Outlook kalendář.</p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row"><Input readOnly value={url} /><Button variant="secondary" onClick={copy}>{copied ? <Check size={16}/> : <Copy size={16}/>}Kopírovat</Button><Button variant="secondary" onClick={() => regenerate.mutate()} disabled={regenerate.isPending}><RefreshCcw size={16}/>{regenerate.isPending ? "Generuji…" : "Přegenerovat"}</Button></div>
         {regenerate.isSuccess ? <p className="mt-3 text-sm text-[var(--success)]">Token byl přegenerovaný. Starý odkaz přestal fungovat.</p> : null}
+      </section>
+      <section className="panel p-5 sm:p-6">
+        <h2 className="text-xl font-semibold">Vzhled</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">Přepnutí světlého a tmavého režimu.</p>
+        <Button className="mt-4" variant="secondary" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
+          {resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />}{resolvedTheme === "dark" ? "Světlý režim" : "Tmavý režim"}
+        </Button>
       </section>
       <section className="panel p-5 sm:p-6">
         <h2 className="text-xl font-semibold">Klávesové zkratky</h2>

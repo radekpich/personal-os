@@ -4,6 +4,15 @@
 
 ## Hotovo
 
+- [x] 2026-09-09 13:42 UTC — Mobilní opravy / dávka 1 ze 4
+  - Opraven bottom-nav safe-area padding a mobilní doscrollování; spodní menu má 4 položky + `Více` panel.
+  - Detail úkolu má funkční tag editor: existující tagy, nový tag a odebíratelné odznaky.
+  - Deník má opravený nový zápis, chybové hlášky ukládání, přesnější empty text a vlastní rychlou poznámku místo rychlého úkolu.
+  - Dashboard filtry vedou na sdílitelné `/tasks?view=...`; Task workspace zachovává URL filtr při změnách a zavírání detailu.
+  - Výzvy vrací `active_days_30/90`; UI krátkého běhu ukazuje `běží N dnů` a používá české skloňování.
+  - Zmenšena mobilní typografie/odsazení task karet a quick capture dostal submit + plný pohled; zkratková nápověda je jen desktop.
+  - Ověření: backend full gate `ruff`/`mypy`/`pytest -q` → 118 passed; frontend `lint`/`typecheck`/production `build` OK; Playwright mobile smoke 375×800 proti preview → OK (`/tmp/personal-os-batch1-mobile.png`).
+
 - [x] 2026-09-08 06:17 UTC — Fáze 8B / Krok 7 — Full-stack gates, production smoke a dokončení
   - Backend registry hotovo: modely/migrace `c1d2e3f4a5b6_add_agent_registry_observability_tables.py`, reporting endpointy `/agent/registry/sync`, `/agent/runs`, read API `/agent/overview`, `/agent/jobs`, `/agent/integrations`, `/agent/watches`, `/agent/channels`, `/agent/config-changes`, `/agent/keys`, emergency `/agent/keys/revoke-all`.
   - Frontend `/agent` rozšířen na záložky Aktivita / Přehled / Úlohy / Přístupy / Hlídání / Historie / Změny / Klíče; původní 8A activity timeline zůstává zachovaná jako samostatná záložka.

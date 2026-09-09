@@ -85,6 +85,7 @@ body {
     var(--background);
   color: var(--foreground);
   font-family: var(--font-body);
+  font-size: 15px;
   text-rendering: optimizeLegibility;
 }
 button, input, textarea, select { font: inherit; }
@@ -111,7 +112,7 @@ button { cursor: pointer; }
   padding: 1.25rem;
 }
 
-.workspace { min-width: 0; padding: var(--space-page); padding-bottom: 6.5rem; }
+.workspace { min-width: 0; padding: var(--space-page); padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)); }
 
 .panel {
   border: 1px solid var(--border);
@@ -127,7 +128,7 @@ button { cursor: pointer; }
   position: fixed;
   left: .75rem;
   right: .75rem;
-  bottom: .75rem;
+  bottom: max(.5rem, env(safe-area-inset-bottom));
   z-index: 40;
   display: none;
   border: 1px solid var(--border);
@@ -140,10 +141,17 @@ button { cursor: pointer; }
 @media (max-width: 900px) {
   .app-grid { grid-template-columns: 1fr; }
   .sidebar { display: none; }
-  .bottom-nav { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .bottom-nav { display: grid; grid-template-columns: repeat(5, 1fr); }
 }
 
 @media (max-width: 420px) {
-  :root { --space-page: .85rem; }
-  .workspace { padding-bottom: 6rem; }
+  :root {
+    --space-page: .7rem;
+    --radius-md: .8rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.15rem;
+  }
+  body { font-size: 14px; }
+  .workspace { padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)); }
+  .panel { box-shadow: 0 8px 22px rgba(42, 31, 22, 0.07); }
 }

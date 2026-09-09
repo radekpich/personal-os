@@ -1,10 +1,10 @@
 "use client";
 
-import { BookOpen, Bot, CheckSquare, Flame, Inbox, LayoutDashboard, ListTodo, LogOut, Moon, Settings, Sparkles, Sun } from "lucide-react";
+import { BookOpen, Bot, CheckSquare, Flame, Inbox, LayoutDashboard, ListTodo, LogOut, Menu, Moon, Settings, Sparkles, Sun, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api/client";
 import { useMe, useTaxonomy } from "@/lib/api/hooks";
@@ -14,24 +14,43 @@ import { QuickCapture } from "@/components/tasks/quick-capture";
 import { CommandCenter } from "@/components/tasks/command-center";
 
 const nav = [
-  { href: "/dashboard", label: "Přehled", icon: LayoutDashboard },
-  { href: "/tasks", label: "Úkoly", icon: ListTodo },
-  { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/challenges", label: "Návyky", icon: Flame },
-  { href: "/diary", label: "Deník", icon: BookOpen },
-  { href: "/visions", label: "Vize", icon: Sparkles },
-  { href: "/agent", label: "Agent", icon: Bot },
-  { href: "/settings", label: "Nastavení", icon: Settings },
+  { href: "/dashboard", match: "/dashboard", label: "Přehled", icon: LayoutDashboard },
+  { href: "/tasks", match: "/tasks", label: "Úkoly", icon: ListTodo },
+  { href: "/tasks?view=inbox", match: "/inbox", altMatch: "/tasks", label: "Inbox", icon: Inbox },
+  { href: "/challenges", match: "/challenges", label: "Návyky", icon: Flame },
+  { href: "/diary", match: "/diary", label: "Deník", icon: BookOpen },
+  { href: "/visions", match: "/visions", label: "Vize", icon: Sparkles },
+  { href: "/agent", match: "/agent", label: "Agent", icon: Bot },
+  { href: "/settings", match: "/settings", label: "Nastavení", icon: Settings },
 ];
+
+const primaryMobileNav = nav.slice(0, 4);
+const moreMobileNav = nav.slice(4);
+
+function isActivePath(pathname: string, item: (typeof nav)[number], view?: string | null) {
+  if (item.label === "Inbox") return pathname === "/inbox" || (pathname === "/tasks" && view === "inbox");
+  if (item.label === "Úkoly") return pathname === "/tasks" && view !== "inbox";
+  return pathname.startsWith(item.match);
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const params = useSearchParams();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { setTheme, resolvedTheme } = useTheme();
   const { data: me, error: meError } = useMe();
   const { categories } = useTaxonomy();
-  const title = useMemo(() => nav.find((item) => pathname.startsWith(item.href))?.label ?? "Personal OS", [pathname]);
+  const [now, setNow] = useState(() => new Date());
+  const [moreOpen, setMoreOpen] = useState(false);
+  const view = params.get("view");
+  const title = useMemo(() => nav.find((item) => isActivePath(pathname, item, view))?.label ?? "Personal OS", [pathname, view]);
+  const showQuickTask = pathname === "/dashboard" || pathname === "/tasks" || pathname === "/inbox";
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (meError instanceof ApiError && meError.status === 401) {
@@ -44,6 +63,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     queryClient.clear();
     router.replace("/login");
   }
+
+  const dateTime = new Intl.DateTimeFormat("cs-CZ", { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(now);
 
   return (
     <div className="app-grid">
@@ -59,7 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <nav className="grid gap-1">
-            {nav.map((item) => <NavLink key={item.href} {...item} active={pathname.startsWith(item.href)} />)}
+            {nav.map((item) => <NavLink key={item.href} {...item} active={isActivePath(pathname, item, view)} />)}
           </nav>
           <div className="min-h-0 flex-1 overflow-auto">
             <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-[.16em] text-[var(--muted-foreground)]">Kategorie</p>
@@ -73,34 +94,50 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="grid gap-2 border-t border-[var(--border)] pt-4">
             <p className="truncate text-sm font-medium">{me?.display_name ?? "Nepřihlášen"}</p>
-            <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={logout}><LogOut size={16} />Odhlásit</Button>
+          </div>
+        </div>
+      </aside>
+      <main className="workspace">
+        <header className="mb-4 grid gap-3 sm:mb-6 sm:gap-4">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="truncate text-xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
+            <time className="shrink-0 text-right text-xs text-[var(--muted)] sm:text-sm" dateTime={now.toISOString()}>{dateTime}</time>
+          </div>
+          {showQuickTask ? <QuickCapture /> : null}
+        </header>
+        {children}
+      </main>
+      <nav className="bottom-nav p-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
+        {primaryMobileNav.map((item) => {
+          const Icon = item.icon;
+          return <Link key={item.href} href={item.href} className={cn("focus-ring flex flex-col items-center rounded-full px-1 py-2 text-[10px] text-[var(--muted)]", isActivePath(pathname, item, view) && "bg-[var(--primary)] text-[var(--primary-foreground)]")}><Icon size={17}/>{item.label}</Link>;
+        })}
+        <button type="button" onClick={() => setMoreOpen(true)} className="focus-ring flex flex-col items-center rounded-full px-1 py-2 text-[10px] text-[var(--muted)]"><Menu size={17}/>Více</button>
+      </nav>
+      {moreOpen ? (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Další stránky">
+          <button type="button" className="absolute inset-0 bg-black/30" aria-label="Zavřít menu" onClick={() => setMoreOpen(false)} />
+          <div className="absolute inset-x-3 bottom-3 rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-2xl">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="font-semibold">Více</p>
+              <Button variant="ghost" size="sm" onClick={() => setMoreOpen(false)} aria-label="Zavřít"><X size={16}/></Button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {moreMobileNav.map((item) => {
+                const Icon = item.icon;
+                return <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)} className={cn("focus-ring flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-3 text-sm", isActivePath(pathname, item, view) && "bg-[var(--primary)] text-[var(--primary-foreground)]")}><Icon size={17}/>{item.label}</Link>;
+              })}
+            </div>
+            <div className="mt-3 flex gap-2 border-t border-[var(--border)] pt-3">
               <Button variant="secondary" size="sm" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")} aria-label="Přepnout režim">
-                {resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                {resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />}{resolvedTheme === "dark" ? "Světlý" : "Tmavý"}
               </Button>
               <Button variant="ghost" size="sm" onClick={logout}><LogOut size={16} />Odhlásit</Button>
             </div>
           </div>
         </div>
-      </aside>
-      <main className="workspace">
-        <header className="mb-6 grid gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm text-[var(--muted)]">{new Intl.DateTimeFormat("cs-CZ", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</p>
-              <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-            </div>
-            <Button variant="secondary" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>{resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />} Režim</Button>
-          </div>
-          <QuickCapture />
-        </header>
-        {children}
-      </main>
-      <nav className="bottom-nav p-1">
-        {nav.map((item) => {
-          const Icon = item.icon;
-          return <Link key={item.href} href={item.href} className={cn("focus-ring flex flex-col items-center rounded-full px-2 py-2 text-[11px] text-[var(--muted)]", pathname.startsWith(item.href) && "bg-[var(--primary)] text-[var(--primary-foreground)]")}><Icon size={18}/>{item.label}</Link>;
-        })}
-      </nav>
+      ) : null}
       <CommandCenter />
     </div>
   );

@@ -16,6 +16,7 @@ import {
 } from "@/lib/api/hooks";
 import type { Challenge, ChallengeHeatmapDay, ChallengeType } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import { czechPlural, formatCzechCount } from "@/lib/czech";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -109,7 +110,7 @@ export function ChallengeWorkspace() {
             </p>
             <h2 className="text-xl font-semibold">Návyky a výzvy</h2>
           </div>
-          <Badge>{challenges.data?.items.length ?? 0} aktivních měření</Badge>
+          <Badge>{formatCzechCount(challenges.data?.items.length ?? 0, "aktivní měření", "aktivní měření", "aktivních měření")}</Badge>
         </div>
 
         {challenges.isLoading ? <p className="panel p-5 text-[var(--muted)]">Načítám návyky…</p> : null}
@@ -139,8 +140,8 @@ export function ChallengeWorkspace() {
                 <h2 className="text-lg font-semibold">Heatmapa: {selected.title}</h2>
               </div>
               <div className="flex gap-2 text-xs text-[var(--muted)]">
-                <span>30 dní: {stats.data?.success_rate_30 ?? "—"}%</span>
-                <span>90 dní: {stats.data?.success_rate_90 ?? "—"}%</span>
+                <span>30 dní: {formatSuccessWindow(stats.data?.success_rate_30, stats.data?.active_days_30, 30)}</span>
+                <span>90 dní: {formatSuccessWindow(stats.data?.success_rate_90, stats.data?.active_days_90, 90)}</span>
               </div>
             </div>
             <ContributionHeatmap days={heatmap.data?.days ?? []} color={selected.color} />
@@ -205,14 +206,14 @@ function ChallengeCard({ challenge, selected, pending, onSelect, onOneTap }: {
             {challenge.description ? <p className="mt-3 line-clamp-2 text-sm text-[var(--muted)]">{challenge.description}</p> : null}
           </div>
           <div className="text-right">
-            <p className="text-4xl font-semibold tabular-nums">{challenge.current_streak}</p>
-            <p className="text-xs text-[var(--muted)]">dní šňůra</p>
+            <p className="text-3xl font-semibold tabular-nums sm:text-4xl">{challenge.current_streak}</p>
+            <p className="text-xs text-[var(--muted)]">{czechPlural(challenge.current_streak, "den", "dny", "dní")} šňůra</p>
           </div>
         </div>
       </button>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <Badge>rekord {challenge.longest_streak} dní</Badge>
-        {challenge.target_days ? <Badge>cíl {challenge.target_days} dní</Badge> : null}
+        <Badge>rekord {formatCzechCount(challenge.longest_streak, "den", "dny", "dní")}</Badge>
+        {challenge.target_days ? <Badge>cíl {formatCzechCount(challenge.target_days, "den", "dny", "dní")}</Badge> : null}
         <Button size="sm" variant={challenge.type === "abstinence" ? "danger" : "default"} onClick={onOneTap} disabled={pending}>
           <Flame size={15} /> {challenge.type === "abstinence" ? "Zapsat relaps" : "Zapsat dnešek"}
         </Button>
@@ -221,22 +222,28 @@ function ChallengeCard({ challenge, selected, pending, onSelect, onOneTap }: {
   );
 }
 
-function StatsPanel({ challenge, stats }: { challenge: Challenge; stats?: { total_count: number; success_rate_30: number; success_rate_90: number } }) {
+function StatsPanel({ challenge, stats }: { challenge: Challenge; stats?: { total_count: number; success_rate_30: number; success_rate_90: number; active_days_30: number; active_days_90: number } }) {
   return (
-    <div className="panel grid gap-3 p-5 text-sm">
+    <div className="panel grid gap-3 p-4 text-sm sm:p-5">
       <h2 className="font-semibold">Statistiky: {challenge.title}</h2>
       <div className="grid grid-cols-2 gap-2">
         <Metric label="Zápisů" value={stats?.total_count ?? "—"} />
-        <Metric label="Rekord" value={`${challenge.longest_streak} dní`} />
-        <Metric label="Úspěšnost 30d" value={`${stats?.success_rate_30 ?? "—"}%`} />
-        <Metric label="Úspěšnost 90d" value={`${stats?.success_rate_90 ?? "—"}%`} />
+        <Metric label="Rekord" value={formatCzechCount(challenge.longest_streak, "den", "dny", "dní")} />
+        <Metric label="Úspěšnost 30d" value={formatSuccessWindow(stats?.success_rate_30, stats?.active_days_30, 30)} />
+        <Metric label="Úspěšnost 90d" value={formatSuccessWindow(stats?.success_rate_90, stats?.active_days_90, 90)} />
       </div>
     </div>
   );
 }
 
+function formatSuccessWindow(rate: number | undefined, activeDays: number | undefined, windowDays: number) {
+  if (rate === undefined || activeDays === undefined) return "—";
+  if (activeDays < windowDays) return `běží ${formatCzechCount(activeDays, "den", "dny", "dní")}`;
+  return `${rate}%`;
+}
+
 function Metric({ label, value }: { label: string; value: string | number }) {
-  return <div className="rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-3"><p className="text-xs text-[var(--muted)]">{label}</p><p className="font-semibold">{value}</p></div>;
+  return <div className="rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-2.5 sm:p-3"><p className="text-xs text-[var(--muted)]">{label}</p><p className="font-semibold">{value}</p></div>;
 }
 
 function ContributionHeatmap({ days, color }: { days: ChallengeHeatmapDay[]; color: string }) {
