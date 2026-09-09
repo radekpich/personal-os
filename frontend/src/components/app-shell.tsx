@@ -104,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <h1 className="truncate text-xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
             <time className="shrink-0 text-right text-xs text-[var(--muted)] sm:text-sm" dateTime={now.toISOString()}>{dateTime}</time>
           </div>
-          {showQuickTask ? <QuickCapture /> : null}
+          {showQuickTask ? <QuickCapture categories={categories.data?.items ?? []} /> : null}
         </header>
         {children}
       </main>

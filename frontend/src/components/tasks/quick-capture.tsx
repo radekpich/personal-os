@@ -1,56 +1,85 @@
 "use client";
 
-import { Expand, Plus, Send } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useQuickTask } from "@/lib/api/hooks";
-import { Input } from "@/components/ui/input";
+import * as Dialog from "@radix-ui/react-dialog";
+import { Expand, Plus, Send, X } from "lucide-react";
+import { useState } from "react";
+import { useCreateTask, useQuickTask } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/button";
+import { Input, Textarea } from "@/components/ui/input";
+import type { Category } from "@/lib/api/types";
 
-export function QuickCapture() {
-  const [title, setTitle] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+export function QuickCapture({ categories }: { categories: Category[] }) {
   const quickTask = useQuickTask();
-  const router = useRouter();
+  const createTask = useCreateTask();
+  const [value, setValue] = useState("");
+  const [open, setOpen] = useState(false);
+  const [fullTitle, setFullTitle] = useState("");
+  const [fullDescription, setFullDescription] = useState("");
+  const [fullCategoryId, setFullCategoryId] = useState("");
+  const disabled = quickTask.isPending || !value.trim();
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n") {
-        event.preventDefault();
-        inputRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  async function submitQuick() {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    await quickTask.mutateAsync(trimmed);
+    setValue("");
+  }
 
-  async function submit() {
-    const value = title.trim();
-    if (!value) return;
-    setTitle("");
-    setError(null);
-    try {
-      await quickTask.mutateAsync(value);
-    } catch {
-      setTitle(value);
-      setError("Úkol se nepodařilo uložit. Zkus to prosím znovu.");
-    }
+  async function submitFull() {
+    const title = fullTitle.trim();
+    if (!title) return;
+    await createTask.mutateAsync({
+      title,
+      description: fullDescription.trim() || null,
+      category_id: fullCategoryId || null,
+      status: "inbox",
+      priority: "none",
+    });
+    setFullTitle("");
+    setFullDescription("");
+    setFullCategoryId("");
+    setOpen(false);
   }
 
   return (
-    <div className="panel grid gap-1 p-2">
-      <div className="flex items-center gap-1 sm:gap-2">
-        <div className="ml-1 text-[var(--muted)] sm:ml-2"><Plus size={17} /></div>
-        <Input ref={inputRef} value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void submit(); }} placeholder="Rychle zapsat úkol…" className="min-w-0 border-0 bg-transparent text-sm shadow-none focus-visible:outline-none sm:text-base" aria-label="Rychlý zápis úkolu" />
-        {quickTask.isPending ? <span className="hidden pr-2 text-xs text-[var(--muted)] sm:inline">Ukládám…</span> : null}
-        <Button type="button" size="sm" onClick={() => void submit()} disabled={quickTask.isPending || !title.trim()} aria-label="Uložit rychlý úkol"><Send size={15} /></Button>
-        <Button type="button" size="sm" variant="secondary" onClick={() => router.push(`/tasks?view=inbox&q=${encodeURIComponent(title.trim())}`)} aria-label="Otevřít plný pohled úkolů"><Expand size={15} /></Button>
+    <>
+      <div className="panel mb-3 flex items-center gap-2 p-2 sm:mb-6 sm:p-3">
+        <Plus className="hidden text-[var(--muted)] sm:block" size={18} />
+        <Input
+          aria-label="Rychle zapsat úkol"
+          placeholder="Rychle zapsat úkol…"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") submitQuick();
+          }}
+        />
+        <Button aria-label="Uložit rychlý úkol" className="min-w-10 px-2" disabled={disabled} onClick={submitQuick}><Send size={16} /></Button>
+        <Button aria-label="Otevřít plný dialog úkolu" className="min-w-10 px-2" variant="secondary" onClick={() => { setFullTitle(value); setOpen(true); }}><Expand size={16} /></Button>
+        <p className="hidden whitespace-nowrap text-xs text-[var(--muted)] md:block">Enter uloží</p>
       </div>
-      <div className="px-2 text-xs text-[var(--muted)]">
-        <span className="hidden sm:inline">Enter uloží, Cmd/Ctrl+N skočí sem.</span>
-        {error ? <span className="text-[var(--danger)]">{error}</span> : null}
-      </div>
-    </div>
+
+      <Dialog.Root open={open} onOpenChange={setOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
+          <Dialog.Content className="fixed inset-x-3 top-16 z-50 mx-auto grid max-w-lg gap-4 rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-soft sm:top-24 sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Dialog.Title className="text-lg font-semibold">Nový úkol</Dialog.Title>
+                <Dialog.Description className="text-sm text-[var(--muted)]">Doplň úkol podrobněji. Uloží se do Inboxu.</Dialog.Description>
+              </div>
+              <Dialog.Close asChild><button className="focus-ring rounded-full p-1" aria-label="Zavřít dialog"><X size={18} /></button></Dialog.Close>
+            </div>
+            <label className="grid gap-1 text-sm font-medium">Název<Input value={fullTitle} onChange={(event) => setFullTitle(event.target.value)} autoFocus /></label>
+            <label className="grid gap-1 text-sm font-medium">Popis<Textarea value={fullDescription} onChange={(event) => setFullDescription(event.target.value)} rows={4} /></label>
+            <label className="grid gap-1 text-sm font-medium">Kategorie<select className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2" value={fullCategoryId} onChange={(event) => setFullCategoryId(event.target.value)}><option value="">Bez kategorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+            <div className="flex justify-end gap-2">
+              <Dialog.Close asChild><Button type="button" variant="ghost">Zrušit</Button></Dialog.Close>
+              <Button type="button" onClick={submitFull} disabled={createTask.isPending || !fullTitle.trim()}>Uložit úkol</Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </>
   );
 }
