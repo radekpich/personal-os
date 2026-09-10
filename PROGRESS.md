@@ -4,6 +4,19 @@
 
 ## Hotovo
 
+- [x] 2026-09-10 11:57 UTC — Mobilní opravy / dávka 3 ze 4 — opakování a rozvrh výzev
+  - Přidána sdílená frontend komponenta `RecurrenceBuilder`, použitá v detailu úkolu i ve formuláři nové výzvy. Uživatel už nevidí ani nepíše RRULE; komponenta interně parsuje/generuje RRULE přes knihovnu `rrule`.
+  - Detail úkolu odstranil textové pole `RRULE opakování`; opakování má rychlé předvolby Denně / Každý pracovní den / Týdně / 3× týdně / Měsíčně, čitelné shrnutí a vlastní nastavení frekvence, intervalu, dnů, měsíční varianty a konce.
+  - `Typ opakování` se zobrazuje jen při zapnutém opakování a hodnoty jsou lidsky: `Podle rozvrhu` a `Po dokončení`, včetně vysvětlení typických případů.
+  - Výzvy dostaly backend pole `schedule_rrule` v Alembic migraci `e3f4a5b6c7d8_add_challenge_schedule_rrule.py`, validaci přes `python-dateutil` a frontend rozvrh přes stejný `RecurrenceBuilder`; výchozí rozvrh je denně.
+  - Přepočet aktuální i nejdelší šňůry respektuje jen plánované dny podle rozvrhu; např. po/st/pá výzva se nepřeruší úterým mimo rozvrh. `Povolené vynechání` počítá vynechané dny z rozvrhu, ne kalendářní dny.
+  - `Grace dny` přejmenováno na `Povolené vynechání` s nápovědou „Kolik dní z rozvrhu smím vynechat, aniž se šňůra přeruší.“
+  - Heatmapa začíná od startu výzvy, ne od 1. ledna; má popisky Po/St/Pá vlevo, zkratky měsíců nahoře, tooltip datum/hodnota/poznámka/stav a jiný styl pro dny mimo rozvrh; mobilní varianta zůstává vodorovně scrollovatelná se sticky osou.
+  - Preview DB `/home/zeus/personal-os-preview/phase8b-preview.sqlite` migrována na head a preview restartováno (`backend :8030`, `frontend :3030`).
+  - Ověření backend: `ruff check app tests`; `ruff format --check app tests`; `mypy --strict app tests`; `pytest -q` → 122 passed.
+  - Ověření frontend: `npm run lint`; `npm run typecheck`; `NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` → OK.
+  - Smoke: `npm run phase8b:recurrence-smoke` proti preview → `{ ok: true, errors: [] }`; původní `npm run phase8b:ui-smoke` také → `{ ok: true, errors: [] }`.
+
 - [x] 2026-09-10 06:02 UTC — Fáze 8B / UI číselníky a sjednocené dialogy
   - Přidána Alembic migrace `d2e3f4a5b6c7_taxonomy_admin_fields.py` pro správu číselníků: barva, ikona, pořadí, archivace a `task_count` ve schématech.
   - Doplněn idempotentní CLI příkaz `python -m app.cli seed-defaults`, který normalizuje default kategorie `KEXO/Ranč/Stavba/Hospodářství/Rodina/Kondice` a místa `Ranč/Staré Buky/Kancelář/Počítač/Telefon/Město/Doma` i ve stávající DB.

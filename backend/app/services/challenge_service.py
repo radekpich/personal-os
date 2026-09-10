@@ -1,8 +1,11 @@
+import datetime as datetime_module
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from dateutil.rrule import rrulestr
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +23,50 @@ from app.schemas.challenge import (
 from app.services import category_service, vision_service
 
 BACKFILL_LIMIT_DAYS = 7
+
+
+def _rule_start(day: date) -> datetime:
+    return datetime_module.datetime.combine(day, datetime_module.datetime.min.time()).replace(
+        tzinfo=UTC
+    )
+
+
+def _schedule_for(challenge: Challenge) -> Any:
+    return rrulestr(challenge.schedule_rrule, dtstart=_rule_start(challenge.started_at.date()))
+
+
+def _is_scheduled(challenge: Challenge, day: date) -> bool:
+    rule = _schedule_for(challenge)
+    start = _rule_start(day)
+    end = _rule_start(day + timedelta(days=1)) - timedelta(microseconds=1)
+    return bool(rule.between(start, end, inc=True))
+
+
+def _scheduled_days_in_range(
+    challenge: Challenge, start: date, end: date, pauses: list[ChallengePause]
+) -> list[date]:
+    if start > end:
+        return []
+    rule = _schedule_for(challenge)
+    window_end = _rule_start(end + timedelta(days=1)) - timedelta(microseconds=1)
+    occurrences = rule.between(_rule_start(start), window_end, inc=True)
+    return [
+        occurrence.date() for occurrence in occurrences if not _is_paused(occurrence.date(), pauses)
+    ]
+
+
+def _scheduled_days_count(
+    challenge: Challenge, start: date, end: date, pauses: list[ChallengePause]
+) -> int:
+    return len(_scheduled_days_in_range(challenge, start, end, pauses))
+
+
+def _scheduled_gap_days(
+    challenge: Challenge, start_exclusive: date, end_exclusive: date, pauses: list[ChallengePause]
+) -> int:
+    return _scheduled_days_count(
+        challenge, start_exclusive + timedelta(days=1), end_exclusive - timedelta(days=1), pauses
+    )
 
 
 def _user_zone(owner: User) -> ZoneInfo:
@@ -97,6 +144,7 @@ async def create_challenge(db: AsyncSession, owner: User, payload: ChallengeCrea
         started_at=_normalize_started_at(owner, payload.started_at),
         target_days=payload.target_days,
         allowed_gap_days=payload.allowed_gap_days,
+        schedule_rrule=payload.schedule_rrule,
         is_active=payload.is_active,
         color=payload.color,
         icon=payload.icon,
@@ -126,6 +174,7 @@ async def update_challenge(
         "vision_id",
         "target_days",
         "allowed_gap_days",
+        "schedule_rrule",
         "is_active",
         "color",
         "icon",
@@ -237,16 +286,10 @@ def _heatmap_intensity(value: float | None, has_check_in: bool) -> int:
     return 4
 
 
-def _active_days_in_range(start: date, end: date, pauses: list[ChallengePause]) -> int:
-    if start > end:
-        return 0
-    total = 0
-    cursor = start
-    while cursor <= end:
-        if not _is_paused(cursor, pauses):
-            total += 1
-        cursor += timedelta(days=1)
-    return total
+def _active_days_in_range(
+    challenge: Challenge, start: date, end: date, pauses: list[ChallengePause]
+) -> int:
+    return _scheduled_days_count(challenge, start, end, pauses)
 
 
 def _active_days_for_window(
@@ -258,7 +301,7 @@ def _active_days_for_window(
 ) -> int:
     started_date = challenge.started_at.astimezone(_user_zone(owner)).date()
     start = max(today - timedelta(days=days - 1), started_date)
-    return _active_days_in_range(start, today, pauses)
+    return _active_days_in_range(challenge, start, today, pauses)
 
 
 def _success_rate(
@@ -271,7 +314,7 @@ def _success_rate(
 ) -> float:
     started_date = challenge.started_at.astimezone(_user_zone(owner)).date()
     start = max(today - timedelta(days=days - 1), started_date)
-    active_days = _active_days_in_range(start, today, pauses)
+    active_days = _active_days_in_range(challenge, start, today, pauses)
     if active_days == 0:
         return 0.0
     relevant = [check_in for check_in in check_ins if start <= check_in.date <= today]
@@ -279,7 +322,9 @@ def _success_rate(
         relapse_days = {
             check_in.date
             for check_in in relevant
-            if check_in.is_relapse and not _is_paused(check_in.date, pauses)
+            if check_in.is_relapse
+            and not _is_paused(check_in.date, pauses)
+            and _is_scheduled(challenge, check_in.date)
         }
         successes = max(active_days - len(relapse_days), 0)
     else:
@@ -287,7 +332,9 @@ def _success_rate(
             {
                 check_in.date
                 for check_in in relevant
-                if not check_in.is_relapse and not _is_paused(check_in.date, pauses)
+                if not check_in.is_relapse
+                and not _is_paused(check_in.date, pauses)
+                and _is_scheduled(challenge, check_in.date)
             }
         )
     return round((successes / active_days) * 100, 2)
@@ -319,7 +366,8 @@ async def get_heatmap(
     db: AsyncSession, owner: User, challenge_id: uuid.UUID, year: int
 ) -> ChallengeHeatmap:
     challenge = await get_challenge(db, owner, challenge_id)
-    start = date(year, 1, 1)
+    started_date = challenge.started_at.astimezone(_user_zone(owner)).date()
+    start = max(date(year, 1, 1), started_date)
     end = date(year, 12, 31)
     result = await db.execute(
         select(CheckIn).where(
@@ -336,6 +384,7 @@ async def get_heatmap(
     while cursor <= end:
         check_in = check_ins.get(cursor)
         value = float(check_in.value) if check_in and check_in.value is not None else None
+        is_scheduled = _is_scheduled(challenge, cursor)
         days.append(
             ChallengeHeatmapDay(
                 date=cursor,
@@ -344,6 +393,7 @@ async def get_heatmap(
                 note=check_in.note if check_in else None,
                 is_relapse=bool(check_in.is_relapse) if check_in else False,
                 is_paused=_is_paused(cursor, pauses),
+                is_scheduled=is_scheduled,
                 intensity=_heatmap_intensity(value, check_in is not None),
             )
         )
@@ -399,7 +449,7 @@ async def _calculate_daily_action_streaks(
         )
         .order_by(CheckIn.date)
     )
-    days = [day for day in result.scalars().all()]
+    days = [day for day in result.scalars().all() if _is_scheduled(challenge, day)]
     if not days:
         return 0, 0
     pauses = await _challenge_pauses(db, owner, challenge)
@@ -407,7 +457,7 @@ async def _calculate_daily_action_streaks(
     run = 1
     previous = days[0]
     for current in days[1:]:
-        gap = _active_gap_days(previous, current, pauses)
+        gap = _scheduled_gap_days(challenge, previous, current, pauses)
         if gap <= challenge.allowed_gap_days:
             run += gap + 1
         else:
@@ -416,23 +466,17 @@ async def _calculate_daily_action_streaks(
         previous = current
     longest = max(longest, run)
     today = _today_for_user(owner)
-    trailing_gap = _active_gap_days(days[-1], today + timedelta(days=1), pauses)
-    if days[-1] != today:
-        trailing_gap = max(trailing_gap - 1, 0)
+    trailing_gap = _scheduled_gap_days(challenge, days[-1], today, pauses)
     current_streak = run if trailing_gap <= challenge.allowed_gap_days else 0
     return current_streak, longest
 
 
 def _active_elapsed_days(
-    start_exclusive: date, end_inclusive: date, pauses: list[ChallengePause]
+    challenge: Challenge, start_exclusive: date, end_inclusive: date, pauses: list[ChallengePause]
 ) -> int:
-    days = 0
-    cursor = start_exclusive + timedelta(days=1)
-    while cursor <= end_inclusive:
-        if not _is_paused(cursor, pauses):
-            days += 1
-        cursor += timedelta(days=1)
-    return days
+    return _scheduled_days_count(
+        challenge, start_exclusive + timedelta(days=1), end_inclusive, pauses
+    )
 
 
 async def _calculate_abstinence_streaks(
@@ -452,10 +496,10 @@ async def _calculate_abstinence_streaks(
     relapses = list(result.scalars().all())
     pauses = await _challenge_pauses(db, owner, challenge)
     last_boundary = relapses[-1] if relapses else started_date
-    current = max(_active_elapsed_days(last_boundary, today, pauses), 0)
+    current = max(_active_elapsed_days(challenge, last_boundary, today, pauses), 0)
     boundaries = [started_date, *relapses, today]
     longest = max(
-        max(_active_elapsed_days(start, end, pauses), 0)
+        max(_active_elapsed_days(challenge, start, end, pauses), 0)
         for start, end in zip(boundaries, boundaries[1:], strict=False)
     )
     return current, max(current, longest)

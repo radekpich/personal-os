@@ -34,6 +34,9 @@ class Challenge(Base):
     started_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
     target_days: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     allowed_gap_days: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    schedule_rrule: Mapped[str] = mapped_column(
+        sa.String(500), nullable=False, default="FREQ=DAILY", server_default="FREQ=DAILY"
+    )
     is_active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=True, index=True)
     color: Mapped[str] = mapped_column(sa.String(7), nullable=False, default="#22c55e")
     icon: Mapped[str] = mapped_column(sa.String(80), nullable=False, default="activity")

@@ -315,6 +315,7 @@ export type Challenge = {
   started_at: string;
   target_days: number | null;
   allowed_gap_days: number;
+  schedule_rrule: string;
   is_active: boolean;
   color: string;
   icon: string;
@@ -333,6 +334,7 @@ export type ChallengeCreate = {
   started_at?: string | null;
   target_days?: number | null;
   allowed_gap_days?: number;
+  schedule_rrule?: string;
   is_active?: boolean;
   color?: string;
   icon?: string;
@@ -382,6 +384,7 @@ export type ChallengeHeatmapDay = {
   note: string | null;
   is_relapse: boolean;
   is_paused: boolean;
+  is_scheduled: boolean;
   intensity: 0 | 1 | 2 | 3 | 4;
 };
 

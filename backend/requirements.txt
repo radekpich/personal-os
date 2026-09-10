@@ -10,6 +10,8 @@ pydantic-settings==2.7.0
 pillow==11.0.0
 pillow-heif==0.21.0
 pypdfium2==4.30.0
+python-dateutil==2.9.0.post0
+types-python-dateutil==2.9.0.20250822
 python-multipart==0.0.20
 slowapi==0.1.9
 SQLAlchemy==2.0.36

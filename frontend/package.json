@@ -14,7 +14,8 @@
     "phase6b:smoke": "node scripts/phase6b-smoke.mjs",
     "phase8a:smoke": "node scripts/phase8a-smoke.mjs",
     "phase8b:smoke": "node scripts/phase8b-smoke.mjs",
-    "phase8b:ui-smoke": "node scripts/phase8b-ui-smoke.mjs"
+    "phase8b:ui-smoke": "node scripts/phase8b-ui-smoke.mjs",
+    "phase8b:recurrence-smoke": "node scripts/phase8b-recurrence-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -35,6 +36,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "^7.87.0",
+    "rrule": "^2.8.1",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.5.4"
   },

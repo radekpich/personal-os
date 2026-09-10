@@ -2,6 +2,7 @@ import uuid
 from datetime import date as LocalDate
 from datetime import datetime
 
+from dateutil.rrule import rrulestr
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.challenge import ChallengeType
@@ -16,6 +17,7 @@ class ChallengeBase(BaseModel):
     started_at: datetime | None = None
     target_days: int | None = Field(default=None, ge=1)
     allowed_gap_days: int = Field(default=0, ge=0, le=30)
+    schedule_rrule: str = Field(default="FREQ=DAILY", min_length=1, max_length=500)
     is_active: bool = True
     color: str = Field(default="#22c55e", min_length=7, max_length=7)
     icon: str = Field(default="activity", min_length=1, max_length=80)
@@ -27,6 +29,15 @@ class ChallengeBase(BaseModel):
             raise ValueError("color must be hex format #RRGGBB")
         if any(char not in "0123456789abcdefABCDEF" for char in value[1:]):
             raise ValueError("color must be hex format #RRGGBB")
+        return value
+
+    @field_validator("schedule_rrule")
+    @classmethod
+    def validate_schedule_rrule(cls, value: str) -> str:
+        try:
+            rrulestr(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("schedule_rrule must be a valid RRULE") from exc
         return value
 
 
@@ -42,6 +53,7 @@ class ChallengeUpdate(BaseModel):
     started_at: datetime | None = None
     target_days: int | None = Field(default=None, ge=1)
     allowed_gap_days: int | None = Field(default=None, ge=0, le=30)
+    schedule_rrule: str | None = Field(default=None, min_length=1, max_length=500)
     is_active: bool | None = None
     color: str | None = Field(default=None, min_length=7, max_length=7)
     icon: str | None = Field(default=None, min_length=1, max_length=80)
@@ -52,6 +64,13 @@ class ChallengeUpdate(BaseModel):
         if value is None:
             return value
         return ChallengeBase.validate_hex_color(value)
+
+    @field_validator("schedule_rrule")
+    @classmethod
+    def validate_optional_schedule_rrule(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        return ChallengeBase.validate_schedule_rrule(value)
 
 
 class ChallengeRead(BaseModel):
@@ -67,6 +86,7 @@ class ChallengeRead(BaseModel):
     started_at: datetime
     target_days: int | None
     allowed_gap_days: int
+    schedule_rrule: str
     is_active: bool
     color: str
     icon: str
@@ -124,6 +144,7 @@ class ChallengeHeatmapDay(BaseModel):
     note: str | None
     is_relapse: bool
     is_paused: bool
+    is_scheduled: bool
     intensity: int = Field(ge=0, le=4)
 
 

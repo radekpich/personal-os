@@ -21,6 +21,7 @@ import { czechPlural, formatCzechCount } from "@/lib/czech";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { RecurrenceBuilder } from "@/components/recurrence/recurrence-builder";
 
 const challengeTypeLabels: Record<ChallengeType, string> = {
   daily_action: "Denní akce",
@@ -35,6 +36,7 @@ const schema = z.object({
   vision_id: z.string().nullable(),
   target_days: z.coerce.number().int().positive().nullable(),
   allowed_gap_days: z.coerce.number().int().min(0).max(30),
+  schedule_rrule: z.string().min(1),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   icon: z.string().min(1),
 });
@@ -67,10 +69,12 @@ export function ChallengeWorkspace() {
       vision_id: null,
       target_days: null,
       allowed_gap_days: 0,
+      schedule_rrule: "FREQ=DAILY",
       color: "#22c55e",
       icon: "activity",
     },
   });
+  const scheduleRule = form.watch("schedule_rrule");
 
   async function submit(values: Values) {
     const created = await create.mutateAsync({
@@ -79,7 +83,7 @@ export function ChallengeWorkspace() {
       category_id: values.category_id || null,
       vision_id: values.vision_id || null,
       target_days: values.target_days || null,
-      allowed_gap_days: values.type === "abstinence" ? 0 : values.allowed_gap_days,
+      allowed_gap_days: values.allowed_gap_days,
     });
     setSelectedId(created.id);
     form.reset({
@@ -90,6 +94,7 @@ export function ChallengeWorkspace() {
       vision_id: null,
       target_days: null,
       allowed_gap_days: 0,
+      schedule_rrule: "FREQ=DAILY",
       color: "#22c55e",
       icon: "activity",
     });
@@ -172,9 +177,19 @@ export function ChallengeWorkspace() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Select label="Typ" {...form.register("type")}><option value="daily_action">Denní akce</option><option value="abstinence">Abstinence</option></Select>
                   <label className="grid gap-1 text-sm font-medium">Cíl dní<Input type="number" min={1} {...form.register("target_days")} /></label>
-                  <label className="grid gap-1 text-sm font-medium">Grace dny<Input type="number" min={0} max={30} {...form.register("allowed_gap_days")} /></label>
+                  <label className="grid gap-1 text-sm font-medium">
+                    Povolené vynechání
+                    <Input type="number" min={0} max={30} {...form.register("allowed_gap_days")} />
+                    <span className="text-xs font-normal text-[var(--muted)]">Kolik dní z rozvrhu smím vynechat, aniž se šňůra přeruší.</span>
+                  </label>
                   <label className="grid gap-1 text-sm font-medium">Barva<Input type="color" {...form.register("color")} /></label>
                 </div>
+                <RecurrenceBuilder
+                  label="Rozvrh výzvy"
+                  helperText="Výchozí je denně. Můžeš nastavit 3× týdně nebo konkrétní dny stejně jako u opakovaných úkolů."
+                  value={scheduleRule}
+                  onChange={(next) => form.setValue("schedule_rrule", next ?? "FREQ=DAILY", { shouldDirty: true, shouldValidate: true })}
+                />
                 <Select label="Kategorie" {...form.register("category_id")}><option value="">Bez kategorie</option>{categories.data?.items.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</Select>
                 <Select label="Vize" {...form.register("vision_id")}><option value="">Bez vize</option>{visions.data?.items.map((vision) => <option key={vision.id} value={vision.id}>{vision.title}</option>)}</Select>
                 <input type="hidden" {...form.register("icon")} />
@@ -255,35 +270,88 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 }
 
 function ContributionHeatmap({ days, color }: { days: ChallengeHeatmapDay[]; color: string }) {
-  const padded = useMemo(() => padHeatmap(days), [days]);
+  const weeks = useMemo(() => buildHeatmapWeeks(days), [days]);
+  const monthLabels = useMemo(() => buildMonthLabels(weeks), [weeks]);
+  if (!days.length) return <p className="text-sm text-[var(--muted)]">Zatím nejsou žádné dny k vykreslení.</p>;
   return (
-    <div className="overflow-x-auto pb-20 md:pb-2" aria-label="Roční heatmapa návyků">
-      <div className="grid w-max grid-flow-col grid-rows-7 gap-1">
-        {padded.map((day, index) => (
-          <div
-            key={day?.date ?? `empty-${index}`}
-            className={cn("size-3 rounded-[3px] border border-[var(--border)]", !day && "opacity-0")}
-            style={{ background: day ? heatColor(color, day.intensity, day.is_paused) : "transparent" }}
-            title={day ? `${day.date}${day.note ? ` · ${day.note}` : ""}${day.is_paused ? " · pauza" : ""}` : undefined}
-          />
-        ))}
+    <div className="overflow-x-auto pb-20 md:pb-2" aria-label="Heatmapa návyků podle rozvrhu">
+      <div className="grid w-max grid-cols-[2rem_auto] gap-x-2">
+        <div className="sticky left-0 z-10 bg-[var(--surface)]" />
+        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 0.75rem))` }}>
+          {monthLabels.map((label, index) => (
+            <div key={`${label}-${index}`} className="h-5 text-[10px] text-[var(--muted)]">{label}</div>
+          ))}
+        </div>
+        <div className="sticky left-0 z-10 grid grid-rows-7 gap-1 bg-[var(--surface)] pr-1 text-[10px] text-[var(--muted)]">
+          {weekDayAxis.map((label) => <span key={label || "empty"} className="flex h-3 items-center justify-end">{label}</span>)}
+        </div>
+        <div className="grid grid-flow-col grid-rows-7 gap-1">
+          {weeks.flatMap((week, weekIndex) =>
+            week.map((day, dayIndex) => (
+              <div
+                key={day?.date ?? `empty-${weekIndex}-${dayIndex}`}
+                className={cn(
+                  "size-3 rounded-[3px]",
+                  !day && "opacity-0",
+                  day?.is_scheduled ? "border border-[var(--border)]" : "border border-transparent opacity-45"
+                )}
+                style={{ background: day ? heatColor(color, day) : "transparent" }}
+                title={day ? heatTooltip(day) : undefined}
+              />
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function padHeatmap(days: ChallengeHeatmapDay[]) {
+const weekDayAxis = ["Po", "", "St", "", "Pá", "", ""];
+const shortMonths = ["Led", "Úno", "Bře", "Dub", "Kvě", "Čvn", "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"];
+
+function buildHeatmapWeeks(days: ChallengeHeatmapDay[]) {
   if (!days.length) return [];
   const first = new Date(`${days[0].date}T00:00:00`);
   const mondayBased = (first.getDay() + 6) % 7;
-  return [...Array.from<null>({ length: mondayBased }).fill(null), ...days];
+  const cells: Array<ChallengeHeatmapDay | null> = [...Array.from<null>({ length: mondayBased }).fill(null), ...days];
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks: Array<Array<ChallengeHeatmapDay | null>> = [];
+  for (let index = 0; index < cells.length; index += 7) weeks.push(cells.slice(index, index + 7));
+  return weeks;
 }
 
-function heatColor(color: string, intensity: number, paused: boolean) {
-  if (paused) return "var(--surface-muted)";
-  if (intensity === 0) return "var(--surface-muted)";
-  const alpha = [0, 0.25, 0.45, 0.68, 0.95][intensity] ?? 0.25;
+function buildMonthLabels(weeks: Array<Array<ChallengeHeatmapDay | null>>) {
+  let previousMonth = -1;
+  return weeks.map((week) => {
+    const firstDay = week.find(Boolean);
+    if (!firstDay) return "";
+    const month = new Date(`${firstDay.date}T00:00:00`).getMonth();
+    if (month === previousMonth) return "";
+    previousMonth = month;
+    return shortMonths[month];
+  });
+}
+
+function heatColor(color: string, day: ChallengeHeatmapDay) {
+  if (day.is_paused) return "var(--surface-muted)";
+  if (!day.is_scheduled) return "color-mix(in srgb, var(--surface-muted) 70%, transparent)";
+  if (day.intensity === 0) return "var(--surface-muted)";
+  const alpha = [0, 0.25, 0.45, 0.68, 0.95][day.intensity] ?? 0.25;
   return `${color}${Math.round(alpha * 255).toString(16).padStart(2, "0")}`;
+}
+
+function heatTooltip(day: ChallengeHeatmapDay) {
+  const parts = [formatDateLong(day.date)];
+  parts.push(day.is_scheduled ? "v rozvrhu" : "mimo rozvrh");
+  if (day.value !== null) parts.push(`hodnota: ${day.value}`);
+  if (day.is_relapse) parts.push("relaps");
+  if (day.is_paused) parts.push("pauza");
+  if (day.note) parts.push(day.note);
+  return parts.join(" · ");
+}
+
+function formatDateLong(value: string) {
+  return new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium" }).format(new Date(`${value}T00:00:00`));
 }
 
 function Select({ label, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {

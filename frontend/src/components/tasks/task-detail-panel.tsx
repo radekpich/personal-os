@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { AttachmentGrid } from "@/components/attachments/attachment-grid";
 import { AttachmentUploader } from "@/components/attachments/attachment-uploader";
+import { RecurrenceBuilder } from "@/components/recurrence/recurrence-builder";
 
 const schema = z.object({
   title: z.string().min(1),
@@ -53,6 +54,7 @@ export function TaskDialog({ mode, open, task = null, initialTitle = "", categor
   const [tagName, setTagName] = useState("");
   const form = useForm<FormInput, unknown, Values>({ resolver: zodResolver(schema), defaultValues: emptyValues });
   const watchedTagIds = form.watch("tag_ids");
+  const recurrenceRule = form.watch("recurrence_rule");
   const selectedTagIds = useMemo(() => watchedTagIds ?? [], [watchedTagIds]);
   const selectedTags = useMemo(() => selectedTagIds.map((id) => tags.find((tag) => tag.id === id)).filter(Boolean) as Tag[], [selectedTagIds, tags]);
   const availableTags = tags.filter((tag) => !selectedTagIds.includes(tag.id));
@@ -159,8 +161,28 @@ export function TaskDialog({ mode, open, task = null, initialTitle = "", categor
                 <Select label="Kde" {...form.register("context_id")}><option value="">Bez místa</option>{contexts.map((c) => <option value={c.id} key={c.id}>{c.name}</option>)}</Select>
                 <Select label="Vize / cíl" {...form.register("vision_id")}><option value="">Bez vazby na vizi</option>{visions.map((v) => <option value={v.id} key={v.id}>{v.title}</option>)}</Select>
               </div>
-              <label className="grid gap-1 text-sm font-medium">Opakování<Input placeholder="FREQ=WEEKLY;BYDAY=MO" {...form.register("recurrence_rule")} /></label>
-              <Select label="Typ opakování" {...form.register("recurrence_mode")}><option value="">Bez opakování</option><option value="fixed">Pevný rytmus</option><option value="after_completion">Po dokončení</option></Select>
+              <RecurrenceBuilder
+                value={recurrenceRule}
+                allowNone
+                onChange={(next) => {
+                  form.setValue("recurrence_rule", next, { shouldDirty: true, shouldValidate: true });
+                  if (!next) form.setValue("recurrence_mode", null, { shouldDirty: true, shouldValidate: true });
+                  if (next && !form.getValues("recurrence_mode")) form.setValue("recurrence_mode", "fixed", { shouldDirty: true, shouldValidate: true });
+                }}
+              />
+              {recurrenceRule ? (
+                <fieldset className="grid gap-2 rounded-[var(--radius-lg)] border border-[var(--border)] p-3 text-sm">
+                  <legend className="px-1 font-semibold">Typ opakování</legend>
+                  <label className="flex items-start gap-2">
+                    <input type="radio" value="fixed" {...form.register("recurrence_mode")} />
+                    <span><strong>Podle rozvrhu</strong> — další termín podle pravidla, i když jsem předchozí nesplnil (fakturace každé pondělí).</span>
+                  </label>
+                  <label className="flex items-start gap-2">
+                    <input type="radio" value="after_completion" {...form.register("recurrence_mode")} />
+                    <span><strong>Po dokončení</strong> — další termín se počítá od chvíle, kdy úkol zavřu (výměna podestýlky 7 dní po té minulé).</span>
+                  </label>
+                </fieldset>
+              ) : null}
               <div className="grid gap-2">
                 <p className="text-sm font-medium">Tagy</p>
                 {selectedTags.length ? <div className="flex flex-wrap gap-2">{selectedTags.map((tag) => <button key={tag.id} type="button" onClick={() => removeTagId(tag.id)} className="focus-ring rounded-full border border-[var(--border)] px-2.5 py-1 text-sm">#{tag.name} ×</button>)}</div> : <p className="text-sm text-[var(--muted)]">Žádné tagy.</p>}

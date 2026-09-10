@@ -468,12 +468,157 @@ async def test_challenge_heatmap_returns_year_days_with_values_notes_relapses_an
         "note": "kapitola 3",
         "is_relapse": False,
         "is_paused": False,
+        "is_scheduled": True,
         "intensity": 4,
     }
     paused = next(item for item in payload["days"] if item["date"] == "2026-09-06")
     assert paused["has_check_in"] is False
     assert paused["is_paused"] is True
     assert paused["intensity"] == 0
+
+
+async def test_weekly_scheduled_challenge_counts_only_scheduled_days_for_streak(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 12, 9, 0, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Běh 3× týdně",
+            "type": "daily_action",
+            "started_at": "2026-09-07T00:00:00+02:00",
+            "schedule_rrule": "FREQ=WEEKLY;BYDAY=MO,WE,FR",
+            "allowed_gap_days": 0,
+        },
+        headers=headers,
+    )
+    assert challenge.status_code == 201
+    assert challenge.json()["schedule_rrule"] == "FREQ=WEEKLY;BYDAY=MO,WE,FR"
+    challenge_id = challenge.json()["id"]
+
+    for day in ["2026-09-07", "2026-09-09", "2026-09-11"]:
+        response = await client.post(
+            f"/challenges/{challenge_id}/check-in", json={"date": day}, headers=headers
+        )
+        assert response.status_code == 201
+
+    stats = await client.get(f"/challenges/{challenge_id}/stats")
+
+    assert stats.status_code == 200
+    assert stats.json()["current_streak"] == 3
+    assert stats.json()["longest_streak"] == 3
+    assert stats.json()["active_days_30"] == 3
+    assert stats.json()["success_rate_30"] == 100.0
+
+
+async def test_scheduled_challenge_allows_missing_only_configured_schedule_days(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 12, 9, 0, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Běh po st pá",
+            "type": "daily_action",
+            "started_at": "2026-09-07T00:00:00+02:00",
+            "schedule_rrule": "FREQ=WEEKLY;BYDAY=MO,WE,FR",
+            "allowed_gap_days": 1,
+        },
+        headers=headers,
+    )
+    challenge_id = challenge.json()["id"]
+    for day in ["2026-09-07", "2026-09-11"]:
+        response = await client.post(
+            f"/challenges/{challenge_id}/check-in", json={"date": day}, headers=headers
+        )
+        assert response.status_code == 201
+
+    stats = await client.get(f"/challenges/{challenge_id}/stats")
+
+    assert stats.status_code == 200
+    assert stats.json()["current_streak"] == 3
+    assert stats.json()["longest_streak"] == 3
+    assert stats.json()["success_rate_30"] == 66.67
+
+
+async def test_challenge_rejects_invalid_schedule_rrule(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    headers = await _login(client, csrf_headers, test_user)
+
+    response = await client.post(
+        "/challenges",
+        json={"title": "Rozbitý plán", "schedule_rrule": "FREQ=NOPE"},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+async def test_challenge_heatmap_marks_unscheduled_days_and_starts_at_challenge_start(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Po st pá heatmapa",
+            "type": "daily_action",
+            "started_at": "2026-09-07T00:00:00+02:00",
+            "schedule_rrule": "FREQ=WEEKLY;BYDAY=MO,WE,FR",
+        },
+        headers=headers,
+    )
+    challenge_id = challenge.json()["id"]
+    checked = await client.post(
+        f"/challenges/{challenge_id}/check-in",
+        json={"date": "2026-09-09", "value": 1, "note": "běh"},
+        headers=headers,
+    )
+    assert checked.status_code == 201
+
+    heatmap = await client.get(f"/challenges/{challenge_id}/heatmap?year=2026")
+
+    assert heatmap.status_code == 200
+    days = heatmap.json()["days"]
+    assert days[0]["date"] == "2026-09-07"
+    assert days[-1]["date"] == "2026-12-31"
+    monday = next(item for item in days if item["date"] == "2026-09-07")
+    tuesday = next(item for item in days if item["date"] == "2026-09-08")
+    wednesday = next(item for item in days if item["date"] == "2026-09-09")
+    assert monday["is_scheduled"] is True
+    assert tuesday["is_scheduled"] is False
+    assert wednesday["is_scheduled"] is True
+    assert wednesday["has_check_in"] is True
+    assert wednesday["note"] == "běh"
 
 
 async def test_check_in_without_date_uses_user_timezone_not_utc(
@@ -504,7 +649,7 @@ async def test_check_in_without_date_uses_user_timezone_not_utc(
         json={
             "title": "Pozdní kardio",
             "type": "daily_action",
-            "started_at": "2026-09-01T00:00:00+02:00",
+            "started_at": "2026-09-07T00:00:00+02:00",
         },
         headers=headers,
     )
