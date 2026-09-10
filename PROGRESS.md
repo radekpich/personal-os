@@ -4,6 +4,19 @@
 
 ## Hotovo
 
+- [x] 2026-09-10 06:02 UTC — Fáze 8B / UI číselníky a sjednocené dialogy
+  - Přidána Alembic migrace `d2e3f4a5b6c7_taxonomy_admin_fields.py` pro správu číselníků: barva, ikona, pořadí, archivace a `task_count` ve schématech.
+  - Doplněn idempotentní CLI příkaz `python -m app.cli seed-defaults`, který normalizuje default kategorie `KEXO/Ranč/Stavba/Hospodářství/Rodina/Kondice` a místa `Ranč/Staré Buky/Kancelář/Počítač/Telefon/Město/Doma` i ve stávající DB.
+  - UI přejmenovalo kontexty na `Kde`/`Místa`; úkoly mají filtr `Všechna místa` a nápovědu „Místo nebo nástroj, kde úkol zvládnu — Ranč, Počítač, Město.“
+  - Nastavení má správu Kategorie/Místa/Tagy: seznam, počty úkolů, přidání/editace názvu/barvy/ikony, pořadí drag-and-drop, archivace/smazání; kategorie podporují jednu úroveň rodiče.
+  - Přepínač vzhledu byl přesunut do Nastavení a umí `Podle systému` / `Světlý` / `Tmavý`.
+  - Quick capture full button i editace používají jeden Task dialog se všemi poli včetně odhadu, tagů, opakování a příloh; desktop side panel a mobile bottom sheet mají sticky akce.
+  - Deník používá sjednocený dialog pro nový/editovaný zápis se sticky akcemi; Nová výzva je dialog místo inline formuláře.
+  - Preview DB `/home/zeus/personal-os-preview/phase8b-preview.sqlite` migrována na head a seednuta přes `DATABASE_URL=sqlite+aiosqlite:////home/zeus/personal-os-preview/phase8b-preview.sqlite python -m app.cli seed-defaults` → defaulty doplněny/normalizovány.
+  - Přidán regresní Playwright smoke `frontend/scripts/phase8b-ui-smoke.mjs` a npm script `phase8b:ui-smoke`; proti preview `http://38.79.154.155:3030` výstup `{ ok: true, errors: [] }`, screenshoty `/tmp/personal-os-8b-ui-desktop-*.png` a `/tmp/personal-os-8b-ui-mobile-*.png`.
+  - Ověření backend: `ruff check app tests`; `ruff format --check app tests`; `mypy --strict app tests`; `pytest -q` → 118 passed.
+  - Ověření frontend: `npm run lint`; `npm run typecheck`; `NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` → OK.
+
 - [x] 2026-09-09 13:42 UTC — Mobilní opravy / dávka 1 ze 4
   - Opraven bottom-nav safe-area padding a mobilní doscrollování; spodní menu má 4 položky + `Více` panel.
   - Detail úkolu má funkční tag editor: existující tagy, nový tag a odebíratelné odznaky.

@@ -54,7 +54,7 @@ async def test_create_update_list_and_soft_delete_tag(
 
     async with TestSessionLocal() as session:
         row = await session.execute(select(Tag).where(Tag.id == uuid.UUID(created.json()["id"])))
-        assert row.scalar_one().deleted_at is not None
+        assert row.scalar_one_or_none() is None
 
 
 async def test_tag_list_is_filtered_by_owner(

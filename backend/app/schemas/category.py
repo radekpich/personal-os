@@ -4,6 +4,15 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+def validate_hex_color(value: str) -> str:
+    if len(value) != 7 or not value.startswith("#"):
+        raise ValueError("color must be hex format #RRGGBB")
+    hex_part = value[1:]
+    if any(char not in "0123456789abcdefABCDEF" for char in hex_part):
+        raise ValueError("color must be hex format #RRGGBB")
+    return value
+
+
 class CategoryBase(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     color: str = Field(min_length=7, max_length=7)
@@ -12,15 +21,7 @@ class CategoryBase(BaseModel):
     position: int = 0
     is_archived: bool = False
 
-    @field_validator("color")
-    @classmethod
-    def validate_hex_color(cls, value: str) -> str:
-        if len(value) != 7 or not value.startswith("#"):
-            raise ValueError("color must be hex format #RRGGBB")
-        hex_part = value[1:]
-        if any(char not in "0123456789abcdefABCDEF" for char in hex_part):
-            raise ValueError("color must be hex format #RRGGBB")
-        return value
+    _validate_color = field_validator("color")(validate_hex_color)
 
 
 class CategoryCreate(CategoryBase):
@@ -40,7 +41,7 @@ class CategoryUpdate(BaseModel):
     def validate_optional_hex_color(cls, value: str | None) -> str | None:
         if value is None:
             return value
-        return CategoryBase.validate_hex_color(value)
+        return validate_hex_color(value)
 
 
 class CategoryRead(CategoryBase):
@@ -48,6 +49,7 @@ class CategoryRead(CategoryBase):
 
     id: uuid.UUID
     owner_id: uuid.UUID
+    task_count: int = 0
     created_at: datetime
     updated_at: datetime
 

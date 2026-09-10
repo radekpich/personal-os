@@ -76,7 +76,8 @@ function Filters({ status, categoryId, contextId, categories, contexts, onStatus
     <div className="panel flex flex-wrap gap-3 p-3">
       <select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3" value={status} onChange={(e) => onStatus(e.target.value)}>{statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
       <select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3" value={categoryId} onChange={(e) => onCategory(e.target.value)}><option value="all">Všechny kategorie</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-      <select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3" value={contextId} onChange={(e) => onContext(e.target.value)}><option value="all">Všechny kontexty</option>{contexts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+      <select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3" value={contextId} onChange={(e) => onContext(e.target.value)}><option value="all">Všechna místa</option>{contexts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+      <p className="text-xs text-[var(--muted)] sm:col-span-3">Místo nebo nástroj, kde úkol zvládnu — Ranč, Počítač, Město.</p>
     </div>
   );
 }

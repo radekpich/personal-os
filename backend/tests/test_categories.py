@@ -153,4 +153,4 @@ async def test_soft_delete_category_hides_it_from_list(
         row = await session.execute(
             select(Category).where(Category.id == uuid.UUID(created.json()["id"]))
         )
-        assert row.scalar_one().deleted_at is not None
+        assert row.scalar_one_or_none() is None

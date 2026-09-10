@@ -15,6 +15,10 @@ class Tag(Base):
         sa.Uuid, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(sa.String(80), nullable=False)
+    color: Mapped[str] = mapped_column(sa.String(7), nullable=False, default="#64748B")
+    icon: Mapped[str] = mapped_column(sa.String(80), nullable=False, default="hash")
+    position: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    is_archived: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
     )

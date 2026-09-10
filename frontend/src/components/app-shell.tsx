@@ -1,13 +1,12 @@
 "use client";
 
-import { BookOpen, Bot, CheckSquare, Flame, Inbox, LayoutDashboard, ListTodo, LogOut, Menu, Moon, Settings, Sparkles, Sun, X } from "lucide-react";
+import { BookOpen, Bot, CheckSquare, Flame, Inbox, LayoutDashboard, ListTodo, LogOut, Menu, Settings, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTheme } from "next-themes";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api/client";
-import { useMe, useTaxonomy } from "@/lib/api/hooks";
+import { useMe, useTaxonomy, useVisions } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { QuickCapture } from "@/components/tasks/quick-capture";
@@ -38,9 +37,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const params = useSearchParams();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { setTheme, resolvedTheme } = useTheme();
   const { data: me, error: meError } = useMe();
-  const { categories } = useTaxonomy();
+  const { categories, contexts, tags } = useTaxonomy();
+  const visions = useVisions();
   const [now, setNow] = useState(() => new Date());
   const [moreOpen, setMoreOpen] = useState(false);
   const view = params.get("view");
@@ -104,7 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <h1 className="truncate text-xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
             <time className="shrink-0 text-right text-xs text-[var(--muted)] sm:text-sm" dateTime={now.toISOString()}>{dateTime}</time>
           </div>
-          {showQuickTask ? <QuickCapture categories={categories.data?.items ?? []} /> : null}
+          {showQuickTask ? <QuickCapture categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} /> : null}
         </header>
         {children}
       </main>
@@ -130,9 +129,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               })}
             </div>
             <div className="mt-3 flex gap-2 border-t border-[var(--border)] pt-3">
-              <Button variant="secondary" size="sm" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")} aria-label="Přepnout režim">
-                {resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />}{resolvedTheme === "dark" ? "Světlý" : "Tmavý"}
-              </Button>
               <Button variant="ghost" size="sm" onClick={logout}><LogOut size={16} />Odhlásit</Button>
             </div>
           </div>

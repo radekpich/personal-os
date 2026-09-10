@@ -148,7 +148,7 @@ export function useTaxonomy() {
 export function useCreateTag() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { name: string }) => api.createTag(payload),
+    mutationFn: (payload: { name: string; color?: string; icon?: string; position?: number; is_archived?: boolean }) => api.createTag(payload),
     onSuccess: (tag: Tag) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tags });
       queryClient.setQueryData(queryKeys.tags, (current: { items: Tag[] } | undefined) =>
@@ -156,6 +156,46 @@ export function useCreateTag() {
       );
     },
   });
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: api.createCategory, onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.categories }) });
+}
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof api.updateCategory>[1] }) => api.updateCategory(id, payload), onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.categories }) });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: api.deleteCategory, onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.categories }) });
+}
+
+export function useCreateContext() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: api.createContext, onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.contexts }) });
+}
+
+export function useUpdateContext() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof api.updateContext>[1] }) => api.updateContext(id, payload), onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.contexts }) });
+}
+
+export function useDeleteContext() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: api.deleteContext, onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.contexts }) });
+}
+
+export function useUpdateTag() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof api.updateTag>[1] }) => api.updateTag(id, payload), onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.tags }) });
+}
+
+export function useDeleteTag() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: api.deleteTag, onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.tags }) });
 }
 
 export function useTasks(filters: TaskFilters = {}) {

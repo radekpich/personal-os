@@ -1,7 +1,8 @@
 "use client";
 
+import * as Dialog from "@radix-ui/react-dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Activity, Flame, Plus, ShieldCheck } from "lucide-react";
+import { Activity, Flame, Plus, ShieldCheck, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -48,6 +49,7 @@ export function ChallengeWorkspace() {
   const create = useCreateChallenge();
   const checkIn = useCheckInChallenge();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const selected = useMemo(() => {
     const items = challenges.data?.items ?? [];
     return items.find((item) => item.id === selectedId) ?? items[0] ?? null;
@@ -91,6 +93,7 @@ export function ChallengeWorkspace() {
       color: "#22c55e",
       icon: "activity",
     });
+    setCreateOpen(false);
   }
 
   async function oneTap(challenge: Challenge) {
@@ -111,12 +114,13 @@ export function ChallengeWorkspace() {
             <h2 className="text-xl font-semibold">Návyky a výzvy</h2>
           </div>
           <Badge>{formatCzechCount(challenges.data?.items.length ?? 0, "aktivní měření", "aktivní měření", "aktivních měření")}</Badge>
+          <Button onClick={() => setCreateOpen(true)}><Plus size={16}/>Nová výzva</Button>
         </div>
 
         {challenges.isLoading ? <p className="panel p-5 text-[var(--muted)]">Načítám návyky…</p> : null}
         {challenges.isError ? <p className="panel p-5 text-[var(--danger)]">Návyky se nepodařilo načíst.</p> : null}
         {!challenges.isLoading && !challenges.data?.items.length ? (
-          <p className="panel p-5 text-[var(--muted)]">Zatím žádný návyk. Založ první výzvu vpravo.</p>
+          <p className="panel p-5 text-[var(--muted)]">Zatím žádný návyk. Založ první výzvu tlačítkem nahoře.</p>
         ) : null}
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -150,35 +154,39 @@ export function ChallengeWorkspace() {
       </section>
 
       <aside className="grid h-fit gap-4">
-        <form className="panel grid gap-4 p-5" onSubmit={form.handleSubmit(submit)}>
-          <div>
-            <h2 className="flex items-center gap-2 font-semibold"><Plus size={16} /> Nová výzva</h2>
-            <p className="text-sm text-[var(--muted)]">Limit zpětného zápisu je 7 dní. Datum dne určuje timezone profilu.</p>
-          </div>
-          <label className="grid gap-1 text-sm font-medium">Název<Input {...form.register("title")} placeholder="Švihadlo" /></label>
-          <label className="grid gap-1 text-sm font-medium">Popis<Textarea rows={3} {...form.register("description")} /></label>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <Select label="Typ" {...form.register("type")}>
-              <option value="daily_action">Denní akce</option>
-              <option value="abstinence">Abstinence</option>
-            </Select>
-            <label className="grid gap-1 text-sm font-medium">Cíl dní<Input type="number" min={1} {...form.register("target_days")} /></label>
-            <label className="grid gap-1 text-sm font-medium">Grace dny<Input type="number" min={0} max={30} {...form.register("allowed_gap_days")} /></label>
-            <label className="grid gap-1 text-sm font-medium">Barva<Input type="color" {...form.register("color")} /></label>
-          </div>
-          <Select label="Kategorie" {...form.register("category_id")}>
-            <option value="">Bez kategorie</option>
-            {categories.data?.items.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-          </Select>
-          <Select label="Vize" {...form.register("vision_id")}>
-            <option value="">Bez vize</option>
-            {visions.data?.items.map((vision) => <option key={vision.id} value={vision.id}>{vision.title}</option>)}
-          </Select>
-          <input type="hidden" {...form.register("icon")} />
-          <Button disabled={create.isPending}>Založit výzvu</Button>
-        </form>
         {selected ? <StatsPanel challenge={selected} stats={stats.data} /> : null}
       </aside>
+
+      <Dialog.Root open={createOpen} onOpenChange={setCreateOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
+          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[96dvh] flex-col overflow-hidden rounded-t-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:h-dvh sm:w-full sm:max-w-xl sm:rounded-none sm:border-l">
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] p-4 sm:p-6">
+              <div><Dialog.Title className="text-lg font-semibold">Nová výzva</Dialog.Title><Dialog.Description className="text-sm text-[var(--muted)]">Stejný dialogový vzor jako nový úkol a nový zápis. Limit zpětného zápisu je 7 dní.</Dialog.Description></div>
+              <Dialog.Close asChild><Button variant="ghost" size="sm"><X size={18}/></Button></Dialog.Close>
+            </div>
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={form.handleSubmit(submit)}>
+              <div className="grid flex-1 gap-4 overflow-y-auto p-4 pb-24 sm:p-6">
+                <label className="grid gap-1 text-sm font-medium">Název<Input {...form.register("title")} placeholder="Švihadlo" autoFocus /></label>
+                <label className="grid gap-1 text-sm font-medium">Popis<Textarea rows={3} {...form.register("description")} /></label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Select label="Typ" {...form.register("type")}><option value="daily_action">Denní akce</option><option value="abstinence">Abstinence</option></Select>
+                  <label className="grid gap-1 text-sm font-medium">Cíl dní<Input type="number" min={1} {...form.register("target_days")} /></label>
+                  <label className="grid gap-1 text-sm font-medium">Grace dny<Input type="number" min={0} max={30} {...form.register("allowed_gap_days")} /></label>
+                  <label className="grid gap-1 text-sm font-medium">Barva<Input type="color" {...form.register("color")} /></label>
+                </div>
+                <Select label="Kategorie" {...form.register("category_id")}><option value="">Bez kategorie</option>{categories.data?.items.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</Select>
+                <Select label="Vize" {...form.register("vision_id")}><option value="">Bez vize</option>{visions.data?.items.map((vision) => <option key={vision.id} value={vision.id}>{vision.title}</option>)}</Select>
+                <input type="hidden" {...form.register("icon")} />
+              </div>
+              <div className="sticky bottom-0 flex justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6">
+                <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>Zrušit</Button>
+                <Button disabled={create.isPending}>Uložit</Button>
+              </div>
+            </form>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

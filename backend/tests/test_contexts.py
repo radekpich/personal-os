@@ -106,4 +106,4 @@ async def test_update_context_and_soft_delete(
         row = await session.execute(
             select(Context).where(Context.id == uuid.UUID(created.json()["id"]))
         )
-        assert row.scalar_one().deleted_at is not None
+        assert row.scalar_one_or_none() is None

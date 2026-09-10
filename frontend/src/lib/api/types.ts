@@ -399,6 +399,7 @@ export type Category = {
   parent_id: UUID | null;
   position: number;
   is_archived: boolean;
+  task_count: number;
   created_at: string;
   updated_at: string;
 };
@@ -407,8 +408,11 @@ export type Context = {
   id: UUID;
   owner_id: UUID;
   name: string;
+  color: string;
+  icon: string;
   position: number;
   is_archived: boolean;
+  task_count: number;
   created_at: string;
   updated_at: string;
 };
@@ -417,6 +421,11 @@ export type Tag = {
   id: UUID;
   owner_id: UUID;
   name: string;
+  color: string;
+  icon: string;
+  position: number;
+  is_archived: boolean;
+  task_count: number;
   created_at: string;
   updated_at: string;
 };

@@ -11,6 +11,7 @@ from app.core.security import hash_password
 from app.db.session import AsyncSessionLocal
 from app.models.user import User
 from app.services.api_key_service import create_api_key, revoke_api_key
+from app.services.seed_defaults import seed_defaults
 
 
 async def _create_user(email: str, password: str, display_name: str, timezone: str) -> None:
@@ -64,6 +65,19 @@ async def _revoke_api_key(*, key_id: uuid.UUID | None, key_prefix: str | None) -
         print(f"Revoked API key {record.name} ({record.key_prefix})")
 
 
+async def _seed_defaults() -> None:
+    async with AsyncSessionLocal() as session:
+        result = await seed_defaults(session)
+        print(
+            "Seed defaults complete: "
+            f"users={result.users_seen}, "
+            f"categories_created={result.categories_created}, "
+            f"categories_updated={result.categories_updated}, "
+            f"contexts_created={result.contexts_created}, "
+            f"contexts_updated={result.contexts_updated}"
+        )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -86,6 +100,10 @@ def _build_parser() -> argparse.ArgumentParser:
     group = revoke_api_key_parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--id", dest="key_id", default=None)
     group.add_argument("--prefix", dest="key_prefix", default=None)
+
+    subparsers.add_parser(
+        "seed-defaults", help="Idempotently add default categories and places for active users"
+    )
 
     return parser
 
@@ -114,6 +132,8 @@ def main() -> None:
     elif args.command == "revoke-api-key":
         key_id = uuid.UUID(args.key_id) if args.key_id else None
         asyncio.run(_revoke_api_key(key_id=key_id, key_prefix=args.key_prefix))
+    elif args.command == "seed-defaults":
+        asyncio.run(_seed_defaults())
 
 
 if __name__ == "__main__":
