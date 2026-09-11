@@ -4,6 +4,17 @@
 
 ## Hotovo
 
+- [x] 2026-09-11 05:45 UTC — Mobilní opravy / dávka 4 ze 4 — Inbox jako schránka a akční dashboard
+  - Backend úkolů dostal pole `source` a `source_detail` v modelu/schématech/API včetně Alembic migrace `f4a5b6c7d8e9_add_task_source_fields.py`; validní zdroje zahrnují web, rychlý zápis, hlas, Telegram, e-mail, WhatsApp, API, agenta, kalendář a import.
+  - Definice Inboxu je nově procesní: úkol patří do Inboxu, když má `status=inbox` nebo mu chybí kategorie/Kde; běžné task view mimo Inbox skrývají nezpracované položky bez kategorie.
+  - `/inbox` je samostatná kanálová schránka seskupená podle zdroje s počty, detailem původu, rychlým přiřazením Kategorie/Kde a tlačítkem `Zpracovat`; navigace už nevede na `/tasks?view=inbox`.
+  - Dashboard byl zjednodušen na akční dnešek: kompaktní metriky Dnes/Zítra/Po termínu/Inbox, proužek overdue, seznam Dnes a Zítra, dnešní návyky a poslední deníkový zápis; nezpracované inbox položky se na dashboardu nepletou mezi úkoly.
+  - Opravena TanStack Query cache pro rychlé dokončení úkolu a následné inline změny, aby dokončený úkol z aktuálního seznamu zmizel a po PATCHi se aktualizovala `version` v cache.
+  - Opraven hydration mismatch času v app shellu: čas se renderuje až po mountu klienta.
+  - Přidán regresní Playwright smoke `frontend/scripts/phase8b-inbox-dashboard-smoke.mjs` a npm script `phase8b:inbox-dashboard-smoke`; proti preview `http://38.79.154.155:3030` výstup `{ ok: true, errors: [] }`, screenshoty `/tmp/personal-os-8b-dashboard-smoke.png` a `/tmp/personal-os-8b-inbox-smoke.png`.
+  - Preview DB `/home/zeus/personal-os-preview/phase8b-preview.sqlite` migrována na head; preview běží na backend `:8030` a frontend `:3030` s buildem proti `NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030`.
+  - Ověření backend: `ruff check app tests`; `pytest -q` → 124 passed. Ověření frontend: `npm run lint`; `npm run typecheck`; `NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` → OK.
+
 - [x] 2026-09-10 11:57 UTC — Mobilní opravy / dávka 3 ze 4 — opakování a rozvrh výzev
   - Přidána sdílená frontend komponenta `RecurrenceBuilder`, použitá v detailu úkolu i ve formuláři nové výzvy. Uživatel už nevidí ani nepíše RRULE; komponenta interně parsuje/generuje RRULE přes knihovnu `rrule`.
   - Detail úkolu odstranil textové pole `RRULE opakování`; opakování má rychlé předvolby Denně / Každý pracovní den / Týdně / 3× týdně / Měsíčně, čitelné shrnutí a vlastní nastavení frekvence, intervalu, dnů, měsíční varianty a konce.

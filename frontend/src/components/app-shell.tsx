@@ -2,7 +2,7 @@
 
 import { BookOpen, Bot, CheckSquare, Flame, Inbox, LayoutDashboard, ListTodo, LogOut, Menu, Settings, Sparkles, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api/client";
@@ -15,7 +15,7 @@ import { CommandCenter } from "@/components/tasks/command-center";
 const nav = [
   { href: "/dashboard", match: "/dashboard", label: "Přehled", icon: LayoutDashboard },
   { href: "/tasks", match: "/tasks", label: "Úkoly", icon: ListTodo },
-  { href: "/tasks?view=inbox", match: "/inbox", altMatch: "/tasks", label: "Inbox", icon: Inbox },
+  { href: "/inbox", match: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/challenges", match: "/challenges", label: "Návyky", icon: Flame },
   { href: "/diary", match: "/diary", label: "Deník", icon: BookOpen },
   { href: "/visions", match: "/visions", label: "Vize", icon: Sparkles },
@@ -26,27 +26,26 @@ const nav = [
 const primaryMobileNav = nav.slice(0, 4);
 const moreMobileNav = nav.slice(4);
 
-function isActivePath(pathname: string, item: (typeof nav)[number], view?: string | null) {
-  if (item.label === "Inbox") return pathname === "/inbox" || (pathname === "/tasks" && view === "inbox");
-  if (item.label === "Úkoly") return pathname === "/tasks" && view !== "inbox";
+function isActivePath(pathname: string, item: (typeof nav)[number]) {
+  if (item.label === "Inbox") return pathname === "/inbox";
+  if (item.label === "Úkoly") return pathname === "/tasks";
   return pathname.startsWith(item.match);
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const params = useSearchParams();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: me, error: meError } = useMe();
   const { categories, contexts, tags } = useTaxonomy();
   const visions = useVisions();
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
-  const view = params.get("view");
-  const title = useMemo(() => nav.find((item) => isActivePath(pathname, item, view))?.label ?? "Personal OS", [pathname, view]);
+  const title = useMemo(() => nav.find((item) => isActivePath(pathname, item))?.label ?? "Personal OS", [pathname]);
   const showQuickTask = pathname === "/dashboard" || pathname === "/tasks" || pathname === "/inbox";
 
   useEffect(() => {
+    setNow(new Date());
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
@@ -63,7 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   }
 
-  const dateTime = new Intl.DateTimeFormat("cs-CZ", { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(now);
+  const dateTime = now ? new Intl.DateTimeFormat("cs-CZ", { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(now) : "";
 
   return (
     <div className="app-grid">
@@ -79,7 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <nav className="grid gap-1">
-            {nav.map((item) => <NavLink key={item.href} {...item} active={isActivePath(pathname, item, view)} />)}
+            {nav.map((item) => <NavLink key={item.href} {...item} active={isActivePath(pathname, item)} />)}
           </nav>
           <div className="min-h-0 flex-1 overflow-auto">
             <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-[.16em] text-[var(--muted-foreground)]">Kategorie</p>
@@ -101,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="mb-4 grid gap-3 sm:mb-6 sm:gap-4">
           <div className="flex items-center justify-between gap-3">
             <h1 className="truncate text-xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-            <time className="shrink-0 text-right text-xs text-[var(--muted)] sm:text-sm" dateTime={now.toISOString()}>{dateTime}</time>
+            <time className="shrink-0 text-right text-xs text-[var(--muted)] sm:text-sm" dateTime={now?.toISOString()}>{dateTime}</time>
           </div>
           {showQuickTask ? <QuickCapture categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} /> : null}
         </header>
@@ -110,7 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <nav className="bottom-nav p-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
         {primaryMobileNav.map((item) => {
           const Icon = item.icon;
-          return <Link key={item.href} href={item.href} className={cn("focus-ring flex flex-col items-center rounded-full px-1 py-2 text-[10px] text-[var(--muted)]", isActivePath(pathname, item, view) && "bg-[var(--primary)] text-[var(--primary-foreground)]")}><Icon size={17}/>{item.label}</Link>;
+          return <Link key={item.href} href={item.href} className={cn("focus-ring flex flex-col items-center rounded-full px-1 py-2 text-[10px] text-[var(--muted)]", isActivePath(pathname, item) && "bg-[var(--primary)] text-[var(--primary-foreground)]")}><Icon size={17}/>{item.label}</Link>;
         })}
         <button type="button" onClick={() => setMoreOpen(true)} className="focus-ring flex flex-col items-center rounded-full px-1 py-2 text-[10px] text-[var(--muted)]"><Menu size={17}/>Více</button>
       </nav>
@@ -125,7 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="grid grid-cols-2 gap-2">
               {moreMobileNav.map((item) => {
                 const Icon = item.icon;
-                return <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)} className={cn("focus-ring flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-3 text-sm", isActivePath(pathname, item, view) && "bg-[var(--primary)] text-[var(--primary-foreground)]")}><Icon size={17}/>{item.label}</Link>;
+                return <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)} className={cn("focus-ring flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-3 text-sm", isActivePath(pathname, item) && "bg-[var(--primary)] text-[var(--primary-foreground)]")}><Icon size={17}/>{item.label}</Link>;
               })}
             </div>
             <div className="mt-3 flex gap-2 border-t border-[var(--border)] pt-3">

@@ -15,7 +15,8 @@
     "phase8a:smoke": "node scripts/phase8a-smoke.mjs",
     "phase8b:smoke": "node scripts/phase8b-smoke.mjs",
     "phase8b:ui-smoke": "node scripts/phase8b-ui-smoke.mjs",
-    "phase8b:recurrence-smoke": "node scripts/phase8b-recurrence-smoke.mjs"
+    "phase8b:recurrence-smoke": "node scripts/phase8b-recurrence-smoke.mjs",
+    "phase8b:inbox-dashboard-smoke": "node scripts/phase8b-inbox-dashboard-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

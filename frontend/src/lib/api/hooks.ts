@@ -230,6 +230,14 @@ export function useUpdateTask() {
       api.updateTask(task.id, payload, task.version),
     onSuccess: (task) => {
       queryClient.setQueryData(queryKeys.task(task.id), task);
+      const snapshots = queryClient.getQueriesData<{ items: Task[]; total: number }>({ queryKey: ["tasks"] });
+      for (const [key, value] of snapshots) {
+        if (!value) continue;
+        queryClient.setQueryData(key, {
+          ...value,
+          items: value.items.map((item) => (item.id === task.id ? task : item)),
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["visions"] });
     },
@@ -253,9 +261,16 @@ export function useToggleTaskDone() {
       const snapshots = queryClient.getQueriesData<{ items: Task[]; total: number }>({ queryKey: ["tasks"] });
       for (const [key, value] of snapshots) {
         if (!value) continue;
+        const filters = Array.isArray(key) && typeof key[1] === "object" && key[1] !== null ? key[1] as TaskFilters : {};
+        const updated = { ...task, status, completed_at: status === "done" ? new Date().toISOString() : null };
+        const shouldKeepDone = status === "done" && filters.status === "done";
+        const items = status === "done" && !shouldKeepDone
+          ? value.items.filter((item) => item.id !== task.id)
+          : value.items.map((item) => (item.id === task.id ? updated : item));
         queryClient.setQueryData(key, {
           ...value,
-          items: value.items.map((item) => (item.id === task.id ? { ...item, status, completed_at: status === "done" ? new Date().toISOString() : null } : item)),
+          items,
+          total: value.total - (value.items.length - items.length),
         });
       }
       return { snapshots };

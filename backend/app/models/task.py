@@ -30,6 +30,16 @@ class RecurrenceMode(str, enum.Enum):
     AFTER_COMPLETION = "after_completion"
 
 
+class TaskSource(str, enum.Enum):
+    WEB = "web"
+    QUICK_CAPTURE = "quick_capture"
+    TELEGRAM = "telegram"
+    AGENT = "agent"
+    CALENDAR = "calendar"
+    EMAIL = "email"
+    JOURNAL = "journal"
+
+
 task_tags = sa.Table(
     "task_tags",
     Base.metadata,
@@ -82,6 +92,14 @@ class Task(Base):
     recurrence_template_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid, sa.ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    source: Mapped[str] = mapped_column(
+        sa.String(40),
+        nullable=False,
+        default=TaskSource.WEB.value,
+        server_default=TaskSource.WEB.value,
+        index=True,
+    )
+    source_detail: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
     recurrence_rule: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
     recurrence_mode: Mapped[str | None] = mapped_column(sa.String(40), nullable=True)
     position: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)

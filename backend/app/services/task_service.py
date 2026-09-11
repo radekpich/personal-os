@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tag import Tag
-from app.models.task import RecurrenceMode, Task, TaskPriority, TaskStatus, task_tags
+from app.models.task import RecurrenceMode, Task, TaskPriority, TaskSource, TaskStatus, task_tags
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskRead, TaskUpdate, TaskView
 from app.services import category_service, context_service, vision_service
@@ -112,6 +112,9 @@ class TaskListFilters:
     due_to: date | None = None
     q: str | None = None
     view: TaskView | None = None
+    source: TaskSource | None = None
+    created_from: datetime | None = None
+    created_to: datetime | None = None
     page: int = 1
     page_size: int = 20
 
@@ -123,9 +126,11 @@ def _local_today() -> date:
 def _view_condition(view: TaskView) -> sa.ColumnElement[bool]:
     today = _local_today()
     if view == TaskView.INBOX:
-        return Task.status == TaskStatus.INBOX.value
+        return sa.or_(Task.category_id.is_(None), Task.context_id.is_(None))
     if view == TaskView.TODAY:
         return Task.due_date == today
+    if view == TaskView.TOMORROW:
+        return Task.due_date == today + timedelta(days=1)
     if view == TaskView.THIS_WEEK:
         start = today - timedelta(days=today.weekday())
         end = start + timedelta(days=6)
@@ -158,8 +163,20 @@ def _build_conditions(owner: User, filters: TaskListFilters) -> list[sa.ColumnEl
     if filters.q:
         pattern = f"%{filters.q}%"
         conditions.append(sa.or_(Task.title.ilike(pattern), Task.description.ilike(pattern)))
+    if filters.source is not None:
+        conditions.append(Task.source == filters.source.value)
+    if filters.created_from is not None:
+        conditions.append(Task.created_at >= filters.created_from)
+    if filters.created_to is not None:
+        conditions.append(Task.created_at <= filters.created_to)
     if filters.view is not None:
         conditions.append(_view_condition(filters.view))
+        if filters.view != TaskView.INBOX:
+            conditions.append(Task.category_id.is_not(None))
+            conditions.append(Task.context_id.is_not(None))
+    elif filters.status is None:
+        conditions.append(Task.category_id.is_not(None))
+        conditions.append(Task.context_id.is_not(None))
     return conditions
 
 
@@ -172,10 +189,29 @@ async def list_tasks(
         await db.execute(select(sa.func.count()).select_from(Task).where(*conditions))
     ).scalar_one()
 
+    priority_order = sa.case(
+        (Task.priority == TaskPriority.HIGH.value, 0),
+        (Task.priority == TaskPriority.MEDIUM.value, 1),
+        (Task.priority == TaskPriority.LOW.value, 2),
+        else_=3,
+    )
+    if filters.view == TaskView.INBOX:
+        order_by = (Task.created_at.desc(),)
+    elif filters.view in {TaskView.TODAY, TaskView.TOMORROW, TaskView.OVERDUE}:
+        order_by = (
+            Task.due_time.is_(None),
+            Task.due_time,
+            priority_order,
+            Task.position,
+            Task.created_at,
+        )
+    else:
+        order_by = (Task.position, Task.created_at)
+
     stmt = (
         select(Task)
         .where(*conditions)
-        .order_by(Task.position, Task.created_at)
+        .order_by(*order_by)
         .offset((filters.page - 1) * filters.page_size)
         .limit(filters.page_size)
     )
@@ -228,6 +264,11 @@ async def quick_create_task(
         title=title,
         status=TaskStatus.INBOX.value,
         priority=TaskPriority.NONE.value,
+        source=(
+            TaskSource.QUICK_CAPTURE.value
+            if actor == MutationActor.USER
+            else TaskSource.AGENT.value
+        ),
         version=1,
         created_by=actor.value,
         updated_by=actor.value,
@@ -272,6 +313,8 @@ async def create_task(
         context_id=payload.context_id,
         vision_id=payload.vision_id,
         parent_task_id=payload.parent_task_id,
+        source=payload.source.value,
+        source_detail=payload.source_detail,
         recurrence_rule=payload.recurrence_rule,
         recurrence_mode=payload.recurrence_mode.value
         if payload.recurrence_mode is not None
@@ -346,10 +389,14 @@ async def update_task(
         "estimate_minutes",
         "position",
         "completed_at",
+        "source_detail",
         "recurrence_rule",
     ):
         if field in changes:
             setattr(task, field, changes[field])
+
+    if "source" in changes and payload.source is not None:
+        task.source = payload.source.value
 
     if "recurrence_mode" in changes:
         task.recurrence_mode = (

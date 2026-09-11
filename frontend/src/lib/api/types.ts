@@ -12,7 +12,8 @@ export type User = {
 
 export type TaskStatus = "inbox" | "todo" | "doing" | "done" | "cancelled";
 export type TaskPriority = "none" | "low" | "medium" | "high";
-export type TaskView = "today" | "this_week" | "overdue" | "inbox";
+export type TaskSource = "web" | "quick_capture" | "telegram" | "agent" | "calendar" | "email" | "journal";
+export type TaskView = "today" | "this_week" | "overdue" | "inbox" | "tomorrow";
 export type RecurrenceMode = "fixed" | "after_completion";
 export type VisionHorizon = "life" | "5y" | "1y" | "quarter";
 export type VisionStatus = "active" | "paused" | "achieved" | "abandoned";
@@ -494,6 +495,8 @@ export type Task = VersionedAuditFields & {
   vision_id: UUID | null;
   parent_task_id: UUID | null;
   recurrence_template_id: UUID | null;
+  source: TaskSource;
+  source_detail: string | null;
   recurrence_rule: string | null;
   recurrence_mode: RecurrenceMode | null;
   position: number;
@@ -518,6 +521,9 @@ export type TaskFilters = {
   tag_ids?: UUID[];
   due_from?: string;
   due_to?: string;
+  created_from?: string;
+  created_to?: string;
+  source?: TaskSource | "all";
   q?: string;
   view?: TaskView;
   page?: number;
@@ -536,6 +542,8 @@ export type TaskCreate = {
   context_id?: UUID | null;
   vision_id?: UUID | null;
   parent_task_id?: UUID | null;
+  source?: TaskSource;
+  source_detail?: string | null;
   recurrence_rule?: string | null;
   recurrence_mode?: RecurrenceMode | null;
   position?: number;

@@ -20,4 +20,5 @@ export const viewLabels: Record<TaskView, string> = {
   this_week: "Tento týden",
   overdue: "Po termínu",
   inbox: "Inbox",
+  tomorrow: "Zítra",
 };

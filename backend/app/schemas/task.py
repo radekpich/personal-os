@@ -4,7 +4,7 @@ from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.task import RecurrenceMode, TaskPriority, TaskStatus
+from app.models.task import RecurrenceMode, TaskPriority, TaskSource, TaskStatus
 from app.schemas.tag import TagRead
 
 
@@ -22,6 +22,7 @@ class TaskView(str, enum.Enum):
     THIS_WEEK = "this_week"
     OVERDUE = "overdue"
     INBOX = "inbox"
+    TOMORROW = "tomorrow"
 
 
 class TaskBase(BaseModel):
@@ -36,6 +37,8 @@ class TaskBase(BaseModel):
     context_id: uuid.UUID | None = None
     vision_id: uuid.UUID | None = None
     parent_task_id: uuid.UUID | None = None
+    source: TaskSource = TaskSource.WEB
+    source_detail: str | None = Field(default=None, max_length=255)
     recurrence_rule: str | None = Field(default=None, max_length=255)
     recurrence_mode: RecurrenceMode | None = None
     position: int = 0
@@ -70,6 +73,8 @@ class TaskUpdate(BaseModel):
     context_id: uuid.UUID | None = None
     vision_id: uuid.UUID | None = None
     parent_task_id: uuid.UUID | None = None
+    source: TaskSource | None = None
+    source_detail: str | None = Field(default=None, max_length=255)
     recurrence_rule: str | None = Field(default=None, max_length=255)
     recurrence_mode: RecurrenceMode | None = None
     position: int | None = None
@@ -96,6 +101,8 @@ class TaskRead(BaseModel):
     vision_id: uuid.UUID | None
     parent_task_id: uuid.UUID | None
     recurrence_template_id: uuid.UUID | None
+    source: TaskSource
+    source_detail: str | None
     recurrence_rule: str | None
     recurrence_mode: RecurrenceMode | None
     position: int

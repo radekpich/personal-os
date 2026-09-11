@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime, time
 from typing import Annotated, NoReturn
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import ActorContext, get_current_actor, verify_csrf_or_api_key
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models.task import Task, TaskStatus
+from app.models.task import Task, TaskSource, TaskStatus
 from app.schemas.task import TaskCreate, TaskList, TaskRead, TaskUpdate, TaskView
 from app.services import task_service
 from app.services.concurrency import ConflictError
@@ -52,6 +52,9 @@ async def list_tasks(
     tag_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
     due_from: Annotated[date | None, Query()] = None,
     due_to: Annotated[date | None, Query()] = None,
+    created_from: Annotated[date | None, Query()] = None,
+    created_to: Annotated[date | None, Query()] = None,
+    source: Annotated[TaskSource | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
     view: Annotated[TaskView | None, Query()] = None,
     page: Annotated[int, Query(ge=1)] = 1,
@@ -64,6 +67,9 @@ async def list_tasks(
         tag_ids=tag_ids,
         due_from=due_from,
         due_to=due_to,
+        created_from=datetime.combine(created_from, time.min) if created_from is not None else None,
+        created_to=datetime.combine(created_to, time.max) if created_to is not None else None,
+        source=source,
         q=q,
         view=view,
         page=page,

@@ -49,7 +49,85 @@ async def test_quick_create_task_from_plain_text(
     assert payload["status"] == "inbox"
     assert payload["priority"] == "none"
     assert payload["owner_id"] == str(test_user.id)
+    assert payload["source"] == "quick_capture"
+    assert payload["source_detail"] is None
     assert payload["tags"] == []
+
+
+async def test_task_source_fields_and_inbox_processed_filters(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    await _login_test_user(client, csrf_headers, test_user)
+    headers = await csrf_headers(client)
+
+    async with TestSessionLocal() as session:
+        category = Category(owner_id=test_user.id, name="Ranč", color="#16A34A", icon="barn")
+        context = Context(owner_id=test_user.id, name="Telefon")
+        session.add_all([category, context])
+        await session.commit()
+        await session.refresh(category)
+        await session.refresh(context)
+
+    inbox_response = await client.post(
+        "/tasks",
+        json={
+            "title": "Mail od nevěsty",
+            "source": "email",
+            "source_detail": "nevesta@example.com",
+        },
+        headers=headers,
+    )
+    assert inbox_response.status_code == 201
+    inbox_payload = inbox_response.json()
+    assert inbox_payload["source"] == "email"
+    assert inbox_payload["source_detail"] == "nevesta@example.com"
+
+    processed_response = await client.post(
+        "/tasks",
+        json={
+            "title": "Zpracovaný úkol",
+            "status": "todo",
+            "category_id": str(category.id),
+            "context_id": str(context.id),
+        },
+        headers=headers,
+    )
+    assert processed_response.status_code == 201
+
+    inbox_list = await client.get("/tasks", params={"view": "inbox"})
+    assert inbox_list.status_code == 200
+    assert [item["title"] for item in inbox_list.json()["items"]] == ["Mail od nevěsty"]
+
+    processed_list = await client.get("/tasks")
+    assert processed_list.status_code == 200
+    assert [item["title"] for item in processed_list.json()["items"]] == ["Zpracovaný úkol"]
+
+    email_only = await client.get("/tasks", params={"view": "inbox", "source": "email"})
+    assert email_only.status_code == 200
+    assert email_only.json()["total"] == 1
+
+    telegram_only = await client.get("/tasks", params={"view": "inbox", "source": "telegram"})
+    assert telegram_only.status_code == 200
+    assert telegram_only.json()["total"] == 0
+
+
+async def test_invalid_task_source_is_rejected(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    await _login_test_user(client, csrf_headers, test_user)
+    headers = await csrf_headers(client)
+
+    response = await client.post(
+        "/tasks",
+        json={"title": "Divný zdroj", "source": "fax"},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
 
 
 async def test_quick_create_task_requires_csrf(
@@ -290,18 +368,30 @@ async def test_list_tasks_filters_and_pagination(
 
     async with TestSessionLocal() as session:
         category = Category(owner_id=test_user.id, name="Ranč", color="#123456", icon="barn")
+        other_category = Category(
+            owner_id=test_user.id, name="Ostatní", color="#654321", icon="dot"
+        )
         context = Context(owner_id=test_user.id, name="@ranč")
+        other_context = Context(owner_id=test_user.id, name="@ostatní")
         tag = Tag(owner_id=test_user.id, name="zvířata")
-        session.add_all([category, context, tag])
+        session.add_all([category, other_category, context, other_context, tag])
         await session.commit()
         await session.refresh(category)
+        await session.refresh(other_category)
         await session.refresh(context)
+        await session.refresh(other_context)
         await session.refresh(tag)
 
     for i in range(3):
         await client.post(
             "/tasks",
-            json={"title": f"Krmit kozy {i}", "status": "todo", "due_date": "2026-09-10"},
+            json={
+                "title": f"Krmit kozy {i}",
+                "status": "todo",
+                "due_date": "2026-09-10",
+                "category_id": str(other_category.id),
+                "context_id": str(other_context.id),
+            },
             headers=headers,
         )
 
@@ -319,7 +409,16 @@ async def test_list_tasks_filters_and_pagination(
     )
     tagged_id = tagged.json()["id"]
 
-    await client.post("/tasks", json={"title": "Something done", "status": "done"}, headers=headers)
+    await client.post(
+        "/tasks",
+        json={
+            "title": "Something done",
+            "status": "done",
+            "category_id": str(other_category.id),
+            "context_id": str(other_context.id),
+        },
+        headers=headers,
+    )
 
     by_status = await client.get("/tasks", params={"status": "done"})
     assert by_status.json()["total"] == 1
@@ -368,10 +467,25 @@ async def test_named_views_use_europe_prague_local_date(
     this_week_day = today + timedelta(days=1) if today.weekday() < 6 else today
     far_future = today + timedelta(days=60)
 
+    async with TestSessionLocal() as session:
+        category = Category(owner_id=test_user.id, name="Test", color="#2563EB", icon="check")
+        context = Context(owner_id=test_user.id, name="@test")
+        session.add_all([category, context])
+        await session.commit()
+        await session.refresh(category)
+        await session.refresh(context)
+
+    processed = {"category_id": str(category.id), "context_id": str(context.id)}
+
     inbox_task = await client.post("/tasks", json={"title": "Inbox úkol"}, headers=headers)
     today_task = await client.post(
         "/tasks",
-        json={"title": "Dnešní úkol", "status": "todo", "due_date": today.isoformat()},
+        json={
+            "title": "Dnešní úkol",
+            "status": "todo",
+            "due_date": today.isoformat(),
+            **processed,
+        },
         headers=headers,
     )
     week_task = await client.post(
@@ -380,17 +494,28 @@ async def test_named_views_use_europe_prague_local_date(
             "title": "Tento týden",
             "status": "todo",
             "due_date": this_week_day.isoformat(),
+            **processed,
         },
         headers=headers,
     )
     overdue_task = await client.post(
         "/tasks",
-        json={"title": "Po termínu", "status": "todo", "due_date": clearly_overdue.isoformat()},
+        json={
+            "title": "Po termínu",
+            "status": "todo",
+            "due_date": clearly_overdue.isoformat(),
+            **processed,
+        },
         headers=headers,
     )
     await client.post(
         "/tasks",
-        json={"title": "Daleko v budoucnu", "status": "todo", "due_date": far_future.isoformat()},
+        json={
+            "title": "Daleko v budoucnu",
+            "status": "todo",
+            "due_date": far_future.isoformat(),
+            **processed,
+        },
         headers=headers,
     )
     await client.post(
@@ -399,6 +524,7 @@ async def test_named_views_use_europe_prague_local_date(
             "title": "Hotový po termínu",
             "status": "done",
             "due_date": clearly_overdue.isoformat(),
+            **processed,
         },
         headers=headers,
     )
