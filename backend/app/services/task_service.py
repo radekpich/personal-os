@@ -107,6 +107,7 @@ class TaskListFilters:
     status: TaskStatus | None = None
     category_id: uuid.UUID | None = None
     context_id: uuid.UUID | None = None
+    vision_id: uuid.UUID | None = None
     tag_ids: list[uuid.UUID] | None = None
     due_from: date | None = None
     due_to: date | None = None
@@ -152,6 +153,8 @@ def _build_conditions(owner: User, filters: TaskListFilters) -> list[sa.ColumnEl
         conditions.append(Task.category_id == filters.category_id)
     if filters.context_id is not None:
         conditions.append(Task.context_id == filters.context_id)
+    if filters.vision_id is not None:
+        conditions.append(Task.vision_id == filters.vision_id)
     if filters.tag_ids:
         conditions.append(
             Task.id.in_(select(task_tags.c.task_id).where(task_tags.c.tag_id.in_(filters.tag_ids)))
@@ -174,7 +177,7 @@ def _build_conditions(owner: User, filters: TaskListFilters) -> list[sa.ColumnEl
         if filters.view != TaskView.INBOX:
             conditions.append(Task.category_id.is_not(None))
             conditions.append(Task.context_id.is_not(None))
-    elif filters.status is None:
+    elif filters.status is None and filters.vision_id is None:
         conditions.append(Task.category_id.is_not(None))
         conditions.append(Task.context_id.is_not(None))
     return conditions

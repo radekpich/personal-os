@@ -4,6 +4,18 @@
 
 ## Hotovo
 
+- [x] 2026-09-11 22:22 UTC — Mobilní opravy / dávka 6 — dialogy vizí a výzev, rozbalovací detaily, heatmapa
+  - Vize mají zakládání i úpravu přes sjednocený dialogový pattern místo vestavěného formuláře pod seznamem; položky dostaly edit vedle koše a mazání používá potvrzení s dopadem na potomky a navázané úkoly.
+  - Detail vize se rozbaluje přímo pod položkou, vždy jen jeden najednou; obsahuje Markdown popis, horizont, cílové datum, progres, stagnaci, propojené úkoly s proklikem a podřízené vize.
+  - Výzvy mají nový `ChallengeDialog` pro založení/úpravu, filtr typ/kategorie/stav přes sdílený `FilterBar`, edit/delete na kartě i v detailu a potvrzení mazání s počtem ztracených zápisů.
+  - Starý spodní panel heatmapy/statistik výzev odstraněn; karta výzvy nyní rozbaluje vlastní detail s heatmapou, statistikami, posledními zápisy a akcemi, vždy jen jeden detail najednou.
+  - Heatmapa má tappable buňky vhodné pro mobil, vizuálně disabled starší než 7 dní / budoucí / neplánované dny, klik vytvoří nebo smaže check-in a invaliduje heatmapu/statistiky; backend doplnil `DELETE /challenges/{id}/check-ins/{date}`.
+  - Backend vizí doplnil `GET /visions/{id}/delete-impact` a `delete_children` režim; úkoly lze filtrovat podle `vision_id`, aby detail vize uměl zobrazit propojené úkoly.
+  - Dialog footery vizí/výzev/potvrzení mají mobilní full-height layout se stále viditelnými a klikatelnými akcemi nad safe-area.
+  - Přidány regresní smoke skripty `phase8b:challenge-smoke` a `phase8b:vision-smoke`; `phase8b:inbox-dashboard-smoke` opraven na Europe/Prague datum kvůli běhu po půlnoci lokálního času.
+  - Ověření backend: `ruff check app tests`; `pytest -q` → 126 passed. Ověření frontend: `npm run lint`; `npm run typecheck`; `NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` → OK.
+  - Preview běží na backend `:8030` a frontend `:3030`; smoke: `phase8b:mobile-regression-smoke`, `phase8b:inbox-dashboard-smoke`, `phase8b:challenge-smoke`, `phase8b:vision-smoke` → `{ ok: true, errors: [] }`.
+
 - [x] 2026-09-11 21:25 UTC — Mobilní regrese 5–11 — safe-area, Markdown, opakování a dokončení úkolů
   - Spodní navigace má globálně větší `workspace` safe-area rezervu a regresní smoke pro všechny hlavní stránky (`/dashboard`, `/tasks`, `/inbox`, `/challenges`, `/diary`, `/visions`, `/agent`, `/settings`) ověřuje doscrollování až na konec bez překrytí posledního obsahu.
   - Přidán bezpečný `MarkdownPreview` přes `react-markdown` bez raw HTML; HTML/script/style se před renderem odstraní. Markdown se renderuje v popisu úkolů, vizí a v těle deníkových poznámek; vývojářská poznámka z formuláře vize odstraněna.

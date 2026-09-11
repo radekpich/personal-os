@@ -283,3 +283,43 @@ async def test_stagnating_visions_returns_items_without_recent_task_movement(
     assert [item["vision"]["title"] for item in items] == ["Stará vize"]
     assert items[0]["progress"]["total_tasks"] == 1
     assert items[0]["progress"]["stagnation_days"] >= 7
+
+async def test_vision_delete_impact_and_delete_children_modes(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    headers = await _login(client, csrf_headers, test_user)
+    parent = await client.post("/visions", json={"title": "Rodič"}, headers=headers)
+    child = await client.post(
+        "/visions", json={"title": "Potomek", "parent_id": parent.json()["id"]}, headers=headers
+    )
+    task = await client.post(
+        "/tasks", json={"title": "Napojený úkol", "vision_id": parent.json()["id"]}, headers=headers
+    )
+    assert parent.status_code == 201
+    assert child.status_code == 201
+    assert task.status_code == 201
+
+    impact = await client.get(f"/visions/{parent.json()['id']}/delete-impact")
+    assert impact.status_code == 200
+    assert impact.json() == {"child_count": 1, "task_count": 1}
+
+    deleted = await client.delete(f"/visions/{parent.json()['id']}", headers=headers)
+    assert deleted.status_code == 204
+    child_after = await client.get(f"/visions/{child.json()['id']}")
+    task_after = await client.get(f"/tasks/{task.json()['id']}")
+    assert child_after.status_code == 200
+    assert child_after.json()["parent_id"] is None
+    assert task_after.status_code == 200
+    assert task_after.json()["vision_id"] is None
+
+    parent_2 = await client.post("/visions", json={"title": "Rodič 2"}, headers=headers)
+    child_2 = await client.post(
+        "/visions", json={"title": "Potomek 2", "parent_id": parent_2.json()["id"]}, headers=headers
+    )
+    deleted_with_children = await client.delete(
+        f"/visions/{parent_2.json()['id']}", params={"delete_children": True}, headers=headers
+    )
+    assert deleted_with_children.status_code == 204
+    assert (await client.get(f"/visions/{child_2.json()['id']}")).status_code == 404

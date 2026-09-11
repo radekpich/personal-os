@@ -6,6 +6,7 @@ import type { Task, TaskFilters, TaskStatus, TaskView } from "@/lib/api/types";
 import { useTasks, useTaxonomy, useVisions } from "@/lib/api/hooks";
 import { TaskDetailPanel } from "@/components/tasks/task-detail-panel";
 import { TaskList } from "@/components/tasks/task-list";
+import { FilterBar, FilterSelect } from "@/components/ui/filter-bar";
 
 const statuses: Array<[TaskStatus | "all", string]> = [["all", "Vše"], ["inbox", "Inbox"], ["todo", "Čeká"], ["doing", "Rozpracováno"], ["done", "Hotovo"]];
 
@@ -73,11 +74,10 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
 
 function Filters({ status, categoryId, contextId, categories, contexts, onStatus, onCategory, onContext }: { status: string; categoryId: string; contextId: string; categories: { id: string; name: string }[]; contexts: { id: string; name: string }[]; onStatus: (value: string) => void; onCategory: (value: string) => void; onContext: (value: string) => void }) {
   return (
-    <div className="panel flex flex-wrap gap-3 p-3">
-      <select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3" value={status} onChange={(e) => onStatus(e.target.value)}>{statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-      <select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3" value={categoryId} onChange={(e) => onCategory(e.target.value)}><option value="all">Všechny kategorie</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-      <select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3" value={contextId} onChange={(e) => onContext(e.target.value)}><option value="all">Všechna místa</option>{contexts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-      <p className="text-xs text-[var(--muted)] sm:col-span-3">Místo nebo nástroj, kde úkol zvládnu — Ranč, Počítač, Město.</p>
-    </div>
+    <FilterBar hint="Místo nebo nástroj, kde úkol zvládnu — Ranč, Počítač, Město.">
+      <FilterSelect aria-label="Stav" value={status} onChange={onStatus} options={statuses.map(([value, label]) => ({ value, label }))} />
+      <FilterSelect aria-label="Kategorie" value={categoryId} onChange={onCategory} options={[{ value: "all", label: "Všechny kategorie" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]} />
+      <FilterSelect aria-label="Kde" value={contextId} onChange={onContext} options={[{ value: "all", label: "Všechna místa" }, ...contexts.map((c) => ({ value: c.id, label: c.name }))]} />
+    </FilterBar>
   );
 }

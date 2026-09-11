@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from httpx import AsyncClient
 
@@ -110,7 +111,9 @@ async def test_after_completion_recurring_task_generates_from_completed_at(
     )
     assert done.status_code == 200
     assert done.json()["completed_at"] != client_supplied_completed_at
-    completed_day = datetime.fromisoformat(done.json()["completed_at"]).date()
+    completed_day = datetime.fromisoformat(done.json()["completed_at"]).astimezone(
+        ZoneInfo("Europe/Prague")
+    ).date()
 
     listed = await client.get("/tasks", params={"status": "todo"})
     items = listed.json()["items"]

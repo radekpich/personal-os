@@ -41,6 +41,7 @@ import type {
   User,
   Vision,
   VisionCreate,
+  VisionDeleteImpact,
   VisionProgress,
   VisionTreeNode,
   VisionUpdate,
@@ -178,6 +179,7 @@ export const api = {
   updateChallenge: (id: string, payload: ChallengeUpdate) => request<Challenge>(`/challenges/${id}`, { method: "PATCH", json: payload }),
   deleteChallenge: (id: string) => request<void>(`/challenges/${id}`, { method: "DELETE" }),
   checkInChallenge: (id: string, payload: CheckInCreate) => request<CheckInResult>(`/challenges/${id}/check-in`, { method: "POST", json: payload }),
+  deleteCheckIn: (id: string, date: string) => request<Challenge>(`/challenges/${id}/check-ins/${date}`, { method: "DELETE" }),
   createChallengePause: (id: string, payload: { start_date: string; end_date?: string | null; note?: string | null }) => request(`/challenges/${id}/pauses`, { method: "POST", json: payload }),
   tags: () => request<ListResponse<Tag>>("/tags"),
   createTag: (payload: { name: string; color?: string; icon?: string; position?: number; is_archived?: boolean }) => request<Tag>("/tags", { method: "POST", json: payload }),
@@ -226,7 +228,8 @@ export const api = {
   stagnatingVisions: (days = 14) => request<ListResponse<StagnatingVision>>("/visions/stagnating", { params: { days } }),
   createVision: (payload: VisionCreate) => request<Vision>("/visions", { method: "POST", json: payload }),
   updateVision: (id: string, payload: VisionUpdate) => request<Vision>(`/visions/${id}`, { method: "PATCH", json: payload }),
-  deleteVision: (id: string) => request<void>(`/visions/${id}`, { method: "DELETE" }),
+  visionDeleteImpact: (id: string) => request<VisionDeleteImpact>(`/visions/${id}/delete-impact`),
+  deleteVision: (id: string, deleteChildren = false) => request<void>(`/visions/${id}`, { method: "DELETE", params: { delete_children: deleteChildren } }),
   regenerateCalendarToken: () => request<User>("/calendar/regenerate-token", { method: "POST" }),
 };
 

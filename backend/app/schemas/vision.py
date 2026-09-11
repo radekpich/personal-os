@@ -76,3 +76,8 @@ class StagnatingVisionList(BaseModel):
 
 class VisionTree(BaseModel):
     items: list[VisionTreeNode]
+
+
+class VisionDeleteImpact(BaseModel):
+    child_count: int
+    task_count: int

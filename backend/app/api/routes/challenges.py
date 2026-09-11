@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
@@ -121,6 +122,20 @@ async def check_in_challenge(
         current_streak=challenge.current_streak,
         longest_streak=challenge.longest_streak,
     )
+
+
+@router.delete(
+    "/{challenge_id}/check-ins/{check_date}",
+    response_model=ChallengeRead,
+    dependencies=[Depends(verify_csrf)],
+)
+async def delete_check_in(
+    challenge_id: uuid.UUID,
+    check_date: date,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Challenge:
+    return await challenge_service.delete_check_in(db, current_user, challenge_id, check_date)
 
 
 @router.post(

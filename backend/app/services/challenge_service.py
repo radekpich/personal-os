@@ -245,6 +245,33 @@ async def check_in_challenge(
     return check_in, created, challenge
 
 
+async def delete_check_in(
+    db: AsyncSession, owner: User, challenge_id: uuid.UUID, check_date: date
+) -> Challenge:
+    challenge = await get_challenge(db, owner, challenge_id)
+    local_today = _today_for_user(owner)
+    if check_date > local_today:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="check-in date cannot be in future"
+        )
+    if check_date < local_today - timedelta(days=BACKFILL_LIMIT_DAYS):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="check-in date is too far in the past"
+        )
+    existing_result = await db.execute(
+        select(CheckIn).where(CheckIn.challenge_id == challenge.id, CheckIn.date == check_date)
+    )
+    check_in = existing_result.scalar_one_or_none()
+    if check_in is not None:
+        await db.delete(check_in)
+        await db.flush()
+    await _recalculate_streaks(db, owner, challenge)
+    db.add(challenge)
+    await db.commit()
+    await db.refresh(challenge)
+    return challenge
+
+
 async def create_pause(
     db: AsyncSession,
     owner: User,

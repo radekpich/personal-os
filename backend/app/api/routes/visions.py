@@ -11,6 +11,7 @@ from app.models.vision import Vision
 from app.schemas.vision import (
     StagnatingVisionList,
     VisionCreate,
+    VisionDeleteImpact,
     VisionList,
     VisionProgress,
     VisionRead,
@@ -92,6 +93,15 @@ async def update_vision(
     return await vision_service.update_vision(db, current_user, vision_id, payload)
 
 
+@router.get("/{vision_id}/delete-impact", response_model=VisionDeleteImpact)
+async def get_vision_delete_impact(
+    vision_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> VisionDeleteImpact:
+    return await vision_service.get_delete_impact(db, current_user, vision_id)
+
+
 @router.delete(
     "/{vision_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -101,6 +111,7 @@ async def delete_vision(
     vision_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    delete_children: Annotated[bool, Query()] = False,
 ) -> Response:
-    await vision_service.delete_vision(db, current_user, vision_id)
+    await vision_service.delete_vision(db, current_user, vision_id, delete_children)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

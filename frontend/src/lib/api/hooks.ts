@@ -5,6 +5,7 @@ import { api } from "./client";
 import type {
   AgentActionFilters,
   ChallengeCreate,
+  ChallengeHeatmapDay,
   ChallengeUpdate,
   CheckInCreate,
   Note,
@@ -483,14 +484,79 @@ export function useDeleteChallenge() {
   return useMutation({ mutationFn: api.deleteChallenge, onSuccess: () => invalidateChallenges(queryClient) });
 }
 
+function estimateIntensity(value: number | null | undefined): 0 | 1 | 2 | 3 | 4 {
+  if (value === null || value === undefined) return 1;
+  if (value <= 0) return 0;
+  if (value < 10) return 1;
+  if (value < 25) return 2;
+  if (value < 45) return 3;
+  return 4;
+}
+
 export function useCheckInChallenge() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: CheckInCreate }) => api.checkInChallenge(id, payload),
+    onMutate: async ({ id, payload }) => {
+      const date = payload.date ?? new Date().toISOString().slice(0, 10);
+      await queryClient.cancelQueries({ queryKey: ["challenges", id, "heatmap"] });
+      const year = Number(date.slice(0, 4));
+      const key = queryKeys.challengeHeatmap(id, year);
+      const previous = queryClient.getQueryData<{ year: number; days: ChallengeHeatmapDay[] }>(key);
+      if (previous) {
+        queryClient.setQueryData(key, {
+          ...previous,
+          days: previous.days.map((day) =>
+            day.date === date
+              ? {
+                  ...day,
+                  has_check_in: true,
+                  value: payload.value ?? null,
+                  note: payload.note ?? null,
+                  is_relapse: payload.is_relapse ?? false,
+                  intensity: estimateIntensity(payload.value),
+                }
+              : day,
+          ),
+        });
+      }
+      return { key, previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(context.key, context.previous);
+    },
     onSuccess: (_result, variables) => {
       invalidateChallenges(queryClient, variables.id);
       queryClient.invalidateQueries({ queryKey: ["challenges", variables.id, "heatmap"] });
     },
+  });
+}
+
+export function useDeleteCheckIn() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, date }: { id: string; date: string }) => api.deleteCheckIn(id, date),
+    onMutate: async ({ id, date }) => {
+      await queryClient.cancelQueries({ queryKey: ["challenges", id, "heatmap"] });
+      const year = Number(date.slice(0, 4));
+      const key = queryKeys.challengeHeatmap(id, year);
+      const previous = queryClient.getQueryData<{ year: number; days: ChallengeHeatmapDay[] }>(key);
+      if (previous) {
+        queryClient.setQueryData(key, {
+          ...previous,
+          days: previous.days.map((day) =>
+            day.date === date
+              ? { ...day, has_check_in: false, value: null, note: null, is_relapse: false, intensity: 0 }
+              : day,
+          ),
+        });
+      }
+      return { key, previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(context.key, context.previous);
+    },
+    onSuccess: (_challenge, variables) => invalidateChallenges(queryClient, variables.id),
   });
 }
 
@@ -546,7 +612,19 @@ export function useUpdateVision() {
   return useMutation({ mutationFn: ({ id, payload }: { id: string; payload: VisionUpdate }) => api.updateVision(id, payload), onSuccess: () => invalidateVisions(queryClient) });
 }
 
+export function useVisionDeleteImpact(id: string | null) {
+  return useQuery({
+    queryKey: ["visions", id, "delete-impact"],
+    queryFn: () => api.visionDeleteImpact(id!),
+    enabled: Boolean(id),
+  });
+}
+
 export function useDeleteVision() {
   const queryClient = useQueryClient();
-  return useMutation({ mutationFn: api.deleteVision, onSuccess: () => invalidateVisions(queryClient) });
+  return useMutation({
+    mutationFn: ({ id, deleteChildren }: { id: string; deleteChildren?: boolean }) =>
+      api.deleteVision(id, deleteChildren),
+    onSuccess: () => invalidateVisions(queryClient),
+  });
 }

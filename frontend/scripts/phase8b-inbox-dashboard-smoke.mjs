@@ -7,10 +7,14 @@ const password = process.env.SMOKE_PASSWORD;
 if (!email || !password) throw new Error('Set SMOKE_EMAIL and SMOKE_PASSWORD');
 
 const stamp = Date.now();
-const today = new Date().toISOString().slice(0, 10);
-const tomorrowDate = new Date();
-tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-const tomorrow = tomorrowDate.toISOString().slice(0, 10);
+const pragueFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' });
+function pragueDate(offsetDays = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return pragueFormatter.format(date);
+}
+const today = pragueDate();
+const tomorrow = pragueDate(1);
 
 async function login(page) {
   await page.goto(`${frontendBaseUrl}/login`);

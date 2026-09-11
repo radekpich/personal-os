@@ -479,6 +479,11 @@ export type VisionCreate = {
 
 export type VisionUpdate = Partial<VisionCreate>;
 
+export type VisionDeleteImpact = {
+  child_count: number;
+  task_count: number;
+};
+
 export type Task = VersionedAuditFields & {
   id: UUID;
   owner_id: UUID;
@@ -519,6 +524,7 @@ export type TaskFilters = {
   status?: TaskStatus | "all";
   category_id?: UUID | "all";
   context_id?: UUID | "all";
+  vision_id?: UUID | "all";
   tag_ids?: UUID[];
   due_from?: string;
   due_to?: string;

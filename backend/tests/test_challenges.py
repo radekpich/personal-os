@@ -660,3 +660,46 @@ async def test_check_in_without_date_uses_user_timezone_not_utc(
 
     assert response.status_code == 201
     assert response.json()["check_in"]["date"] == "2026-09-06"
+
+async def test_delete_check_in_removes_entry_and_recalculates_streak(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            value = datetime(2026, 9, 5, 9, 0, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    import app.services.challenge_service as challenge_service
+
+    monkeypatch.setattr(challenge_service, "datetime", FixedDateTime)
+    headers = await _login(client, csrf_headers, test_user)
+    challenge = await client.post(
+        "/challenges",
+        json={
+            "title": "Mazání zápisu",
+            "type": "daily_action",
+            "started_at": "2026-09-01T00:00:00+02:00",
+        },
+        headers=headers,
+    )
+    challenge_id = challenge.json()["id"]
+    for day in ["2026-09-03", "2026-09-04", "2026-09-05"]:
+        response = await client.post(
+            f"/challenges/{challenge_id}/check-in", json={"date": day}, headers=headers
+        )
+        assert response.status_code == 201
+
+    deleted = await client.delete(
+        f"/challenges/{challenge_id}/check-ins/2026-09-05", headers=headers
+    )
+
+    assert deleted.status_code == 200
+    assert deleted.json()["current_streak"] == 2
+    assert deleted.json()["longest_streak"] == 2
+    stats = await client.get(f"/challenges/{challenge_id}/stats")
+    assert stats.status_code == 200
+    assert stats.json()["total_count"] == 2

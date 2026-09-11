@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task, TaskStatus
@@ -11,6 +11,7 @@ from app.models.vision import Vision
 from app.schemas.vision import (
     StagnatingVision,
     VisionCreate,
+    VisionDeleteImpact,
     VisionProgress,
     VisionRead,
     VisionTreeNode,
@@ -227,8 +228,76 @@ async def list_stagnating_visions(
     return items
 
 
-async def delete_vision(db: AsyncSession, owner: User, vision_id: uuid.UUID) -> None:
+async def get_delete_impact(
+    db: AsyncSession, owner: User, vision_id: uuid.UUID
+) -> VisionDeleteImpact:
+    await get_vision(db, owner, vision_id)
+    child_count = (
+        await db.execute(
+            select(func.count()).where(
+                Vision.owner_id == owner.id,
+                Vision.parent_id == vision_id,
+                Vision.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one()
+    task_count = (
+        await db.execute(
+            select(func.count()).where(
+                Task.owner_id == owner.id,
+                Task.vision_id == vision_id,
+                Task.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one()
+    return VisionDeleteImpact(child_count=child_count, task_count=task_count)
+
+
+def _collect_descendant_ids(
+    vision_id: uuid.UUID, children_by_parent: dict[uuid.UUID | None, list[Vision]]
+) -> list[uuid.UUID]:
+    ids: list[uuid.UUID] = []
+    for child in children_by_parent.get(vision_id, []):
+        ids.append(child.id)
+        ids.extend(_collect_descendant_ids(child.id, children_by_parent))
+    return ids
+
+
+async def delete_vision(
+    db: AsyncSession, owner: User, vision_id: uuid.UUID, delete_children: bool = False
+) -> None:
     vision = await get_vision(db, owner, vision_id)
-    vision.deleted_at = datetime.now(UTC)
-    db.add(vision)
+    now = datetime.now(UTC)
+    ids_to_delete = [vision_id]
+    if delete_children:
+        visions_by_id = await _load_owner_visions(db, owner)
+        children_by_parent: dict[uuid.UUID | None, list[Vision]] = {}
+        for other in visions_by_id.values():
+            children_by_parent.setdefault(other.parent_id, []).append(other)
+        ids_to_delete.extend(_collect_descendant_ids(vision_id, children_by_parent))
+    else:
+        await db.execute(
+            update(Vision)
+            .where(
+                Vision.owner_id == owner.id,
+                Vision.parent_id == vision_id,
+                Vision.deleted_at.is_(None),
+            )
+            .values(parent_id=vision.parent_id)
+        )
+
+    await db.execute(
+        update(Task)
+        .where(
+            Task.owner_id == owner.id,
+            Task.vision_id.in_(ids_to_delete),
+            Task.deleted_at.is_(None),
+        )
+        .values(vision_id=None)
+    )
+    await db.execute(
+        update(Vision)
+        .where(Vision.owner_id == owner.id, Vision.id.in_(ids_to_delete))
+        .values(deleted_at=now)
+    )
     await db.commit()

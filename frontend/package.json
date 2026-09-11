@@ -17,7 +17,9 @@
     "phase8b:ui-smoke": "node scripts/phase8b-ui-smoke.mjs",
     "phase8b:recurrence-smoke": "node scripts/phase8b-recurrence-smoke.mjs",
     "phase8b:inbox-dashboard-smoke": "node scripts/phase8b-inbox-dashboard-smoke.mjs",
-    "phase8b:mobile-regression-smoke": "node scripts/phase8b-mobile-regression-smoke.mjs"
+    "phase8b:mobile-regression-smoke": "node scripts/phase8b-mobile-regression-smoke.mjs",
+    "phase8b:challenge-smoke": "node scripts/phase8b-challenge-smoke.mjs",
+    "phase8b:vision-smoke": "node scripts/phase8b-vision-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
