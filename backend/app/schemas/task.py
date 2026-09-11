@@ -96,6 +96,7 @@ class TaskRead(BaseModel):
     due_time: time | None
     estimate_minutes: int | None
     completed_at: datetime | None
+    completed_by: str | None
     category_id: uuid.UUID | None
     context_id: uuid.UUID | None
     vision_id: uuid.UUID | None

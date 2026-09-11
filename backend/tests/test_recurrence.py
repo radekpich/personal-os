@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from httpx import AsyncClient
 
@@ -102,18 +102,20 @@ async def test_after_completion_recurring_task_generates_from_completed_at(
     )
     assert created.status_code == 201
 
-    completed_at = datetime(2026, 9, 10, 12, 0, tzinfo=UTC).isoformat()
+    client_supplied_completed_at = datetime(2026, 9, 10, 12, 0, tzinfo=UTC).isoformat()
     done = await client.patch(
         f"/tasks/{created.json()['id']}",
-        json={"status": "done", "completed_at": completed_at},
+        json={"status": "done", "completed_at": client_supplied_completed_at},
         headers={**headers, "If-Match": str(created.json()["version"])},
     )
     assert done.status_code == 200
+    assert done.json()["completed_at"] != client_supplied_completed_at
+    completed_day = datetime.fromisoformat(done.json()["completed_at"]).date()
 
     listed = await client.get("/tasks", params={"status": "todo"})
     items = listed.json()["items"]
     assert len(items) == 1
-    assert items[0]["due_date"] == "2026-09-17"
+    assert items[0]["due_date"] == (completed_day + timedelta(days=7)).isoformat()
     assert items[0]["recurrence_template_id"] == created.json()["id"]
 
 

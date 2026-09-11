@@ -70,13 +70,22 @@ async def test_api_key_create_and_update_are_logged_with_before_and_batch(
     )
     assert updated.status_code == 200
 
+    completed = await client.patch(
+        f"/tasks/{task['id']}",
+        json={"status": "done"},
+        headers={**agent_headers, "If-Match": str(updated.json()["version"])},
+    )
+    assert completed.status_code == 200
+    assert completed.json()["completed_at"] is not None
+    assert completed.json()["completed_by"] == "agent"
+
     async with TestSessionLocal() as session:
         actions = (
             (await session.execute(select(AgentAction).order_by(AgentAction.created_at.asc())))
             .scalars()
             .all()
         )
-    assert [action.action for action in actions] == ["create_task", "update_task"]
+    assert [action.action for action in actions] == ["create_task", "update_task", "complete_task"]
     assert actions[0].reasoning == "User voice note requested fence check."
     assert actions[0].source == "telegram"
     assert actions[0].source_system == "telegram_voice"

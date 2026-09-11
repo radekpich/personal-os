@@ -14,6 +14,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { AttachmentGrid } from "@/components/attachments/attachment-grid";
 import { AttachmentUploader } from "@/components/attachments/attachment-uploader";
 import { RecurrenceBuilder } from "@/components/recurrence/recurrence-builder";
+import { MarkdownPreview } from "@/components/markdown-preview";
 
 const schema = z.object({
   title: z.string().min(1),
@@ -44,9 +45,10 @@ type Props = {
   tags: Tag[];
   visions: Vision[];
   onClose: () => void;
+  defaultStatus?: Values["status"];
 };
 
-export function TaskDialog({ mode, open, task = null, initialTitle = "", categories, contexts, tags, visions, onClose }: Props) {
+export function TaskDialog({ mode, open, task = null, initialTitle = "", categories, contexts, tags, visions, onClose, defaultStatus = "todo" }: Props) {
   const update = useUpdateTask();
   const create = useCreateTask();
   const createTag = useCreateTag();
@@ -55,6 +57,7 @@ export function TaskDialog({ mode, open, task = null, initialTitle = "", categor
   const form = useForm<FormInput, unknown, Values>({ resolver: zodResolver(schema), defaultValues: emptyValues });
   const watchedTagIds = form.watch("tag_ids");
   const recurrenceRule = form.watch("recurrence_rule");
+  const descriptionValue = form.watch("description");
   const selectedTagIds = useMemo(() => watchedTagIds ?? [], [watchedTagIds]);
   const selectedTags = useMemo(() => selectedTagIds.map((id) => tags.find((tag) => tag.id === id)).filter(Boolean) as Tag[], [selectedTagIds, tags]);
   const availableTags = tags.filter((tag) => !selectedTagIds.includes(tag.id));
@@ -80,9 +83,9 @@ export function TaskDialog({ mode, open, task = null, initialTitle = "", categor
         tag_ids: task.tags.map((tag) => tag.id),
       });
     } else {
-      form.reset({ ...emptyValues, title: initialTitle });
+      form.reset({ ...emptyValues, status: defaultStatus, title: initialTitle });
     }
-  }, [open, mode, task, initialTitle, form]);
+  }, [open, mode, task, initialTitle, defaultStatus, form]);
 
   function addTagId(id: string) {
     if (!selectedTagIds.includes(id)) form.setValue("tag_ids", [...selectedTagIds, id], { shouldDirty: true, shouldValidate: true });
@@ -134,6 +137,7 @@ export function TaskDialog({ mode, open, task = null, initialTitle = "", categor
   }
 
   const pending = create.isPending || update.isPending;
+  const completedText = task?.completed_at ? formatCompletedAt(task.completed_at) : null;
   const title = mode === "create" ? "Nový úkol" : "Detail úkolu";
   const description = mode === "create" ? "Vyplň všechny parametry úkolu na jednom místě." : "Uprav bez odchodu ze seznamu.";
 
@@ -149,13 +153,15 @@ export function TaskDialog({ mode, open, task = null, initialTitle = "", categor
           <form className="flex min-h-0 flex-1 flex-col" onSubmit={form.handleSubmit(submit)}>
             <div className="grid flex-1 gap-3 overflow-y-auto p-4 pb-24 sm:gap-4 sm:p-6 sm:pb-24">
               {conflict ? <p className="rounded-[var(--radius-sm)] border border-[var(--warning)] bg-[var(--warning)]/10 p-3 text-sm text-[var(--warning)]">{conflict}</p> : null}
+              {completedText ? <p className="rounded-[var(--radius-sm)] bg-[var(--success-soft)] p-3 text-sm font-medium text-[var(--success)]">{completedText}</p> : null}
               <label className="grid gap-1 text-sm font-medium">Název<Input {...form.register("title")} autoFocus /></label>
               <label className="grid gap-1 text-sm font-medium">Popis<Textarea {...form.register("description")} rows={4} /></label>
+              {descriptionValue ? <MarkdownPreview className="rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-3 text-sm text-[var(--muted)]">{descriptionValue}</MarkdownPreview> : null}
               <div className="grid gap-3 sm:grid-cols-2">
                 <Select label="Stav" {...form.register("status")}><option value="inbox">Inbox</option><option value="todo">Čeká</option><option value="doing">Rozpracováno</option><option value="done">Hotovo</option><option value="cancelled">Zrušeno</option></Select>
                 <Select label="Priorita" {...form.register("priority")}><option value="none">Bez priority</option><option value="low">Nízká</option><option value="medium">Střední</option><option value="high">Vysoká</option></Select>
                 <label className="grid gap-1 text-sm font-medium">Termín<Input type="date" {...form.register("due_date")} /></label>
-                <label className="grid gap-1 text-sm font-medium">Čas volitelně<Input type="time" {...form.register("due_time")} /></label>
+                <label className="grid gap-1 text-sm font-medium">Čas (volitelně)<Input type="time" {...form.register("due_time")} /></label>
                 <label className="grid gap-1 text-sm font-medium">Odhad v minutách<Input type="number" min={1} inputMode="numeric" {...form.register("estimate_minutes")} /></label>
                 <Select label="Kategorie" {...form.register("category_id")}><option value="">Bez kategorie</option>{categories.map((c) => <option value={c.id} key={c.id}>{c.parent_id ? "— " : ""}{c.name}</option>)}</Select>
                 <Select label="Kde" {...form.register("context_id")}><option value="">Bez místa</option>{contexts.map((c) => <option value={c.id} key={c.id}>{c.name}</option>)}</Select>
@@ -209,7 +215,13 @@ export function TaskDetailPanel(props: Omit<Props, "mode" | "open"> & { task: Ta
   return <TaskDialog {...props} mode="edit" open={Boolean(props.task)} />;
 }
 
-const emptyValues: Values = { title: "", description: "", status: "inbox", priority: "none", due_date: null, due_time: null, estimate_minutes: null, category_id: null, context_id: null, vision_id: null, recurrence_rule: null, recurrence_mode: null, tag_ids: [] };
+const emptyValues: Values = { title: "", description: "", status: "todo", priority: "none", due_date: null, due_time: null, estimate_minutes: null, category_id: null, context_id: null, vision_id: null, recurrence_rule: null, recurrence_mode: null, tag_ids: [] };
+
+function formatCompletedAt(value: string) {
+  const date = new Date(value);
+  const formatted = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return `Splněno ${formatted}`;
+}
 
 function Select({ label, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {
   return <label className="grid gap-1 text-sm font-medium">{label}<select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm sm:min-h-11 sm:text-base" {...props}>{children}</select></label>;

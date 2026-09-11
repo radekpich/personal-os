@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, CalendarDays, CheckSquare, Inbox, Mail, MessageCircle, NotebookPen, Sparkles } from "lucide-react";
+import { Bot, CalendarDays, CheckSquare, HelpCircle, Inbox, Mail, MessageCircle, NotebookPen, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Category, Context, Task, TaskSource } from "@/lib/api/types";
 import { useTasks, useTaxonomy, useUpdateTask, useVisions } from "@/lib/api/hooks";
@@ -93,23 +93,27 @@ export function InboxWorkspace() {
 
   return (
     <div className="grid gap-4">
-      <header className="panel p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Schránka vstupů</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">Inbox</h1>
-            <p className="mt-1 text-sm text-[var(--muted)]">Všechno nezpracované z webu, Telegramu, mailu, kalendáře, deníku i agenta. Jednou za čas roztřídit a pryč odsud.</p>
+      <header className="panel p-3 sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight">Inbox</h1>
+            <Badge className="w-fit px-3 py-1 text-sm">{tasks.data?.total ?? 0} k roztřídění</Badge>
+            <div className="group relative">
+              <button type="button" aria-label="Nápověda k Inboxu" className="focus-ring grid size-8 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--surface-muted)]"><HelpCircle size={16} /></button>
+              <div className="pointer-events-none absolute left-0 top-9 z-20 hidden w-72 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-3 text-sm text-[var(--muted)] shadow-xl group-hover:block group-focus-within:block">
+                Všechno nezpracované z webu, Telegramu, mailu, kalendáře, deníku i agenta. Jednou za čas roztřídit a pryč odsud.
+              </div>
+            </div>
           </div>
-          <Badge className="w-fit px-3 py-1 text-sm">{tasks.data?.total ?? 0} k roztřídění</Badge>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <select aria-label="Filtrovat kanál" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={source} onChange={(event) => setSource(event.target.value as TaskSource | "all")}>
-            <option value="all">Všechny kanály</option>
-            {sources.map((item) => <option key={item} value={item}>{sourceMeta[item].label}</option>)}
-          </select>
-          <select aria-label="Filtrovat období" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={period} onChange={(event) => setPeriod(event.target.value)}>
-            {periods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
+          <div className="flex flex-wrap gap-2">
+            <select aria-label="Filtrovat kanál" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={source} onChange={(event) => setSource(event.target.value as TaskSource | "all")}>
+              <option value="all">Všechny kanály</option>
+              {sources.map((item) => <option key={item} value={item}>{sourceMeta[item].label}</option>)}
+            </select>
+            <select aria-label="Filtrovat období" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={period} onChange={(event) => setPeriod(event.target.value)}>
+              {periods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
         </div>
       </header>
 

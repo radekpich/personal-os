@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { MarkdownPreview } from "@/components/markdown-preview";
 
 const horizonLabels: Record<VisionHorizon, string> = {
   life: "Život",
@@ -126,7 +127,6 @@ export function VisionWorkspace() {
         <form className="panel grid gap-4 p-5" onSubmit={form.handleSubmit(submit)}>
           <div>
             <h2 className="font-semibold">{selected ? "Upravit vizi" : "Nová vize"}</h2>
-            <p className="text-sm text-[var(--muted)]">Markdown popis zatím ukládáme jako text; render přijde později.</p>
           </div>
           <label className="grid gap-1 text-sm font-medium">Název<Input {...form.register("title")} /></label>
           <label className="grid gap-1 text-sm font-medium">Popis Markdown<Textarea rows={5} {...form.register("description")} /></label>
@@ -194,7 +194,7 @@ function VisionNode({ node, level, expanded, onToggle, onEdit, onDelete, onDragS
               <Badge>{horizonLabels[node.horizon]}</Badge>
               {stagnant ? <Badge className="border-[var(--warning)] text-[var(--warning)]">{progress.data?.stagnation_days} dní stagnace</Badge> : null}
             </div>
-            {node.description ? <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">{node.description}</p> : null}
+            {node.description ? <MarkdownPreview compact className="mt-1 text-sm text-[var(--muted)]">{node.description}</MarkdownPreview> : null}
           </button>
           <Button variant="ghost" size="sm" onClick={() => onDelete(node.id)} aria-label="Smazat vizi"><Trash2 size={15} /></Button>
         </div>

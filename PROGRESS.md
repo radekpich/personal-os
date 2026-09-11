@@ -4,6 +4,17 @@
 
 ## Hotovo
 
+- [x] 2026-09-11 21:25 UTC — Mobilní regrese 5–11 — safe-area, Markdown, opakování a dokončení úkolů
+  - Spodní navigace má globálně větší `workspace` safe-area rezervu a regresní smoke pro všechny hlavní stránky (`/dashboard`, `/tasks`, `/inbox`, `/challenges`, `/diary`, `/visions`, `/agent`, `/settings`) ověřuje doscrollování až na konec bez překrytí posledního obsahu.
+  - Přidán bezpečný `MarkdownPreview` přes `react-markdown` bez raw HTML; HTML/script/style se před renderem odstraní. Markdown se renderuje v popisu úkolů, vizí a v těle deníkových poznámek; vývojářská poznámka z formuláře vize odstraněna.
+  - `RecurrenceBuilder` má oddělený draft stav, panel vlastního nastavení zůstává otevřený při klikání, nahoře ukazuje průběžné české shrnutí a dole má `Potvrdit`/`Zrušit`; zrušení vrací původní hodnotu.
+  - Úkoly ukládají `completed_by` (`user`/`agent`) a `completed_at` nastavuje server v UTC při přechodu do `done`; návrat z hotovo nuluje obě pole. Klientem poslaný `completed_at` se pro dokončení ignoruje, aby statistiky seděly i u API agenta.
+  - Detail hotového úkolu zobrazuje `Splněno …`; doplněny backend testy pro user/agent dokončení a ignorování klientského času.
+  - Drobnosti: label `Čas (volitelně)`, nový úkol z plného dialogu na stránce Úkoly začíná jako `K udělání`, rychlý zápis zůstává Inbox, hlavička Inboxu je kompaktní řádek s počtem a nápovědou pod ikonou otazníku.
+  - Preview DB `/home/zeus/personal-os-preview/phase8b-preview.sqlite` migrována na Alembic head včetně `g5b6c7d8e9f0_add_task_completed_by.py`; preview restartováno (`backend :8030`, `frontend :3030`).
+  - Ověření backend: `ruff check app tests`; `pytest -q` → 124 passed. Ověření frontend: `npm run lint`; `npm run typecheck`; `NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` → OK.
+  - Smoke: `npm run phase8b:inbox-dashboard-smoke` → `{ ok: true, errors: [] }`; `npm run phase8b:mobile-regression-smoke` → `{ ok: true, errors: [] }`, všechny stránky měly cca 64 px rezervu nad spodní navigací.
+
 - [x] 2026-09-11 05:45 UTC — Mobilní opravy / dávka 4 ze 4 — Inbox jako schránka a akční dashboard
   - Backend úkolů dostal pole `source` a `source_detail` v modelu/schématech/API včetně Alembic migrace `f4a5b6c7d8e9_add_task_source_fields.py`; validní zdroje zahrnují web, rychlý zápis, hlas, Telegram, e-mail, WhatsApp, API, agenta, kalendář a import.
   - Definice Inboxu je nově procesní: úkol patří do Inboxu, když má `status=inbox` nebo mu chybí kategorie/Kde; běžné task view mimo Inbox skrývají nezpracované položky bez kategorie.

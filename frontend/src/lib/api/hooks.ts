@@ -252,7 +252,6 @@ export function useToggleTaskDone() {
         task.id,
         {
           status,
-          completed_at: status === "done" ? new Date().toISOString() : null,
         },
         task.version,
       ),
@@ -262,7 +261,7 @@ export function useToggleTaskDone() {
       for (const [key, value] of snapshots) {
         if (!value) continue;
         const filters = Array.isArray(key) && typeof key[1] === "object" && key[1] !== null ? key[1] as TaskFilters : {};
-        const updated = { ...task, status, completed_at: status === "done" ? new Date().toISOString() : null };
+        const updated = { ...task, status, completed_at: status === "done" ? new Date().toISOString() : null, completed_by: status === "done" ? "user" : null };
         const shouldKeepDone = status === "done" && filters.status === "done";
         const items = status === "done" && !shouldKeepDone
           ? value.items.filter((item) => item.id !== task.id)

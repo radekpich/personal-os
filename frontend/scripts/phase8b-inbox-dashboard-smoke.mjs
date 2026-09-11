@@ -107,13 +107,13 @@ async function run() {
       page.waitForResponse((response) => response.url().includes(`/tasks/${data.inboxTask.id}`) && response.request().method() === 'PATCH' && response.ok()),
       page.getByLabel(`Kategorie pro ${data.inboxTask.title}`).selectOption(data.category.id),
     ]);
+    await inboxArticle.getByRole('button', { name: /Zpracovat/ }).click();
+    await page.getByRole('heading', { name: 'Detail úkolu' }).waitFor({ timeout: 10_000 });
+    await page.getByRole('button', { name: 'Zrušit' }).click();
     await Promise.all([
       page.waitForResponse((response) => response.url().includes(`/tasks/${data.inboxTask.id}`) && response.request().method() === 'PATCH' && response.ok()),
       page.getByLabel(`Kde pro ${data.inboxTask.title}`).selectOption(data.context.id),
     ]);
-    await inboxArticle.getByRole('button', { name: /Zpracovat/ }).click();
-    await page.getByRole('heading', { name: 'Detail úkolu' }).waitFor({ timeout: 10_000 });
-    await page.getByRole('button', { name: 'Zrušit' }).click();
     await page.screenshot({ path: '/tmp/personal-os-8b-inbox-smoke.png', fullPage: true });
 
     console.log(JSON.stringify({ ok: errors.length === 0, errors, seeded: data }, null, 2));

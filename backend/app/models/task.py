@@ -77,6 +77,7 @@ class Task(Base):
     due_time: Mapped[time | None] = mapped_column(sa.Time, nullable=True)
     estimate_minutes: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
+    completed_by: Mapped[str | None] = mapped_column(sa.String(20), nullable=True)
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid, sa.ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True
     )

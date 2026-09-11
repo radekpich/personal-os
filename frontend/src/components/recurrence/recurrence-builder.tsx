@@ -10,7 +10,7 @@ type FrequencyValue = "daily" | "weekly" | "monthly" | "yearly";
 type EndMode = "never" | "count" | "until";
 type MonthlyMode = "monthday" | "weekday";
 
-type State = {
+type RuleState = {
   enabled: boolean;
   frequency: FrequencyValue;
   interval: number;
@@ -22,7 +22,6 @@ type State = {
   endMode: EndMode;
   count: number;
   until: string;
-  expanded: boolean;
 };
 
 type Props = {
@@ -58,28 +57,58 @@ export function RecurrenceBuilder({
   label = "Opakování",
   helperText,
 }: Props) {
-  const [state, setState] = useState<State>(() => parseRule(value, allowNone, defaultRRule));
+  const [state, setState] = useState<RuleState>(() => parseRule(value, allowNone, defaultRRule));
+  const [customOpen, setCustomOpen] = useState(false);
+  const [draft, setDraft] = useState<RuleState>(() => parseRule(value, allowNone, defaultRRule));
 
   useEffect(() => {
-    setState(parseRule(value, allowNone, defaultRRule));
-  }, [value, allowNone, defaultRRule]);
+    const parsed = parseRule(value, allowNone, defaultRRule);
+    setState(parsed);
+    if (!customOpen) setDraft(parsed);
+  }, [value, allowNone, defaultRRule, customOpen]);
 
   const rule = useMemo(() => (state.enabled ? buildRule(state) : null), [state]);
   const summary = useMemo(() => (rule ? summarizeRule(rule) : "Bez opakování"), [rule]);
+  const draftRule = useMemo(() => (draft.enabled ? buildRule(draft) : null), [draft]);
+  const draftSummary = useMemo(() => (draftRule ? summarizeRule(draftRule) : "Bez opakování"), [draftRule]);
 
-  function update(next: Partial<State>) {
-    setState((previous) => {
-      const merged = normalizeState({ ...previous, ...next });
-      onChange(merged.enabled ? buildRule(merged).toString().replace(/^RRULE:/, "") : null);
-      return merged;
-    });
+  function commit(next: RuleState) {
+    const normalized = normalizeState(next);
+    setState(normalized);
+    setDraft(normalized);
+    onChange(normalized.enabled ? ruleToString(buildRule(normalized)) : null);
+  }
+
+  function toggleEnabled() {
+    const next = normalizeState({ ...state, enabled: !state.enabled });
+    commit(next);
+    if (!next.enabled) setCustomOpen(false);
   }
 
   function applyPreset(rrule: string) {
-    const parsed = parseRule(rrule, false, defaultRRule);
-    const next = { ...parsed, enabled: true, expanded: false };
-    setState(next);
-    onChange(buildRule(next).toString().replace(/^RRULE:/, ""));
+    const parsed = { ...parseRule(rrule, false, defaultRRule), enabled: true };
+    setCustomOpen(false);
+    commit(parsed);
+  }
+
+  function openCustom() {
+    if (customOpen) {
+      setCustomOpen(false);
+      setDraft(state);
+      return;
+    }
+    setDraft(state);
+    setCustomOpen(true);
+  }
+
+  function confirmCustom() {
+    commit({ ...draft, enabled: true });
+    setCustomOpen(false);
+  }
+
+  function cancelCustom() {
+    setDraft(state);
+    setCustomOpen(false);
   }
 
   return (
@@ -91,7 +120,7 @@ export function RecurrenceBuilder({
             {helperText ? <p className="text-xs text-[var(--muted)]">{helperText}</p> : null}
           </div>
           {allowNone ? (
-            <Button type="button" size="sm" variant={state.enabled ? "secondary" : "default"} onClick={() => update({ enabled: !state.enabled })}>
+            <Button type="button" size="sm" variant={state.enabled ? "secondary" : "default"} onClick={toggleEnabled}>
               {state.enabled ? "Vypnout" : "Zapnout"}
             </Button>
           ) : null}
@@ -109,7 +138,7 @@ export function RecurrenceBuilder({
                 onClick={() => applyPreset(preset.rrule)}
                 className={cn(
                   "focus-ring rounded-full border border-[var(--border)] px-3 py-1.5 text-sm transition",
-                  rule?.toString().replace(/^RRULE:/, "") === preset.rrule
+                  ruleToString(rule) === preset.rrule
                     ? "bg-[var(--primary)] text-white"
                     : "bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-muted)]"
                 )}
@@ -118,19 +147,24 @@ export function RecurrenceBuilder({
               </button>
             ))}
           </div>
-          <button type="button" className="w-fit text-sm font-medium text-[var(--primary)] underline-offset-4 hover:underline" onClick={() => update({ expanded: !state.expanded })}>
-            {state.expanded ? "Skrýt vlastní nastavení" : "Vlastní nastavení"}
+          <button type="button" className="w-fit text-sm font-medium text-[var(--primary)] underline-offset-4 hover:underline" onClick={openCustom}>
+            {customOpen ? "Skrýt vlastní nastavení" : "Vlastní nastavení"}
           </button>
-          {state.expanded ? <CustomControls state={state} update={update} /> : null}
+          {customOpen ? <CustomControls state={draft} summary={draftSummary} update={(next) => setDraft((previous) => normalizeState({ ...previous, ...next }))} onConfirm={confirmCustom} onCancel={cancelCustom} /> : null}
         </>
       ) : null}
     </section>
   );
 }
 
-function CustomControls({ state, update }: { state: State; update: (next: Partial<State>) => void }) {
+function CustomControls({ state, summary, update, onConfirm, onCancel }: { state: RuleState; summary: string; update: (next: Partial<RuleState>) => void; onConfirm: () => void; onCancel: () => void }) {
   return (
-    <div className="grid gap-4 rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-3">
+    <div className="grid gap-4 rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-3" onClick={(event) => event.stopPropagation()}>
+      <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
+        <span className="block text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Nastavení teď znamená</span>
+        <strong>{summary}</strong>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-medium">
           Frekvence
@@ -155,9 +189,9 @@ function CustomControls({ state, update }: { state: State; update: (next: Partia
         <div className="grid gap-2">
           <p className="text-sm font-medium">Dny v týdnu</p>
           <div className="flex flex-wrap gap-2">
-            {weekdayLabels.map((label, index) => (
+            {weekdayLabels.map((weekdayLabel, index) => (
               <button
-                key={label}
+                key={weekdayLabel}
                 type="button"
                 onClick={() => update({ weekdays: toggleNumber(state.weekdays, index) })}
                 className={cn(
@@ -165,7 +199,7 @@ function CustomControls({ state, update }: { state: State; update: (next: Partia
                   state.weekdays.includes(index) ? "border-[var(--primary)] bg-[var(--primary)] text-white" : "border-[var(--border)] bg-[var(--surface)]"
                 )}
               >
-                {label}
+                {weekdayLabel}
               </button>
             ))}
           </div>
@@ -222,11 +256,16 @@ function CustomControls({ state, update }: { state: State; update: (next: Partia
         {state.endMode === "count" ? <Input className="max-w-44" type="number" min={1} max={999} value={state.count} onChange={(event) => update({ count: Number(event.target.value) || 1 })} /> : null}
         {state.endMode === "until" ? <Input className="max-w-56" type="date" value={state.until} onChange={(event) => update({ until: event.target.value })} /> : null}
       </div>
+
+      <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
+        <Button type="button" variant="ghost" onClick={onCancel}>Zrušit</Button>
+        <Button type="button" onClick={onConfirm}>Potvrdit</Button>
+      </div>
     </div>
   );
 }
 
-function parseRule(value: string | null | undefined, allowNone: boolean, defaultRRule: string): State {
+function parseRule(value: string | null | undefined, allowNone: boolean, defaultRRule: string): RuleState {
   if (!value && allowNone) return { ...defaultState(defaultRRule), enabled: false };
   const source = value || defaultRRule || DEFAULT_RRULE;
   try {
@@ -251,14 +290,13 @@ function parseRule(value: string | null | undefined, allowNone: boolean, default
       endMode: options.count ? "count" : options.until ? "until" : "never",
       count: options.count ?? 10,
       until,
-      expanded: false,
     });
   } catch {
     return defaultState(defaultRRule);
   }
 }
 
-function defaultState(defaultRRule: string): State {
+function defaultState(defaultRRule: string): RuleState {
   if (defaultRRule !== DEFAULT_RRULE) return parseRule(defaultRRule, false, DEFAULT_RRULE);
   return {
     enabled: true,
@@ -272,11 +310,10 @@ function defaultState(defaultRRule: string): State {
     endMode: "never",
     count: 10,
     until: "",
-    expanded: false,
   };
 }
 
-function normalizeState(state: State): State {
+function normalizeState(state: RuleState): RuleState {
   return {
     ...state,
     interval: clampInt(state.interval, 1, 99),
@@ -288,7 +325,7 @@ function normalizeState(state: State): State {
   };
 }
 
-function buildRule(state: State): RRule {
+function buildRule(state: RuleState): RRule {
   const options: Partial<Options> = {
     freq: frequencyToRRule(state.frequency),
     interval: state.interval,
@@ -307,6 +344,10 @@ function buildRule(state: State): RRule {
   return new RRule(options);
 }
 
+function ruleToString(rule: RRule | null) {
+  return rule?.toString().replace(/^RRULE:/, "") ?? null;
+}
+
 function summarizeRule(rule: RRule): string {
   const options = rule.origOptions as Partial<Options>;
   const frequency = frequencyFromRRule(options.freq ?? Frequency.DAILY);
@@ -321,7 +362,7 @@ function summarizeRule(rule: RRule): string {
 function summarizeBase(frequency: FrequencyValue, interval: number, weekdays: number[], options: Partial<Options>): string {
   if (frequency === "daily") return interval === 1 ? "Každý den" : `Každý ${interval}. den`;
   if (frequency === "weekly") {
-    const days = weekdays.length ? listCzech(weekdays.map((index) => weekdayNames[index])) : ["týden"];
+    const days = weekdays.length ? listCzech(weekdays.map((index) => weekdayNames[index])) : "týden";
     return interval === 1 ? `Každé ${days}` : `Každý ${interval}. týden: ${days}`;
   }
   if (frequency === "monthly") {

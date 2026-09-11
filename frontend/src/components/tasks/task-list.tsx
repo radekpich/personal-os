@@ -8,6 +8,7 @@ import { useDeleteTask, useToggleTaskDone } from "@/lib/api/hooks";
 import { cn, formatHumanDate, isOverdue } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MarkdownPreview } from "@/components/markdown-preview";
 import { priorityLabels, statusLabels } from "./labels";
 
 type Props = { tasks: Task[]; categories: Category[]; contexts: Context[]; tags: Tag[]; visions?: Vision[]; selectedId?: string | null; highlightedIds?: Set<string>; onSelect: (task: Task) => void };
@@ -64,6 +65,7 @@ function TaskItem({ task, category, context, vision, selected, highlighted, onSe
           {highlighted ? <Badge className="border-[var(--success)] px-2 py-0.5 text-[var(--success)]">nové</Badge> : null}
           {task.tags.map((tag) => <span key={tag.id}>#{tag.name}</span>)}
         </div>
+        {task.description ? <MarkdownPreview compact className="mt-2 text-sm text-[var(--muted)]">{task.description}</MarkdownPreview> : null}
         {confirmingDelete ? <p className="mt-2 text-xs text-[var(--danger)]">Klepni na koš ještě jednou pro smazání.</p> : null}
       </div>
       <div className="flex gap-0.5 sm:gap-1">

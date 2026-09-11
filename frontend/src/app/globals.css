@@ -112,7 +112,30 @@ button { cursor: pointer; }
   padding: 1.25rem;
 }
 
-.workspace { min-width: 0; padding: var(--space-page); padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)); }
+.workspace {
+  min-width: 0;
+  padding: var(--space-page);
+  padding-bottom: calc(8.5rem + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(8.5rem + env(safe-area-inset-bottom));
+}
+
+.markdown-preview {
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.markdown-preview :where(p, ul, ol, blockquote, pre) { margin-top: .5rem; }
+.markdown-preview :where(p, ul, ol, blockquote, pre):first-child { margin-top: 0; }
+.markdown-preview :where(ul, ol) { padding-left: 1.25rem; }
+.markdown-preview ul { list-style: disc; }
+.markdown-preview ol { list-style: decimal; }
+.markdown-preview :where(strong) { font-weight: 700; color: var(--foreground); }
+.markdown-preview :where(a) { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.markdown-preview :where(code) { border-radius: .4rem; background: var(--surface-muted); padding: .1rem .3rem; font-family: var(--font-mono); font-size: .9em; }
+.markdown-preview :where(pre) { overflow-x: auto; border-radius: var(--radius-md); background: var(--surface-muted); padding: .75rem; }
+.markdown-preview :where(pre code) { background: transparent; padding: 0; }
+.markdown-preview :where(blockquote) { border-left: 3px solid var(--border-strong); padding-left: .75rem; color: var(--muted); }
+.markdown-preview-compact { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.markdown-preview-compact :where(p, ul, ol, blockquote, pre) { margin-top: .25rem; }
 
 .panel {
   border: 1px solid var(--border);
@@ -152,6 +175,6 @@ button { cursor: pointer; }
     --radius-xl: 1.15rem;
   }
   body { font-size: 14px; }
-  .workspace { padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)); }
+  .workspace { padding-bottom: calc(8.5rem + env(safe-area-inset-bottom)); }
   .panel { box-shadow: 0 8px 22px rgba(42, 31, 22, 0.07); }
 }

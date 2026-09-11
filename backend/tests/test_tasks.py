@@ -294,6 +294,7 @@ async def test_get_update_and_soft_delete_task(
     assert done_update.status_code == 200
     assert done_update.json()["status"] == "done"
     assert done_update.json()["completed_at"] is not None
+    assert done_update.json()["completed_by"] == "user"
 
     reopened = await client.patch(
         f"/tasks/{task_id}",
@@ -303,6 +304,7 @@ async def test_get_update_and_soft_delete_task(
     assert reopened.status_code == 200
     assert reopened.json()["status"] == "todo"
     assert reopened.json()["completed_at"] is None
+    assert reopened.json()["completed_by"] is None
 
     deleted = await client.delete(
         f"/tasks/{task_id}", headers={**headers, "If-Match": str(reopened.json()["version"])}

@@ -299,6 +299,7 @@ async def create_task(
     tags = await _resolve_tags(db, owner, payload.tag_ids)
 
     completed_at = datetime.now(UTC) if payload.status == TaskStatus.DONE else None
+    completed_by = actor.value if payload.status == TaskStatus.DONE else None
     task = Task(
         owner_id=owner.id,
         title=payload.title,
@@ -309,6 +310,7 @@ async def create_task(
         due_time=payload.due_time,
         estimate_minutes=payload.estimate_minutes,
         completed_at=completed_at,
+        completed_by=completed_by,
         category_id=payload.category_id,
         context_id=payload.context_id,
         vision_id=payload.vision_id,
@@ -388,7 +390,6 @@ async def update_task(
         "due_time",
         "estimate_minutes",
         "position",
-        "completed_at",
         "source_detail",
         "recurrence_rule",
     ):
@@ -409,10 +410,12 @@ async def update_task(
     if "status" in changes and payload.status is not None:
         new_status = payload.status
         if new_status == TaskStatus.DONE and task.status != TaskStatus.DONE.value:
-            task.completed_at = payload.completed_at or datetime.now(UTC)
+            task.completed_at = datetime.now(UTC)
+            task.completed_by = actor.value
             await _generate_next_recurrence_instance(db, task, task.completed_at)
         elif new_status != TaskStatus.DONE:
             task.completed_at = None
+            task.completed_by = None
         task.status = new_status.value
 
     apply_mutation_audit(task, actor=actor, api_key_id=api_key_id)

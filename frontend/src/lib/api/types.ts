@@ -490,6 +490,7 @@ export type Task = VersionedAuditFields & {
   due_time: string | null;
   estimate_minutes: number | null;
   completed_at: string | null;
+  completed_by: "user" | "agent" | null;
   category_id: UUID | null;
   context_id: UUID | null;
   vision_id: UUID | null;
@@ -552,4 +553,5 @@ export type TaskCreate = {
 
 export type TaskUpdate = Partial<TaskCreate> & {
   completed_at?: string | null;
+  completed_by?: "user" | "agent" | null;
 };
