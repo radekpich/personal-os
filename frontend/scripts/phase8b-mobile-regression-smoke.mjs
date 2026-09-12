@@ -114,6 +114,77 @@ async function verifyTaskDialogDefaults(page) {
   await page.getByRole('heading', { name: 'Nový úkol' }).waitFor({ state: 'detached', timeout: 10_000 });
 }
 
+
+async function verifyDialogChrome(page, label) {
+  const result = await page.evaluate(() => {
+    const dialog = document.querySelector('[role="dialog"]');
+    if (!dialog) return null;
+    const box = (el) => {
+      const rect = el.getBoundingClientRect();
+      const styles = getComputedStyle(el);
+      return {
+        tag: el.tagName,
+        className: String(el.className),
+        top: rect.top,
+        bottom: rect.bottom,
+        height: rect.height,
+        flex: styles.flex,
+        overflowY: styles.overflowY,
+      };
+    };
+    const direct = [...dialog.children].map(box);
+    const form = dialog.querySelector('form');
+    const formChildren = form ? [...form.children].map(box) : [];
+    const rect = dialog.getBoundingClientRect();
+    return {
+      dialog: { top: rect.top, bottom: rect.bottom, height: rect.height, width: rect.width },
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        bodyScrollWidth: document.body.scrollWidth,
+      },
+      direct,
+      formChildren,
+    };
+  });
+  if (!result) throw new Error(`${label}: dialog se nevykreslil`);
+  if (result.viewport.scrollWidth > result.viewport.clientWidth + 2 || result.viewport.bodyScrollWidth > result.viewport.clientWidth + 2) {
+    throw new Error(`${label}: dialog způsobil horizontální overflow (${JSON.stringify(result)})`);
+  }
+  const header = result.direct[0];
+  const body = result.formChildren.length ? result.formChildren[0] : result.direct[1];
+  const footer = result.formChildren.length ? result.formChildren[result.formChildren.length - 1] : result.direct[result.direct.length - 1];
+  if (!header || !body || !footer) throw new Error(`${label}: dialog nemá header/body/footer (${JSON.stringify(result)})`);
+  if (!header.flex.includes('0 0')) throw new Error(`${label}: header není pevný flex sibling (${JSON.stringify(result)})`);
+  if (body.overflowY !== 'auto') throw new Error(`${label}: obsah dialogu není scrollovatelný (${JSON.stringify(result)})`);
+  if (!footer.flex.includes('0 0') || footer.height > 96) throw new Error(`${label}: footer není kompaktní pevná akční lišta (${JSON.stringify(result)})`);
+  return { ...result, checked: { header, body, footer } };
+}
+
+async function verifyFilterDialogChrome(page) {
+  await page.goto(`${frontendBaseUrl}/tasks`);
+  await page.getByRole('button', { name: /Filtry/ }).click();
+  await page.getByRole('heading', { name: 'Filtry' }).waitFor({ timeout: 10_000 });
+  const chrome = await verifyDialogChrome(page, 'Filtry úkolů');
+  await page.screenshot({ path: '/tmp/personal-os-mobile-filters-dialog.png', fullPage: false });
+  await page.keyboard.press('Escape');
+  await page.getByRole('heading', { name: 'Filtry' }).waitFor({ state: 'detached', timeout: 10_000 });
+  return chrome;
+}
+
+async function verifyChallengeDialogChrome(page) {
+  await page.goto(`${frontendBaseUrl}/challenges`);
+  await page.getByRole('button', { name: 'Nová výzva' }).click();
+  await page.getByRole('heading', { name: 'Nová výzva' }).waitFor({ timeout: 10_000 });
+  const chrome = await verifyDialogChrome(page, 'Nová výzva');
+  await page.screenshot({ path: '/tmp/personal-os-mobile-challenge-dialog.png', fullPage: false });
+  await page.keyboard.press('Escape');
+  await page.getByRole('heading', { name: 'Nová výzva' }).waitFor({ state: 'detached', timeout: 10_000 });
+  return chrome;
+}
+
 async function verifyCompletedAtDetail(page, seeded) {
   const done = await apiJson(page, `/tasks/${seeded.task.id}`, {
     method: 'PATCH',
@@ -159,12 +230,14 @@ async function run() {
     const seeded = await seedMarkdown(page);
     await verifyMarkdown(page, seeded);
     await verifyTaskDialogDefaults(page);
+    const filtersDialog = await verifyFilterDialogChrome(page);
+    const challengeDialog = await verifyChallengeDialogChrome(page);
     await verifyCompletedAtDetail(page, seeded);
     await verifyRecurrencePanel(page);
     const scroll = [];
     for (const route of routes) scroll.push(await verifyBottomReachable(page, route));
     await page.screenshot({ path: '/tmp/personal-os-mobile-bottom-smoke.png', fullPage: true });
-    console.log(JSON.stringify({ ok: errors.length === 0, errors, scroll }, null, 2));
+    console.log(JSON.stringify({ ok: errors.length === 0, errors, scroll, dialogs: { filtersDialog, challengeDialog } }, null, 2));
     if (errors.length) process.exitCode = 1;
   } finally {
     await browser.close();

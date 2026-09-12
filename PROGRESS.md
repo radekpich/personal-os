@@ -4,6 +4,11 @@
 
 ## Hotovo
 
+- [x] 2026-09-12 15:01 UTC — Bugfix mobilních dialogů filtrů a výzev
+  - Filtry úkolů jsou přepsané na stejný Radix dialog/bottom-sheet pattern jako plný dialog úkolu: pevná hlavička, scrollovatelný obsah, dole kompaktní akční lišta `Vyčistit`/`Použít filtry` mimo scroll.
+  - Dialogy Vize/Výzva/Confirm mají sjednocený `shrink-0` header a kompaktnější footer s `pb-[calc(1rem+env(safe-area-inset-bottom))]`, aby panel v Návycích nebyl zbytečně vysoký.
+  - Mobilní smoke na Pixel 5 teď kontroluje dialog chrome pro Filtry úkolů a Novou výzvu plus page overflow/bottom nav na hlavních routách; preview `:3030`/`:8030` → `{ ok: true, errors: [] }`.
+
 - [x] 2026-09-12 08:26 UTC — Bugfix mobilní responsivity úkolů
   - Opraven reálný mobilní horizontální overflow stránky Úkoly: grid položky a task list dostaly `min-w-0`/`max-w-full`, workspace globálně brání roztahování body mimo viewport a spodní navigace používá `minmax(0, 1fr)`.
   - Stejná ochrana doplněna i pro výzvy/challenge karty, aby smoke neodhaloval page overflow mimo `/tasks`.

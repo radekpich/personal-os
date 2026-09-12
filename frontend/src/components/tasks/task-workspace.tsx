@@ -1,5 +1,6 @@
 "use client";
 
+import * as Dialog from "@radix-ui/react-dialog";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -184,35 +185,41 @@ function AdvancedFilterPanel({ initial, categories, contexts, tags, onApply, onC
     }));
   }
   return (
-    <div className="fixed inset-0 z-40 bg-black/30" role="dialog" aria-modal="true" aria-label="Filtry úkolů">
-      <div className="absolute inset-x-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-2xl sm:left-auto sm:right-4 sm:top-4 sm:w-[26rem] sm:rounded-[var(--radius-lg)]">
-        <div className="flex items-center justify-between gap-3">
-          <div><h2 className="text-lg font-semibold">Filtry</h2><p className="text-sm text-[var(--muted)]">Nastav všechno najednou a potvrď.</p></div>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Zavřít filtry"><X size={16}/></Button>
-        </div>
-        <div className="mt-4 grid gap-3">
-          <Select label="Kategorie" value={draft.category_id} onChange={(value) => setDraft((current) => ({ ...current, category_id: value }))} options={[{ value: "all", label: "Všechny kategorie" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]} />
-          <div className="grid gap-1">
-            <Select label="Kde" value={draft.context_id} onChange={(value) => setDraft((current) => ({ ...current, context_id: value }))} options={[{ value: "all", label: "Všechna místa" }, ...contexts.map((c) => ({ value: c.id, label: c.name }))]} />
-            <p className="text-xs text-[var(--muted)]">Místo nebo nástroj, kde úkol zvládnu — Ranč, Počítač, Město.</p>
+    <Dialog.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-[51] flex h-[96dvh] max-h-[96dvh] flex-col overflow-hidden rounded-t-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:h-dvh sm:w-full sm:max-w-xl sm:rounded-none sm:border-l">
+          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--border)] p-4 sm:p-6">
+            <div className="min-w-0">
+              <Dialog.Title className="text-lg font-semibold">Filtry</Dialog.Title>
+              <Dialog.Description className="text-sm text-[var(--muted)]">Nastav všechno najednou a potvrď.</Dialog.Description>
+            </div>
+            <Dialog.Close asChild><Button variant="ghost" size="sm" aria-label="Zavřít filtry"><X size={18}/></Button></Dialog.Close>
           </div>
-          <Select label="Stav" value={draft.status} onChange={(value) => setDraft((current) => ({ ...current, status: value as TaskStatus | "all" }))} options={statuses.map(([value, label]) => ({ value, label }))} />
-          <Select label="Priorita" value={draft.priority} onChange={(value) => setDraft((current) => ({ ...current, priority: value as TaskPriority | "all" }))} options={priorities.map(([value, label]) => ({ value, label }))} />
-          <div className="grid gap-2">
-            <span className="text-sm font-medium">Tagy</span>
-            <div className="flex flex-wrap gap-2">
-              {tags.length === 0 ? <span className="text-sm text-[var(--muted)]">Žádné tagy.</span> : tags.map((tag) => (
-                <button key={tag.id} type="button" onClick={() => toggleTag(tag.id)} className={cn("focus-ring rounded-full border px-3 py-1 text-sm", draft.tag_ids.includes(tag.id) ? "border-[var(--accent)] bg-[var(--accent)] text-white" : "border-[var(--border)] text-[var(--muted)]")}>{tag.name}</button>
-              ))}
+          <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto p-4 pb-24 sm:p-6">
+            <Select label="Kategorie" value={draft.category_id} onChange={(value) => setDraft((current) => ({ ...current, category_id: value }))} options={[{ value: "all", label: "Všechny kategorie" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]} />
+            <div className="grid gap-1">
+              <Select label="Kde" value={draft.context_id} onChange={(value) => setDraft((current) => ({ ...current, context_id: value }))} options={[{ value: "all", label: "Všechna místa" }, ...contexts.map((c) => ({ value: c.id, label: c.name }))]} />
+              <p className="text-xs text-[var(--muted)]">Místo nebo nástroj, kde úkol zvládnu — Ranč, Počítač, Město.</p>
+            </div>
+            <Select label="Stav" value={draft.status} onChange={(value) => setDraft((current) => ({ ...current, status: value as TaskStatus | "all" }))} options={statuses.map(([value, label]) => ({ value, label }))} />
+            <Select label="Priorita" value={draft.priority} onChange={(value) => setDraft((current) => ({ ...current, priority: value as TaskPriority | "all" }))} options={priorities.map(([value, label]) => ({ value, label }))} />
+            <div className="grid gap-2">
+              <span className="text-sm font-medium">Tagy</span>
+              <div className="flex flex-wrap gap-2">
+                {tags.length === 0 ? <span className="text-sm text-[var(--muted)]">Žádné tagy.</span> : tags.map((tag) => (
+                  <button key={tag.id} type="button" onClick={() => toggleTag(tag.id)} className={cn("focus-ring rounded-full border px-3 py-1 text-sm", draft.tag_ids.includes(tag.id) ? "border-[var(--accent)] bg-[var(--accent)] text-white" : "border-[var(--border)] text-[var(--muted)]")}>{tag.name}</button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-        <div className="sticky bottom-0 -mx-4 mt-5 flex gap-2 border-t border-[var(--border)] bg-[var(--surface)] p-4">
-          <Button className="flex-1" onClick={() => onApply(draft)}>Použít filtry</Button>
-          <Button variant="ghost" onClick={() => onApply({ status: "all", priority: "all", category_id: "all", context_id: "all", tag_ids: [] })}>Vyčistit</Button>
-        </div>
-      </div>
-    </div>
+          <div className="relative z-10 flex shrink-0 justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6">
+            <Button type="button" variant="ghost" onClick={() => onApply({ status: "all", priority: "all", category_id: "all", context_id: "all", tag_ids: [] })}>Vyčistit</Button>
+            <Button type="button" onClick={() => onApply(draft)}>Použít filtry</Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
