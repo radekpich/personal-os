@@ -250,12 +250,12 @@ function ChallengeCard({ challenge, expanded, pending, pendingDate, year, onTogg
           </div>
         </div>
       </button>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Badge>rekord {formatCzechCount(challenge.longest_streak, "den", "dny", "dní")}</Badge>
           {challenge.target_days ? <Badge>cíl {formatCzechCount(challenge.target_days, "den", "dny", "dní")}</Badge> : null}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
           <Button size="sm" variant={challenge.type === "abstinence" ? "danger" : "default"} onClick={onOneTap} disabled={pending}>
             {challenge.type === "abstinence" ? <Flame size={15} /> : <CheckCircle2 size={15} />} {challenge.type === "abstinence" ? "Zapsat relaps" : "Hotovo dnes"}
           </Button>
@@ -296,18 +296,18 @@ function ChallengeDetail({ challenge, year, pendingDate, onEdit, onDelete, onChe
   );
 
   return (
-    <div className="mt-4 grid gap-4 border-t border-[var(--border)] pt-4">
-      <div className="flex flex-wrap justify-end gap-2">
+    <div className="mt-4 grid min-w-0 max-w-full gap-4 overflow-hidden border-t border-[var(--border)] pt-4">
+      <div className="flex min-w-0 flex-wrap justify-end gap-2">
         <ActionButton icon="edit" label="Upravit výzvu" showLabel onClick={onEdit} />
         <ActionButton icon="delete" label="Smazat výzvu" showLabel danger onClick={onDelete} />
       </div>
-      <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+      <div className="grid min-w-0 grid-cols-1 gap-2 text-sm min-[420px]:grid-cols-2 lg:grid-cols-4">
         <Metric label="Aktuální šňůra" value={formatCzechCount(challenge.current_streak, "den", "dny", "dní")} />
         <Metric label="Rekordní šňůra" value={formatCzechCount(challenge.longest_streak, "den", "dny", "dní")} />
         <Metric label="Zápisů celkem" value={stats.data?.total_count ?? "—"} />
         <Metric label="Úspěšnost 30 / 90 dní" value={`${formatSuccessWindow(stats.data?.success_rate_30, stats.data?.active_days_30, 30)} / ${formatSuccessWindow(stats.data?.success_rate_90, stats.data?.active_days_90, 90)}`} />
       </div>
-      <div>
+      <div className="min-w-0 max-w-full overflow-hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Heatmapa · {year}</p>
         {heatmap.isLoading ? (
           <p className="mt-2 text-sm text-[var(--muted)]">Načítám heatmapu…</p>
@@ -322,7 +322,7 @@ function ChallengeDetail({ challenge, year, pendingDate, onEdit, onDelete, onChe
           />
         )}
       </div>
-      <div>
+      <div className="min-w-0 max-w-full">
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Poslední zápisy</p>
         {recentCheckIns.length ? (
           <ul className="mt-2 grid gap-1 text-sm">
@@ -348,7 +348,7 @@ function formatSuccessWindow(rate: number | undefined, activeDays: number | unde
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {
-  return <div className="rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-2.5 sm:p-3"><p className="text-xs text-[var(--muted)]">{label}</p><p className="font-semibold">{value}</p></div>;
+  return <div className="min-w-0 rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-2.5 sm:p-3"><p className="text-xs text-[var(--muted)]">{label}</p><p className="break-words font-semibold leading-snug">{value}</p></div>;
 }
 
 function ContributionHeatmap({ days, color, todayStr, cutoffStr, pendingDate, onDayClick }: {
@@ -363,8 +363,9 @@ function ContributionHeatmap({ days, color, todayStr, cutoffStr, pendingDate, on
   const monthLabels = useMemo(() => buildMonthLabels(weeks), [weeks]);
   if (!days.length) return <p className="text-sm text-[var(--muted)]">Zatím nejsou žádné dny k vykreslení.</p>;
   return (
-    <div className="overflow-x-auto pb-2" aria-label="Heatmapa návyků podle rozvrhu">
-      <div className="grid w-max grid-cols-[2rem_auto] gap-x-2 [--cell:1.75rem] sm:[--cell:0.9rem]">
+    <div className="w-full max-w-full overflow-hidden" aria-label="Heatmapa návyků podle rozvrhu">
+      <div className="overflow-x-auto overscroll-x-contain pb-2">
+        <div className="grid w-max max-w-none grid-cols-[1.75rem_auto] gap-x-1 [--cell:1.65rem] sm:grid-cols-[2rem_auto] sm:gap-x-2 sm:[--cell:0.9rem]">
         <div className="sticky left-0 z-10 bg-[var(--surface)]" />
         <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${weeks.length}, var(--cell))` }}>
           {monthLabels.map((label, index) => (
@@ -399,6 +400,7 @@ function ContributionHeatmap({ days, color, todayStr, cutoffStr, pendingDate, on
               );
             })
           )}
+        </div>
         </div>
       </div>
     </div>

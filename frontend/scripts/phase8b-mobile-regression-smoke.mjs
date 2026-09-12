@@ -35,7 +35,7 @@ async function seedMarkdown(page) {
   const context = await apiJson(page, '/contexts', { method: 'POST', data: { name: `Smoke markdown kde ${stamp}`, color: '#2563EB', icon: 'pin' } });
   const task = await apiJson(page, '/tasks', {
     method: 'POST',
-    data: { title: `Smoke **markdown** úkol ${stamp}`, description: '**Tučný úkol** <script>alert(1)</script>', status: 'todo', category_id: category.id, context_id: context.id },
+    data: { title: `Smoke **markdown** úkol ${stamp}`, description: '**Tučný úkol** <script>alert(1)</script>', status: 'todo', due_date: today, category_id: category.id, context_id: context.id },
   });
   const note = await apiJson(page, '/notes', { method: 'POST', data: { title: `Smoke markdown deník ${stamp}`, body: '**Tučný deník** <script>alert(1)</script>', kind: 'diary', entry_date: today } });
   const vision = await apiJson(page, '/visions', { method: 'POST', data: { title: `Smoke markdown vize ${stamp}`, description: '**Tučná vize** <script>alert(1)</script>', horizon: '1y' } });
@@ -82,7 +82,7 @@ async function verifyBottomReachable(page, route) {
 }
 
 async function verifyMarkdown(page, seeded) {
-  await page.goto(`${frontendBaseUrl}/tasks`);
+  await page.goto(`${frontendBaseUrl}/tasks?view=today`);
   const taskArticle = page.locator('article').filter({ hasText: seeded.task.title }).first();
   await taskArticle.waitFor({ timeout: 15_000 });
   await taskArticle.getByText('Tučný úkol').waitFor();
@@ -185,6 +185,41 @@ async function verifyChallengeDialogChrome(page) {
   return chrome;
 }
 
+
+async function verifyChallengeDetailResponsive(page) {
+  const challenge = await apiJson(page, '/challenges', {
+    method: 'POST',
+    data: { title: `Smoke responsive návyk ${stamp}`, type: 'daily_action', cadence: 'daily', status: 'active', color: '#16A34A', icon: 'wave' },
+  });
+  await page.goto(`${frontendBaseUrl}/challenges`);
+  const card = page.locator('article').filter({ hasText: challenge.title }).first();
+  await card.waitFor({ timeout: 15_000 });
+  await card.locator('button').first().click();
+  await card.getByText(/HEATMAPA|Heatmapa/).waitFor({ timeout: 10_000 });
+  await page.locator('[aria-label="Heatmapa návyků podle rozvrhu"]').waitFor({ timeout: 10_000 });
+  const result = await page.evaluate(() => {
+    const doc = document.documentElement;
+    const heat = document.querySelector('[aria-label="Heatmapa návyků podle rozvrhu"]');
+    const heatRect = heat?.getBoundingClientRect();
+    return {
+      clientWidth: doc.clientWidth,
+      scrollWidth: doc.scrollWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+      heatRect: heatRect ? { left: heatRect.left, right: heatRect.right, width: heatRect.width } : null,
+      heatOverflowX: heat ? getComputedStyle(heat).overflowX : null,
+      innerOverflowX: heat?.querySelector('.overflow-x-auto') ? getComputedStyle(heat.querySelector('.overflow-x-auto')).overflowX : null,
+    };
+  });
+  if (result.scrollWidth > result.clientWidth + 2 || result.bodyScrollWidth > result.clientWidth + 2) {
+    throw new Error(`Detail návyku má horizontální overflow (${JSON.stringify(result)})`);
+  }
+  if (!result.heatRect || result.heatRect.left < -1 || result.heatRect.right > result.clientWidth + 1) {
+    throw new Error(`Heatmapa návyku přetéká mimo viewport (${JSON.stringify(result)})`);
+  }
+  await page.screenshot({ path: '/tmp/personal-os-mobile-challenge-detail.png', fullPage: true });
+  return result;
+}
+
 async function verifyCompletedAtDetail(page, seeded) {
   const done = await apiJson(page, `/tasks/${seeded.task.id}`, {
     method: 'PATCH',
@@ -233,11 +268,12 @@ async function run() {
     const filtersDialog = await verifyFilterDialogChrome(page);
     const challengeDialog = await verifyChallengeDialogChrome(page);
     await verifyCompletedAtDetail(page, seeded);
+    const challengeDetail = await verifyChallengeDetailResponsive(page);
     await verifyRecurrencePanel(page);
     const scroll = [];
     for (const route of routes) scroll.push(await verifyBottomReachable(page, route));
     await page.screenshot({ path: '/tmp/personal-os-mobile-bottom-smoke.png', fullPage: true });
-    console.log(JSON.stringify({ ok: errors.length === 0, errors, scroll, dialogs: { filtersDialog, challengeDialog } }, null, 2));
+    console.log(JSON.stringify({ ok: errors.length === 0, errors, scroll, dialogs: { filtersDialog, challengeDialog }, challengeDetail }, null, 2));
     if (errors.length) process.exitCode = 1;
   } finally {
     await browser.close();

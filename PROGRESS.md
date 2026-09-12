@@ -4,6 +4,13 @@
 
 ## Hotovo
 
+- [x] 2026-09-12 16:27 UTC — Bugfix responsivity detailu návyku/výzvy
+  - Detail `ChallengeDetail` dostal `min-w-0/max-w-full/overflow-hidden`, aby neroztahoval kartu mimo viewport.
+  - Metriky jsou na mobilu v jednom sloupci (`min-[420px]` až dva), dlouhé hodnoty se zalamují.
+  - Heatmapa je uzavřená ve wrapperu bez page overflow; samotné buňky se posouvají pouze uvnitř horizontálního scrollu.
+  - Mobile smoke rozšířen o vytvoření/otevření detailu návyku a kontrolu `document/body scrollWidth <= clientWidth` + heatmap wrapper uvnitř viewportu.
+  - Ověřeno na Pixel 5: detail návyku `scrollWidth=393`, `clientWidth=393`, heatmap wrapper `left=28.1875`, `right=364.8125`.
+
 - [x] 2026-09-12 15:21 UTC — Sjednocení akčních ikon, tlačítek a potvrzení
   - Přidána sdílená UI vrstva `ActionButton` / `CompleteToggleButton` pro konzistentní akce: upravit/zpracovat, smazat a hotovo/vrátit.
   - Úkoly používají stejnou check-circle logiku jako denní návyky; detail úkolu je sjednocený jako `Upravit úkol` s tužkou.
