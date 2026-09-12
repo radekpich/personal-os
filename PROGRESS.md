@@ -4,6 +4,11 @@
 
 ## Hotovo
 
+- [x] 2026-09-12 08:26 UTC — Bugfix mobilní responsivity úkolů
+  - Opraven reálný mobilní horizontální overflow stránky Úkoly: grid položky a task list dostaly `min-w-0`/`max-w-full`, workspace globálně brání roztahování body mimo viewport a spodní navigace používá `minmax(0, 1fr)`.
+  - Stejná ochrana doplněna i pro výzvy/challenge karty, aby smoke neodhaloval page overflow mimo `/tasks`.
+  - `phase8b:mobile-regression-smoke` teď běží na skutečném Pixel 5 device profilu a u každé hlavní routy kontroluje `scrollWidth <= clientWidth`; preview ověřeno proti `:3030`/`:8030` → OK.
+
 - [x] 2026-09-12 06:37 UTC — Mobilní opravy / dávka 7 — časové filtry, dashboard návyků a bulk Inbox
   - Stránka Úkoly má nový horizontální časový pruh s počty pro Dnes/Zítra/Týden/Po termínu/Inbox/Hotovo; URL filtr `view=tomorrow` přežije reload a ostatní filtry jsou ve sbaleném rozšířeném panelu.
   - Dashboard dnešních návyků je mobilní akční mřížka: nesplněné výzvy jsou nahoře, karta má přímý check-in/undo, kompaktní dnešní status a bez horizontálního scrollu.

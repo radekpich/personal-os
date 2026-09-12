@@ -16,7 +16,7 @@ type Props = { tasks: Task[]; categories: Category[]; contexts: Context[]; tags:
 export function TaskList({ tasks, categories, contexts, visions = [], selectedId, highlightedIds = new Set(), onSelect }: Props) {
   if (tasks.length === 0) return <div className="panel p-5 text-center text-sm text-[var(--muted)] sm:p-8">Nic tu není. Zapiš první úkol nahoře.</div>;
   return (
-    <div className="grid gap-2 sm:gap-3">
+    <div className="grid min-w-0 max-w-full gap-2 sm:gap-3">
       {tasks.map((task) => <TaskItem key={task.id} task={task} category={categories.find((c) => c.id === task.category_id)} context={contexts.find((c) => c.id === task.context_id)} vision={visions.find((v) => v.id === task.vision_id)} selected={task.id === selectedId} highlighted={highlightedIds.has(task.id)} onSelect={() => onSelect(task)} />)}
     </div>
   );

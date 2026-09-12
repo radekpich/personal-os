@@ -111,9 +111,9 @@ export function ChallengeWorkspace() {
   }
 
   return (
-    <div className="grid gap-4">
-      <div className="panel flex flex-wrap items-center justify-between gap-3 p-5">
-        <div>
+    <div className="grid min-w-0 max-w-full gap-4">
+      <div className="panel flex min-w-0 max-w-full flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+        <div className="min-w-0">
           <p className="text-sm text-[var(--muted)]">
             Daily akce se počítá z reálných zápisů; abstinence běží od startu a zapisuje jen relaps.
           </p>
@@ -141,7 +141,7 @@ export function ChallengeWorkspace() {
         </p>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid min-w-0 max-w-full gap-3 md:grid-cols-2">
         {filteredChallenges.map((challenge) => (
           <ChallengeCard
             key={challenge.id}
@@ -227,8 +227,8 @@ function ChallengeCard({ challenge, expanded, pending, pendingDate, year, onTogg
 }) {
   const Icon = challenge.type === "abstinence" ? ShieldCheck : Activity;
   return (
-    <article className={cn("panel p-5 transition", expanded && "ring-2 ring-[var(--primary)]")}>
-      <button className="w-full text-left" onClick={onToggleDetail}>
+    <article className={cn("panel min-w-0 max-w-full p-4 transition sm:p-5", expanded && "ring-2 ring-[var(--primary)]")}>
+      <button className="w-full min-w-0 text-left" onClick={onToggleDetail}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">

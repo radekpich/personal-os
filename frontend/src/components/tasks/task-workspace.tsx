@@ -123,9 +123,9 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
   const activeAdvancedCount = countAdvancedFilters(advanced);
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
-      <section className="grid gap-4">
-        <div className="panel flex items-center gap-2 p-2 sm:p-3">
+    <div className="grid min-w-0 max-w-full gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <section className="grid min-w-0 gap-4">
+        <div className="panel flex min-w-0 max-w-full items-center gap-2 overflow-hidden p-2 sm:p-3">
           <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Časové filtry úkolů">
             {timeViews.map((view) => {
               const active = currentView === view.value || (view.value === "all" && currentView === "all");

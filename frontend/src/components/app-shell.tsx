@@ -109,9 +109,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <nav className="bottom-nav p-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
         {primaryMobileNav.map((item) => {
           const Icon = item.icon;
-          return <Link key={item.href} href={item.href} className={cn("focus-ring flex flex-col items-center rounded-full px-1 py-2 text-[10px] text-[var(--muted)]", isActivePath(pathname, item) && "bg-[var(--primary)] text-[var(--primary-foreground)]")}><Icon size={17}/>{item.label}</Link>;
+          return <Link key={item.href} href={item.href} className={cn("focus-ring flex min-w-0 flex-col items-center rounded-full px-1 py-2 text-[10px] text-[var(--muted)]", isActivePath(pathname, item) && "bg-[var(--primary)] text-[var(--primary-foreground)]")}><Icon size={17}/><span className="max-w-full truncate">{item.label}</span></Link>;
         })}
-        <button type="button" onClick={() => setMoreOpen(true)} className="focus-ring flex flex-col items-center rounded-full px-1 py-2 text-[10px] text-[var(--muted)]"><Menu size={17}/>Více</button>
+        <button type="button" onClick={() => setMoreOpen(true)} className="focus-ring flex min-w-0 flex-col items-center rounded-full px-1 py-2 text-[10px] text-[var(--muted)]"><Menu size={17}/><span className="max-w-full truncate">Více</span></button>
       </nav>
       {moreOpen ? (
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Další stránky">

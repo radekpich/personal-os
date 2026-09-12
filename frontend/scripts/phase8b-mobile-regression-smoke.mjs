@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium, devices } from '@playwright/test';
 
 const frontendBaseUrl = process.env.FRONTEND_BASE_URL ?? 'http://127.0.0.1:3030';
 const apiBaseUrl = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8030';
@@ -62,8 +62,20 @@ async function verifyBottomReachable(page, route) {
     const contentBottom = lastContent?.getBoundingClientRect().bottom ?? 0;
     const viewportBottom = window.innerHeight;
     const reachableEnd = Math.ceil(window.scrollY + viewportBottom) >= document.documentElement.scrollHeight - 2;
-    return { navTop, contentBottom, viewportBottom, reachableEnd, gap: navTop - contentBottom };
+    return {
+      navTop,
+      contentBottom,
+      viewportBottom,
+      reachableEnd,
+      gap: navTop - contentBottom,
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+    };
   });
+  if (result.scrollWidth > result.clientWidth + 2 || result.bodyScrollWidth > result.clientWidth + 2) {
+    throw new Error(`${route}: stránka má horizontální overflow (${JSON.stringify(result)})`);
+  }
   if (!result.reachableEnd) throw new Error(`${route}: nejde doscrollovat na konec (${JSON.stringify(result)})`);
   if (result.contentBottom > result.navTop - 8) throw new Error(`${route}: bottom nav překrývá konec obsahu (${JSON.stringify(result)})`);
   return { route, ...result };
@@ -139,7 +151,7 @@ async function verifyRecurrencePanel(page) {
 
 async function run() {
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+  const page = await browser.newPage(devices['Pixel 5']);
   const errors = [];
   attachErrorCollector(page, errors);
   try {
