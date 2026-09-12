@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AgentActivityWorkspace } from "@/components/agent/agent-activity-workspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   useAcknowledgeAgentConfigChange,
@@ -202,16 +203,27 @@ function ChangeRow({ change, compact, onAck }: { change: AgentConfigChange; comp
 function KeysTab() {
   const keys = useAgentKeys();
   const revokeAll = useRevokeAllAgentKeys();
+  const [revokeOpen, setRevokeOpen] = useState(false);
   function confirmRevoke() {
-    if (window.confirm("Opravdu okamžitě zneplatnit všechny agentní API klíče?")) revokeAll.mutate();
+    revokeAll.mutate(undefined, { onSuccess: () => setRevokeOpen(false) });
   }
   return (
     <div className="grid gap-4">
       <div className="rounded-[var(--radius)] border-2 border-red-500/50 bg-red-500/5 p-4">
         <h3 className="flex items-center gap-2 font-semibold text-red-700"><LockKeyhole size={18} /> Nouzové odebrání přístupu</h3>
         <p className="mt-1 text-sm text-[var(--muted)]">Zneplatní všechny agentní klíče okamžitě, ne až po vypršení cache.</p>
-        <Button className="mt-3" variant="danger" onClick={confirmRevoke} disabled={revokeAll.isPending}>Zneplatnit všechny agentní klíče</Button>
+        <Button className="mt-3" variant="danger" onClick={() => setRevokeOpen(true)} disabled={revokeAll.isPending}>Zneplatnit všechny agentní klíče</Button>
       </div>
+      <ConfirmDialog
+        open={revokeOpen}
+        title="Zneplatnit všechny agentní API klíče?"
+        description="Nouzově odebere přístup všem agentům okamžitě, ne až po vypršení cache."
+        confirmLabel="Zneplatnit klíče"
+        destructive
+        confirmDisabled={revokeAll.isPending}
+        onConfirm={confirmRevoke}
+        onCancel={() => setRevokeOpen(false)}
+      />
       <ListPanel title="Klíče" items={keys.data?.items ?? []} render={(key: AgentKey) => (
         <div className="grid gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] p-4 md:grid-cols-4">
           <div className="flex items-center gap-2"><KeyRound size={16} /><strong>{key.name}</strong></div>

@@ -1,9 +1,11 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Download, FileText, Loader2, Pencil, Trash2, Unlink, X } from "lucide-react";
+import { Download, FileText, Loader2, Unlink, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/ui/action-buttons";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { attachmentUrl } from "@/lib/api/client";
 import {
@@ -46,6 +48,7 @@ export function AttachmentGrid(props: AttachmentGridProps) {
   const [active, setActive] = useState<Attachment | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Attachment | null>(null);
 
   const items = attachments.data?.items ?? [];
 
@@ -61,6 +64,7 @@ export function AttachmentGrid(props: AttachmentGridProps) {
     } else if (noteId) {
       await removeNote.mutateAsync({ noteId, attachmentId: attachment.id });
     }
+    setDeleteTarget(null);
   }
 
   async function unlinkAttachment(attachment: Attachment) {
@@ -109,20 +113,27 @@ export function AttachmentGrid(props: AttachmentGridProps) {
                 <p className="min-h-5 text-sm text-[var(--muted)]">{attachment.caption ?? "Bez popisku"}</p>
               )}
               <div className="flex flex-wrap gap-2">
-                <Button type="button" size="sm" variant="secondary" onClick={() => { setEditingId(attachment.id); setCaption(attachment.caption ?? ""); }}>
-                  <Pencil size={14} />Popisek
-                </Button>
+                <ActionButton icon="edit" label="Popisek" showLabel onClick={() => { setEditingId(attachment.id); setCaption(attachment.caption ?? ""); }} />
                 <Button type="button" size="sm" variant="ghost" onClick={() => void unlinkAttachment(attachment)}>
                   <Unlink size={14} />Odpojit
                 </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => void deleteAttachment(attachment)}>
-                  <Trash2 size={14} />Smazat
-                </Button>
+                <ActionButton icon="delete" label="Smazat" showLabel danger onClick={() => setDeleteTarget(attachment)} />
               </div>
             </div>
           </article>
         ))}
       </div>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={`Smazat přílohu „${deleteTarget?.original_filename ?? ""}“?`}
+        description="Soubor se odstraní z Personal OS. Tuto akci nejde vrátit zpět."
+        confirmLabel="Smazat přílohu"
+        destructive
+        confirmDisabled={removeTask.isPending || removeNote.isPending}
+        onConfirm={() => { if (deleteTarget) void deleteAttachment(deleteTarget); }}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
       <Dialog.Root open={Boolean(active)} onOpenChange={(open) => { if (!open) setActive(null); }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/60" />

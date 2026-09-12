@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Flame, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { Activity, CheckCircle2, Flame, Plus, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   useChallengeHeatmap,
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { czechPlural, formatCzechCount } from "@/lib/czech";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/ui/action-buttons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FilterBar, FilterSelect } from "@/components/ui/filter-bar";
 import { ChallengeDialog } from "@/components/challenges/challenge-dialog";
@@ -256,10 +257,10 @@ function ChallengeCard({ challenge, expanded, pending, pendingDate, year, onTogg
         </div>
         <div className="flex items-center gap-1">
           <Button size="sm" variant={challenge.type === "abstinence" ? "danger" : "default"} onClick={onOneTap} disabled={pending}>
-            <Flame size={15} /> {challenge.type === "abstinence" ? "Zapsat relaps" : "Zapsat dnešek"}
+            {challenge.type === "abstinence" ? <Flame size={15} /> : <CheckCircle2 size={15} />} {challenge.type === "abstinence" ? "Zapsat relaps" : "Hotovo dnes"}
           </Button>
-          <Button variant="ghost" size="sm" onClick={onEdit} aria-label="Upravit výzvu"><Pencil size={15} /></Button>
-          <Button variant="ghost" size="sm" onClick={onDelete} aria-label="Smazat výzvu"><Trash2 size={15} /></Button>
+          <ActionButton icon="edit" label="Upravit výzvu" onClick={onEdit} />
+          <ActionButton icon="delete" label="Smazat výzvu" danger onClick={onDelete} />
         </div>
       </div>
       {expanded ? (
@@ -297,8 +298,8 @@ function ChallengeDetail({ challenge, year, pendingDate, onEdit, onDelete, onChe
   return (
     <div className="mt-4 grid gap-4 border-t border-[var(--border)] pt-4">
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={onEdit}><Pencil size={15} />Upravit</Button>
-        <Button variant="ghost" size="sm" onClick={onDelete}><Trash2 size={15} />Smazat</Button>
+        <ActionButton icon="edit" label="Upravit výzvu" showLabel onClick={onEdit} />
+        <ActionButton icon="delete" label="Smazat výzvu" showLabel danger onClick={onDelete} />
       </div>
       <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
         <Metric label="Aktuální šňůra" value={formatCzechCount(challenge.current_streak, "den", "dny", "dní")} />

@@ -8,6 +8,7 @@ import { AttachmentGrid } from "@/components/attachments/attachment-grid";
 import { AttachmentUploader } from "@/components/attachments/attachment-uploader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { useCreateNote, useDeleteNote, useNotes, useTaxonomy, useUpdateNote, useVisions } from "@/lib/api/hooks";
 import type { Note, NoteKind } from "@/lib/api/types";
@@ -29,6 +30,7 @@ export function NoteWorkspace() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [editing, setEditing] = useState<Note | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Note | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export function NoteWorkspace() {
     try { const saved = await create.mutateAsync({ title: "Rychlá poznámka", body, kind: "note", entry_date: todayIso() }); setEditing(saved); setSelectedId(saved.id); }
     catch (error) { setQuickNote(body); setSaveError(error instanceof Error ? error.message : "Poznámku se nepodařilo uložit. Zkus to prosím znovu."); }
   }
-  async function deleteSelected(note: Note) { if (!window.confirm(`Smazat poznámku „${note.title}“?`)) return; await remove.mutateAsync(note); setEditing(null); setSelectedId(null); setDraft(emptyDraft()); setEditorOpen(false); }
+  async function deleteSelected(note: Note) { await remove.mutateAsync(note); setEditing(null); setSelectedId(null); setDraft(emptyDraft()); setEditorOpen(false); setDeleteTarget(null); }
 
   return (
     <div className="grid gap-5">
@@ -91,12 +93,22 @@ export function NoteWorkspace() {
         {!notes.isLoading && items.length === 0 ? <p className="panel p-5 text-[var(--muted)]">Zatím žádné poznámky. Založ první zápis tlačítkem nahoře.</p> : null}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{items.map((note) => <NoteCard key={note.id} note={note} selected={selected?.id === note.id} highlighted={highlightedIds.has(note.id)} onSelect={() => edit(note)} />)}</div>
       </section>
-      <NoteDialog open={editorOpen} editing={editing} draft={draft} setDraft={setDraft} conflict={conflict} saveError={saveError} categories={categories.data?.items ?? []} visions={visions.data?.items ?? []} saving={create.isPending || update.isPending} deleting={remove.isPending} onClose={() => setEditorOpen(false)} onSave={save} onDelete={editing ? () => deleteSelected(editing) : undefined} />
+      <NoteDialog open={editorOpen} editing={editing} draft={draft} setDraft={setDraft} conflict={conflict} saveError={saveError} categories={categories.data?.items ?? []} visions={visions.data?.items ?? []} saving={create.isPending || update.isPending} deleting={remove.isPending} onClose={() => setEditorOpen(false)} onSave={save} onDelete={editing ? () => setDeleteTarget(editing) : undefined} />
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={`Smazat poznámku „${deleteTarget?.title ?? ""}“?`}
+        description="Tuto akci nejde vrátit zpět."
+        confirmLabel="Smazat poznámku"
+        destructive
+        confirmDisabled={remove.isPending}
+        onConfirm={() => { if (deleteTarget) void deleteSelected(deleteTarget); }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
 
-function NoteDialog({ open, editing, draft, setDraft, conflict, saveError, categories, visions, saving, deleting, onClose, onSave, onDelete }: { open: boolean; editing: Note | null; draft: Draft; setDraft: (draft: Draft) => void; conflict: string | null; saveError: string | null; categories: { id: string; name: string }[]; visions: { id: string; title: string }[]; saving: boolean; deleting: boolean; onClose: () => void; onSave: () => Promise<void>; onDelete?: () => Promise<void> }) {
+function NoteDialog({ open, editing, draft, setDraft, conflict, saveError, categories, visions, saving, deleting, onClose, onSave, onDelete }: { open: boolean; editing: Note | null; draft: Draft; setDraft: (draft: Draft) => void; conflict: string | null; saveError: string | null; categories: { id: string; name: string }[]; visions: { id: string; title: string }[]; saving: boolean; deleting: boolean; onClose: () => void; onSave: () => Promise<void>; onDelete?: () => void | Promise<void> }) {
   return <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-50 bg-black/30"/><Dialog.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[96dvh] flex-col overflow-hidden rounded-t-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:h-dvh sm:w-full sm:max-w-xl sm:rounded-none sm:border-l"><div className="flex items-start justify-between gap-4 border-b border-[var(--border)] p-4 sm:p-6"><div><Dialog.Title className="text-lg font-semibold">{editing ? "Upravit zápis" : "Nový zápis"}</Dialog.Title><Dialog.Description className="text-sm text-[var(--muted)]">Stejný vzor zakládání jako v ostatních částech aplikace.</Dialog.Description></div><Dialog.Close asChild><Button variant="ghost" size="sm"><X size={18}/></Button></Dialog.Close></div><div className="grid flex-1 gap-3 overflow-y-auto p-4 pb-24 sm:p-6"><Input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Název" />{conflict ? <p className="rounded-[var(--radius-sm)] border border-[var(--warning)] bg-[var(--warning)]/10 p-3 text-sm text-[var(--warning)]">{conflict}</p> : null}{saveError ? <p className="rounded-[var(--radius-sm)] border border-[var(--danger)] bg-[var(--danger)]/10 p-3 text-sm text-[var(--danger)]">Uložení se nepovedlo: {saveError}</p> : null}<div className="grid gap-3 sm:grid-cols-2"><Select label="Typ" value={draft.kind} onChange={(value) => setDraft({ ...draft, kind: value as NoteKind, entry_date: draft.entry_date || (value === "diary" ? todayIso() : "") })}>{Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select><label className="grid gap-1 text-sm font-medium">Datum<Input type="date" value={draft.entry_date} onChange={(event) => setDraft({ ...draft, entry_date: event.target.value })} /></label><label className="grid gap-1 text-sm font-medium">Čas<Input type="time" value={draft.entry_time} onChange={(event) => setDraft({ ...draft, entry_time: event.target.value })} /></label><label className="grid gap-1 text-sm font-medium">Nálada<Input value={draft.mood} onChange={(event) => setDraft({ ...draft, mood: event.target.value })} placeholder="klid / energie…" /></label></div><div className="grid gap-3 sm:grid-cols-2"><Select label="Kategorie" value={draft.category_id} onChange={(value) => setDraft({ ...draft, category_id: value })}><option value="">Bez kategorie</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</Select><Select label="Vize" value={draft.vision_id} onChange={(value) => setDraft({ ...draft, vision_id: value })}><option value="">Bez vize</option>{visions.map((vision) => <option key={vision.id} value={vision.id}>{vision.title}</option>)}</Select></div><Textarea rows={9} value={draft.body} onChange={(event) => setDraft({ ...draft, body: event.target.value })} placeholder="Markdown zápis…" />{editing ? <section className="grid gap-3 rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] p-3"><p className="font-medium">Přílohy</p><AttachmentUploader noteId={editing.id} /><AttachmentGrid noteId={editing.id} /></section> : <p className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] p-3 text-sm text-[var(--muted)]">Přílohy půjdou nahrát hned po prvním uložení poznámky.</p>}</div><div className="sticky bottom-0 flex justify-between gap-2 border-t border-[var(--border)] bg-[var(--surface)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6"><div>{onDelete ? <Button variant="danger" onClick={() => void onDelete()} disabled={deleting}><Trash2 size={16}/>Smazat</Button> : null}</div><div className="flex gap-2"><Button variant="ghost" onClick={onClose}>Zrušit</Button><Button onClick={() => void onSave()} disabled={saving}><Save size={16}/>Uložit</Button></div></div></Dialog.Content></Dialog.Portal></Dialog.Root>;
 }
 

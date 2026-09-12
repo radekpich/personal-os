@@ -4,6 +4,13 @@
 
 ## Hotovo
 
+- [x] 2026-09-12 15:21 UTC — Sjednocení akčních ikon, tlačítek a potvrzení
+  - Přidána sdílená UI vrstva `ActionButton` / `CompleteToggleButton` pro konzistentní akce: upravit/zpracovat, smazat a hotovo/vrátit.
+  - Úkoly používají stejnou check-circle logiku jako denní návyky; detail úkolu je sjednocený jako `Upravit úkol` s tužkou.
+  - Výzvy, vize, inbox, přílohy, poznámky, nastavení i agentí klíče používají jednotný Radix `ConfirmDialog` místo mixu dvoukliku a `window.confirm`.
+  - Dashboardové návyky používají stejný `CompleteToggleButton`; výzvy mají `Hotovo dnes` s check ikonou.
+  - Smoke aktualizován na nový label `Upravit úkol`; ověřeno mobile smoke + cílená kontrola confirm dialogu u úkolů/výzev.
+
 - [x] 2026-09-12 15:01 UTC — Bugfix mobilních dialogů filtrů a výzev
   - Filtry úkolů jsou přepsané na stejný Radix dialog/bottom-sheet pattern jako plný dialog úkolu: pevná hlavička, scrollovatelný obsah, dole kompaktní akční lišta `Vyčistit`/`Použít filtry` mimo scroll.
   - Dialogy Vize/Výzva/Confirm mají sjednocený `shrink-0` header a kompaktnější footer s `pb-[calc(1rem+env(safe-area-inset-bottom))]`, aby panel v Návycích nebyl zbytečně vysoký.

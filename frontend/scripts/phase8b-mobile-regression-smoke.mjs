@@ -196,7 +196,7 @@ async function verifyCompletedAtDetail(page, seeded) {
   await page.goto(`${frontendBaseUrl}/tasks?status=done`);
   const article = page.locator('article').filter({ hasText: seeded.task.title }).first();
   await article.waitFor({ timeout: 15_000 });
-  await article.getByRole('button', { name: 'Otevřít detail' }).click();
+  await article.getByRole('button', { name: 'Upravit úkol' }).click();
   await page.getByText(/Splněno /).waitFor({ timeout: 10_000 });
   await page.keyboard.press('Escape');
 }

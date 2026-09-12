@@ -1,12 +1,13 @@
 "use client";
 
-import { AlertTriangle, CalendarCheck, CheckCircle2, Flame, Inbox, NotebookPen, Square, Sunrise } from "lucide-react";
+import { AlertTriangle, CalendarCheck, Flame, Inbox, NotebookPen, Sunrise } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { rrulestr } from "rrule";
 import type { Challenge, Note, Task } from "@/lib/api/types";
 import { useChallengeHeatmap, useChallenges, useCheckInChallenge, useDeleteCheckIn, useNotes, useTasks, useTaxonomy, useVisions } from "@/lib/api/hooks";
 import { TaskList } from "@/components/tasks/task-list";
+import { CompleteToggleButton } from "@/components/ui/action-buttons";
 import { TaskDetailPanel } from "./task-detail-panel";
 
 function localDateString() {
@@ -140,9 +141,14 @@ function ChallengeTodayCard({ challenge, checkInPending, deletePending, onCheckI
         <h3 className="mt-1 line-clamp-2 text-sm font-semibold">{challenge.title}</h3>
         <p className="mt-1 text-xs text-[var(--muted)]">Šňůra {challenge.current_streak} dní</p>
       </div>
-      <button type="button" aria-label={checked ? `Odebrat dnešní zápis: ${challenge.title}` : `Zapsat dnes: ${challenge.title}`} className={`focus-ring grid size-14 place-items-center rounded-2xl border-2 ${checked ? "border-[var(--success)] bg-[var(--success)] text-white" : "border-[var(--border-strong)] bg-[var(--surface-muted)] text-[var(--muted)]"}`} onClick={() => checked ? onDeleteCheckIn(today) : onCheckIn()} disabled={pending}>
-        {checked ? <CheckCircle2 size={30}/> : <Square size={30}/>}
-      </button>
+      <CompleteToggleButton
+        size="lg"
+        checked={checked}
+        checkedLabel={`Odebrat dnešní zápis: ${challenge.title}`}
+        uncheckedLabel={`Zapsat dnes: ${challenge.title}`}
+        onClick={() => checked ? onDeleteCheckIn(today) : onCheckIn()}
+        disabled={pending}
+      />
     </article>
   );
 }

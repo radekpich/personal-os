@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronRight, GripVertical, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
@@ -16,6 +16,7 @@ import { cn, formatHumanDate } from "@/lib/utils";
 import { formatCzechCount } from "@/lib/czech";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/ui/action-buttons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { VisionDialog } from "@/components/visions/vision-dialog";
@@ -216,8 +217,8 @@ function VisionNode({ node, level, expanded, expandedDetailId, onToggle, onToggl
             {node.description ? <MarkdownPreview compact className="mt-1 text-sm text-[var(--muted)]">{node.description}</MarkdownPreview> : null}
           </button>
           <div className="flex gap-0.5">
-            <Button variant="ghost" size="sm" onClick={() => onEdit(node)} aria-label="Upravit vizi"><Pencil size={15} /></Button>
-            <Button variant="ghost" size="sm" onClick={() => onDelete(node)} aria-label="Smazat vizi"><Trash2 size={15} /></Button>
+            <ActionButton icon="edit" label="Upravit vizi" onClick={() => onEdit(node)} />
+            <ActionButton icon="delete" label="Smazat vizi" danger onClick={() => onDelete(node)} />
           </div>
         </div>
         <div className="mt-3 flex items-center gap-3 text-xs text-[var(--muted)]">

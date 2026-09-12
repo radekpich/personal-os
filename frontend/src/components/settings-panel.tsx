@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, GripVertical, Moon, RefreshCcw, Sun, Trash2 } from "lucide-react";
+import { Check, Copy, GripVertical, Moon, RefreshCcw, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +22,8 @@ import {
 } from "@/lib/api/hooks";
 import type { Category, Context, Tag } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/ui/action-buttons";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 
 type TaxonomyKind = "category" | "context" | "tag";
@@ -121,6 +123,7 @@ function TaxonomySection({ kind, title, description, items, parents = [] }: { ki
   const deleteTag = useDeleteTag();
   const [name, setName] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TaxonomyItem | null>(null);
   const defaults = kind === "category" ? { color: "#0EA5E9", icon: "folder" } : kind === "context" ? { color: "#64748B", icon: "map-pin" } : { color: "#64748B", icon: "hash" };
 
   async function createItem() {
@@ -140,11 +143,10 @@ function TaxonomySection({ kind, title, description, items, parents = [] }: { ki
   }
 
   async function deleteItem(item: TaxonomyItem) {
-    const action = item.task_count > 0 ? "archivovat" : "smazat";
-    if (!window.confirm(`${action[0].toUpperCase()}${action.slice(1)} položku „${item.name}“?`)) return;
     if (kind === "category") await deleteCategory.mutateAsync(item.id);
     if (kind === "context") await deleteContext.mutateAsync(item.id);
     if (kind === "tag") await deleteTag.mutateAsync(item.id);
+    setDeleteTarget(null);
   }
 
   async function dropOn(targetId: string) {
@@ -173,11 +175,21 @@ function TaxonomySection({ kind, title, description, items, parents = [] }: { ki
               <Input aria-label="Ikona" value={item.icon} onChange={(event) => void updateItem(item.id, { icon: event.target.value })} />
             </div>
             {kind === "category" ? <select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={item.parent_id ?? ""} onChange={(event) => void updateItem(item.id, { parent_id: event.target.value || null })}><option value="">Bez rodiče</option>{parents.filter((parent) => parent.id !== item.id && !parent.parent_id).map((parent) => <option key={parent.id} value={parent.id}>{parent.name}</option>)}</select> : null}
-            <div className="flex justify-between gap-2"><Button type="button" variant="secondary" size="sm" onClick={() => void updateItem(item.id, { is_archived: true })}>Archivovat</Button><Button type="button" variant="ghost" size="sm" onClick={() => void deleteItem(item)}><Trash2 size={14}/>{item.task_count > 0 ? "Archivovat" : "Smazat"}</Button></div>
+            <div className="flex justify-between gap-2"><Button type="button" variant="secondary" size="sm" onClick={() => void updateItem(item.id, { is_archived: true })}>Archivovat</Button><ActionButton icon="delete" label={item.task_count > 0 ? "Archivovat" : "Smazat"} showLabel danger onClick={() => setDeleteTarget(item)} /></div>
           </div>
         ))}
         {!items.length ? <p className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] p-4 text-sm text-[var(--muted)]">Zatím prázdné. Doplň výchozí sadu přes seed nebo založ položku ručně.</p> : null}
       </div>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={`${deleteTarget && deleteTarget.task_count > 0 ? "Archivovat" : "Smazat"} položku „${deleteTarget?.name ?? ""}“?`}
+        description={deleteTarget && deleteTarget.task_count > 0 ? "Položka má navázané úkoly, proto se bezpečně archivuje." : "Tuto akci nejde vrátit zpět."}
+        confirmLabel={deleteTarget && deleteTarget.task_count > 0 ? "Archivovat" : "Smazat"}
+        destructive
+        confirmDisabled={deleteCategory.isPending || deleteContext.isPending || deleteTag.isPending}
+        onConfirm={() => { if (deleteTarget) void deleteItem(deleteTarget); }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </section>
   );
 }

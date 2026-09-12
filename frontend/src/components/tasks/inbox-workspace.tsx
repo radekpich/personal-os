@@ -1,11 +1,13 @@
 "use client";
 
-import { Bot, CalendarDays, CheckSquare, HelpCircle, Inbox, Mail, MessageCircle, NotebookPen, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { Bot, CalendarDays, HelpCircle, Inbox, Mail, MessageCircle, NotebookPen, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { Category, Context, Task, TaskPriority, TaskSource, TaskStatus, TaskUpdate } from "@/lib/api/types";
 import { useDeleteTask, useRestoreTask, useTasks, useTaxonomy, useUpdateTask, useVisions } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ActionButton } from "@/components/ui/action-buttons";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TaskDetailPanel } from "./task-detail-panel";
 
 const sourceMeta: Record<TaskSource, { label: string; icon: React.ComponentType<{ size?: number }>; emoji: string }> = {
@@ -78,7 +80,7 @@ export function InboxWorkspace() {
   const [selected, setSelected] = useState<Task | null>(null);
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
   const [bulk, setBulk] = useState<BulkDraft>(emptyBulkDraft);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [undo, setUndo] = useState<UndoState>(null);
   const tasks = useTasks({ view: "inbox", source, page_size: 100, ...periodFilter(period) });
   const { categories, contexts, tags } = useTaxonomy();
@@ -159,15 +161,12 @@ export function InboxWorkspace() {
   }
 
   async function deleteSelected() {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
     const previous = selectedTasks;
+    if (!previous.length) return;
     await Promise.all(previous.map((task) => remove.mutateAsync(task)));
     setUndo({ message: `Smazáno ${previous.length} položek.`, previous, updated: [], deletedIds: previous.map((task) => task.id) });
     setChecked(new Set());
-    setConfirmDelete(false);
+    setBulkDeleteOpen(false);
   }
 
   async function undoLast() {
@@ -234,13 +233,23 @@ export function InboxWorkspace() {
           categories={cat}
           contexts={ctx}
           pending={update.isPending || remove.isPending || restore.isPending}
-          confirmDelete={confirmDelete}
-          onBulkChange={(next) => { setBulk(next); setConfirmDelete(false); }}
+          onBulkChange={setBulk}
           onApply={applyBulk}
-          onDelete={deleteSelected}
-          onCancel={() => { setChecked(new Set()); setConfirmDelete(false); }}
+          onDelete={() => setBulkDeleteOpen(true)}
+          onCancel={() => { setChecked(new Set()); setBulkDeleteOpen(false); }}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        title={`Smazat ${checked.size} položek z Inboxu?`}
+        description="Tuto akci můžeš krátce vrátit přes lištu Zpět, ale potvrzení je stejné jako u ostatního mazání."
+        confirmLabel={`Smazat ${checked.size}`}
+        destructive
+        confirmDisabled={remove.isPending || checked.size === 0}
+        onConfirm={() => void deleteSelected()}
+        onCancel={() => setBulkDeleteOpen(false)}
+      />
 
       {undo ? (
         <div className="fixed inset-x-3 bottom-20 z-40 mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--accent)] bg-[var(--surface)] p-3 shadow-2xl sm:bottom-4">
@@ -289,12 +298,12 @@ function InboxItem({ task, categories, contexts, checked, pending, onToggle, onP
           </select>
         </div>
       </div>
-      <Button size="sm" variant="secondary" onClick={onProcess}><CheckSquare size={15}/> Zpracovat</Button>
+      <ActionButton icon="process" label="Zpracovat" showLabel onClick={onProcess} />
     </article>
   );
 }
 
-function BulkPanel({ count, bulk, categories, contexts, pending, confirmDelete, onBulkChange, onApply, onDelete, onCancel }: { count: number; bulk: BulkDraft; categories: Category[]; contexts: Context[]; pending: boolean; confirmDelete: boolean; onBulkChange: (bulk: BulkDraft) => void; onApply: () => void; onDelete: () => void; onCancel: () => void }) {
+function BulkPanel({ count, bulk, categories, contexts, pending, onBulkChange, onApply, onDelete, onCancel }: { count: number; bulk: BulkDraft; categories: Category[]; contexts: Context[]; pending: boolean; onBulkChange: (bulk: BulkDraft) => void; onApply: () => void; onDelete: () => void; onCancel: () => void }) {
   const hasPatch = Object.keys({ ...bulk }).some((key) => bulk[key as keyof BulkDraft]);
   return (
     <div className="fixed inset-x-2 bottom-20 z-30 mx-auto max-w-5xl rounded-[var(--radius-lg)] border border-[var(--accent)] bg-[var(--surface)] p-3 shadow-2xl sm:bottom-4">
@@ -332,7 +341,7 @@ function BulkPanel({ count, bulk, categories, contexts, pending, confirmDelete, 
       <div className="mt-2 flex flex-wrap gap-2">
         <input aria-label="Vlastní hromadný termín" type="date" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={bulk.due_date.startsWith("20") ? bulk.due_date : ""} onChange={(event) => onBulkChange({ ...bulk, due_date: event.target.value })} />
         <Button onClick={onApply} disabled={!hasPatch || pending}>Použít na {count}</Button>
-        <Button variant={confirmDelete ? "danger" : "ghost"} onClick={onDelete} disabled={pending}><Trash2 size={16}/> {confirmDelete ? `Potvrdit smazání ${count}` : "Smazat"}</Button>
+        <ActionButton icon="delete" label="Smazat" showLabel danger onClick={onDelete} disabled={pending} />
       </div>
     </div>
   );

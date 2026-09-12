@@ -1,14 +1,15 @@
 "use client";
 
-import { Clock, PanelRightOpen, Trash2 } from "lucide-react";
+import { Clock } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import type { Category, Context, Tag, Task, TaskStatus, Vision } from "@/lib/api/types";
 import { useDeleteTask, useToggleTaskDone } from "@/lib/api/hooks";
 import { cn, formatHumanDate, isOverdue } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { MarkdownPreview } from "@/components/markdown-preview";
+import { ActionButton, CompleteToggleButton } from "@/components/ui/action-buttons";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { priorityLabels, statusLabels } from "./labels";
 
 type Props = { tasks: Task[]; categories: Category[]; contexts: Context[]; tags: Tag[]; visions?: Vision[]; selectedId?: string | null; highlightedIds?: Set<string>; onSelect: (task: Task) => void };
@@ -29,25 +30,20 @@ function taskAgentActivityHref(task: Task) {
 function TaskItem({ task, category, context, vision, selected, highlighted, onSelect }: { task: Task; category?: Category; context?: Context; vision?: Vision; selected: boolean; highlighted: boolean; onSelect: () => void }) {
   const toggle = useToggleTaskDone();
   const remove = useDeleteTask();
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const done = task.status === "done";
   const overdue = isOverdue(task.due_date, task.status);
   const nextStatus: TaskStatus = done ? (task.category_id ? "todo" : "inbox") : "done";
   const showStatus = task.status !== "todo";
 
-  function deleteTask() {
-    if (!confirmingDelete) {
-      setConfirmingDelete(true);
-      window.setTimeout(() => setConfirmingDelete(false), 3500);
-      return;
-    }
-    remove.mutate(task);
-    setConfirmingDelete(false);
+  async function deleteTask() {
+    await remove.mutateAsync(task);
+    setDeleteOpen(false);
   }
 
   return (
     <article className={cn("task-row panel grid w-full min-w-0 max-w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 overflow-hidden p-3 sm:gap-3 sm:p-4", selected && "border-[var(--accent)]", (task.created_by === "agent" || highlighted) && "border-[var(--accent)]/70 bg-[var(--accent)]/5")}>
-      <button type="button" aria-label={done ? "Vrátit úkol" : "Dokončit úkol"} onClick={() => toggle.mutate({ task, status: nextStatus })} className={cn("relative z-10 mt-0.5 size-5 rounded-full border-2 transition sm:mt-1 sm:size-6", done ? "border-[var(--success)] bg-[var(--success)]" : "border-[var(--border-strong)] bg-transparent")}>{done ? <span className="text-[10px] text-white sm:text-xs">✓</span> : null}</button>
+      <CompleteToggleButton size="sm" checked={done} checkedLabel="Vrátit úkol" uncheckedLabel="Dokončit úkol" onClick={() => toggle.mutate({ task, status: nextStatus })} disabled={toggle.isPending} className="relative z-10 mt-0.5 sm:mt-1" />
       <div className="min-w-0 pr-1">
         <button type="button" onClick={onSelect} className={cn("block max-w-full break-words text-left text-sm font-medium tracking-tight sm:text-base", done && "text-[var(--muted-foreground)] line-through")}>{task.title}</button>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--muted)] sm:mt-2 sm:gap-2 sm:text-xs">
@@ -66,12 +62,21 @@ function TaskItem({ task, category, context, vision, selected, highlighted, onSe
           {task.tags.map((tag) => <span key={tag.id}>#{tag.name}</span>)}
         </div>
         {task.description ? <MarkdownPreview compact className="mt-2 text-sm text-[var(--muted)]">{task.description}</MarkdownPreview> : null}
-        {confirmingDelete ? <p className="mt-2 text-xs text-[var(--danger)]">Klepni na koš ještě jednou pro smazání.</p> : null}
       </div>
       <div className="relative z-10 flex shrink-0 gap-0.5 sm:gap-1">
-        <Button variant="ghost" size="sm" onClick={onSelect} aria-label="Otevřít detail"><PanelRightOpen size={15}/></Button>
-        <Button variant={confirmingDelete ? "danger" : "ghost"} size="sm" onClick={deleteTask} aria-label={confirmingDelete ? "Potvrdit smazání" : "Smazat"}><Trash2 size={15}/></Button>
+        <ActionButton icon="edit" label="Upravit úkol" onClick={onSelect} />
+        <ActionButton icon="delete" label="Smazat úkol" danger onClick={() => setDeleteOpen(true)} />
       </div>
+      <ConfirmDialog
+        open={deleteOpen}
+        title={`Smazat úkol „${task.title}“?`}
+        description="Tuto akci nejde vrátit zpět."
+        confirmLabel="Smazat úkol"
+        destructive
+        confirmDisabled={remove.isPending}
+        onConfirm={() => void deleteTask()}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </article>
   );
 }
