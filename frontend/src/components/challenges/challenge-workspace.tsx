@@ -41,7 +41,6 @@ export function ChallengeWorkspace() {
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Challenge | null>(null);
   const [pendingDate, setPendingDate] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -51,13 +50,12 @@ export function ChallengeWorkspace() {
   const filteredChallenges = useMemo(() => {
     const items = challenges.data?.items ?? [];
     return items.filter((challenge) => {
-      if (typeFilter !== "all" && challenge.type !== typeFilter) return false;
       if (categoryFilter !== "all" && challenge.category_id !== categoryFilter) return false;
       if (statusFilter === "active" && !challenge.is_active) return false;
       if (statusFilter === "paused" && challenge.is_active) return false;
       return true;
     });
-  }, [challenges.data?.items, typeFilter, categoryFilter, statusFilter]);
+  }, [challenges.data?.items, categoryFilter, statusFilter]);
 
   function openCreate() {
     setEditingChallenge(null);
@@ -125,11 +123,9 @@ export function ChallengeWorkspace() {
       </div>
 
       <Filters
-        type={typeFilter}
         categoryId={categoryFilter}
         status={statusFilter}
         categories={categories.data?.items ?? []}
-        onType={setTypeFilter}
         onCategory={setCategoryFilter}
         onStatus={setStatusFilter}
       />
@@ -181,23 +177,15 @@ export function ChallengeWorkspace() {
   );
 }
 
-function Filters({ type, categoryId, status, categories, onType, onCategory, onStatus }: {
-  type: string;
+function Filters({ categoryId, status, categories, onCategory, onStatus }: {
   categoryId: string;
   status: string;
   categories: { id: string; name: string }[];
-  onType: (value: string) => void;
   onCategory: (value: string) => void;
   onStatus: (value: string) => void;
 }) {
   return (
     <FilterBar>
-      <FilterSelect
-        aria-label="Typ"
-        value={type}
-        onChange={onType}
-        options={[{ value: "all", label: "Všechny typy" }, { value: "daily_action", label: "Denní akce" }, { value: "abstinence", label: "Abstinence" }]}
-      />
       <FilterSelect
         aria-label="Kategorie"
         value={categoryId}
@@ -264,18 +252,16 @@ function ChallengeCard({ challenge, expanded, pending, pendingDate, year, onTogg
         </div>
       </div>
       {expanded ? (
-        <ChallengeDetail challenge={challenge} year={year} pendingDate={pendingDate} onEdit={onEdit} onDelete={onDelete} onCheckInToggle={onCheckInToggle} />
+        <ChallengeDetail challenge={challenge} year={year} pendingDate={pendingDate} onCheckInToggle={onCheckInToggle} />
       ) : null}
     </article>
   );
 }
 
-function ChallengeDetail({ challenge, year, pendingDate, onEdit, onDelete, onCheckInToggle }: {
+function ChallengeDetail({ challenge, year, pendingDate, onCheckInToggle }: {
   challenge: Challenge;
   year: number;
   pendingDate: string | null;
-  onEdit: () => void;
-  onDelete: () => void;
   onCheckInToggle: (challenge: Challenge, day: ChallengeHeatmapDay) => void;
 }) {
   const stats = useChallengeStats(challenge.id);
@@ -297,10 +283,6 @@ function ChallengeDetail({ challenge, year, pendingDate, onEdit, onDelete, onChe
 
   return (
     <div className="mt-4 grid min-w-0 max-w-full gap-4 overflow-hidden border-t border-[var(--border)] pt-4">
-      <div className="flex min-w-0 flex-wrap justify-end gap-2">
-        <ActionButton icon="edit" label="Upravit výzvu" showLabel onClick={onEdit} />
-        <ActionButton icon="delete" label="Smazat výzvu" showLabel danger onClick={onDelete} />
-      </div>
       <div className="grid min-w-0 grid-cols-1 gap-2 text-sm min-[420px]:grid-cols-2 lg:grid-cols-4">
         <Metric label="Aktuální šňůra" value={formatCzechCount(challenge.current_streak, "den", "dny", "dní")} />
         <Metric label="Rekordní šňůra" value={formatCzechCount(challenge.longest_streak, "den", "dny", "dní")} />

@@ -4,6 +4,14 @@
 
 ## Hotovo
 
+- [x] 2026-09-12 18:48 UTC — Zjednodušení Deníku a detailu výzvy
+  - V Deníku odstraněno duplicitní horní tlačítko `Nový zápis`; nový plný zápis zůstává přes rychlý řádek `+ Plný`.
+  - V Deníku odstraněn filtr `Všechny typy`; zůstává pouze vyhledávání.
+  - Na stránce Návyky/Výzvy odstraněn typový filtr `Všechny typy`.
+  - Z rozbaleného detailu výzvy odstraněná duplicitní druhá sada `Upravit výzvu` / `Smazat výzvu`; zůstávají pouze akce v horním řádku karty.
+  - Ověřeno Playwrightem na Pixel 5: Deník `Nový zápis=0`, `Plný=1`, `Všechny typy=0`; detail výzvy `Upravit výzvu=1`, `Smazat výzvu=1`.
+  - Prošlo `npm run lint && npm run typecheck && NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` a `npm run phase8b:mobile-regression-smoke`.
+
 - [x] 2026-09-12 16:27 UTC — Bugfix responsivity detailu návyku/výzvy
   - Detail `ChallengeDetail` dostal `min-w-0/max-w-full/overflow-hidden`, aby neroztahoval kartu mimo viewport.
   - Metriky jsou na mobilu v jednom sloupci (`min-[420px]` až dva), dlouhé hodnoty se zalamují.

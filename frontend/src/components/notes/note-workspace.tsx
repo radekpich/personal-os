@@ -25,7 +25,6 @@ function emptyDraft(kind: NoteKind = "diary") { return { title: "", body: "", ki
 type Draft = ReturnType<typeof emptyDraft>;
 
 export function NoteWorkspace() {
-  const [kind, setKind] = useState<NoteKind | "all">("all");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
@@ -35,7 +34,7 @@ export function NoteWorkspace() {
   const [conflict, setConflict] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [quickNote, setQuickNote] = useState("");
-  const notes = useNotes({ kind, q: query, page_size: 80 });
+  const notes = useNotes({ kind: "all", q: query, page_size: 80 });
   const { categories } = useTaxonomy();
   const visions = useVisions();
   const create = useCreateNote();
@@ -85,12 +84,12 @@ export function NoteWorkspace() {
   return (
     <div className="grid gap-5">
       <section className="grid gap-4">
-        <div className="panel flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5"><div><p className="text-sm text-[var(--muted)]">Denní zápisy, nápady a poznámky propojené s přílohami.</p><h2 className="text-lg font-semibold sm:text-xl">Deník a poznámky</h2></div><Button onClick={() => openNew("diary")}><Plus size={16} />Nový zápis</Button></div>
+        <div className="panel flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5"><div><p className="text-sm text-[var(--muted)]">Denní zápisy, nápady a poznámky propojené s přílohami.</p><h2 className="text-lg font-semibold sm:text-xl">Deník a poznámky</h2></div></div>
         <div className="panel grid gap-1 p-2"><div className="flex items-center gap-2"><Input value={quickNote} onChange={(event) => setQuickNote(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void createQuickNote(); }} placeholder="Rychle zapsat poznámku…" aria-label="Rychlá poznámka" className="min-w-0 border-0 bg-transparent text-sm shadow-none focus-visible:outline-none sm:text-base" /><Button type="button" size="sm" onClick={() => void createQuickNote()} disabled={create.isPending || !quickNote.trim()} aria-label="Uložit rychlou poznámku"><Send size={15}/></Button><Button type="button" size="sm" variant="secondary" onClick={() => { openNew("note", quickNote); setQuickNote(""); }}><Plus size={15}/>Plný</Button></div>{saveError ? <p className="px-2 pb-1 text-sm text-[var(--danger)]">Uložení se nepovedlo: {saveError}</p> : null}</div>
-        <div className="panel flex flex-wrap gap-2 p-3 sm:gap-3"><select className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3" value={kind} onChange={(event) => setKind(event.target.value as NoteKind | "all")}><option value="all">Všechny typy</option>{Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><Input className="min-w-56 flex-1" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hledat v názvu nebo textu…" /></div>
+        <div className="panel flex flex-wrap gap-2 p-3 sm:gap-3"><Input className="min-w-56 flex-1" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hledat v názvu nebo textu…" /></div>
         {notes.isLoading ? <p className="panel p-5 text-[var(--muted)]">Načítám poznámky…</p> : null}
         {notes.isError ? <p className="panel p-5 text-[var(--danger)]">Poznámky se nepodařilo načíst.</p> : null}
-        {!notes.isLoading && items.length === 0 ? <p className="panel p-5 text-[var(--muted)]">Zatím žádné poznámky. Založ první zápis tlačítkem nahoře.</p> : null}
+        {!notes.isLoading && items.length === 0 ? <p className="panel p-5 text-[var(--muted)]">Zatím žádné poznámky. Založ první zápis přes rychlý řádek nebo tlačítko Plný.</p> : null}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{items.map((note) => <NoteCard key={note.id} note={note} selected={selected?.id === note.id} highlighted={highlightedIds.has(note.id)} onSelect={() => edit(note)} />)}</div>
       </section>
       <NoteDialog open={editorOpen} editing={editing} draft={draft} setDraft={setDraft} conflict={conflict} saveError={saveError} categories={categories.data?.items ?? []} visions={visions.data?.items ?? []} saving={create.isPending || update.isPending} deleting={remove.isPending} onClose={() => setEditorOpen(false)} onSave={save} onDelete={editing ? () => setDeleteTarget(editing) : undefined} />
