@@ -4,6 +4,15 @@
 
 ## Hotovo
 
+- [x] 2026-09-12 06:37 UTC — Mobilní opravy / dávka 7 — časové filtry, dashboard návyků a bulk Inbox
+  - Stránka Úkoly má nový horizontální časový pruh s počty pro Dnes/Zítra/Týden/Po termínu/Inbox/Hotovo; URL filtr `view=tomorrow` přežije reload a ostatní filtry jsou ve sbaleném rozšířeném panelu.
+  - Dashboard dnešních návyků je mobilní akční mřížka: nesplněné výzvy jsou nahoře, karta má přímý check-in/undo, kompaktní dnešní status a bez horizontálního scrollu.
+  - Inbox bulk akce umí Kde/Stav/Prioritu/Termín/Smazat včetně vlastního data, spodní sticky panel na mobilu a undo po hromadné změně; backend doplnil `PATCH /tasks/bulk` s `due_at_mode`.
+  - Task list dostal bezpečný mobilní layout bez horizontálního přetečení a app layout explicitní viewport metadata; dialog content vizí/výzev/tasků/potvrzení je nad overlayem pro spolehlivé touch/Playwright kliky.
+  - Přidán regresní smoke `phase8b:batch7-smoke`; rozšířené smoke skripty ověřují 390px layout viewport, bulk undo, dashboard návyky, včerejší heatmapu výzvy a dialog vize.
+  - Ověření backend: `ruff check app tests && pytest -q` → OK. Ověření frontend: `npm run lint && npm run typecheck && NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` → OK. `git diff --check` → OK.
+  - Preview restartováno na backend `:8030` a frontend `:3030`; smoke proti preview: `phase8b:mobile-regression-smoke`, `phase8b:batch7-smoke`, `phase8b:challenge-smoke`, `phase8b:vision-smoke` → `{ ok: true, errors: [] }`.
+
 - [x] 2026-09-11 22:22 UTC — Mobilní opravy / dávka 6 — dialogy vizí a výzev, rozbalovací detaily, heatmapa
   - Vize mají zakládání i úpravu přes sjednocený dialogový pattern místo vestavěného formuláře pod seznamem; položky dostaly edit vedle koše a mazání používá potvrzení s dopadem na potomky a navázané úkoly.
   - Detail vize se rozbaluje přímo pod položkou, vždy jen jeden najednou; obsahuje Markdown popis, horizont, cílové datum, progres, stagnaci, propojené úkoly s proklikem a podřízené vize.

@@ -105,6 +105,7 @@ async def _generate_next_recurrence_instance(
 @dataclass
 class TaskListFilters:
     status: TaskStatus | None = None
+    priority: TaskPriority | None = None
     category_id: uuid.UUID | None = None
     context_id: uuid.UUID | None = None
     vision_id: uuid.UUID | None = None
@@ -132,6 +133,8 @@ def _view_condition(view: TaskView) -> sa.ColumnElement[bool]:
         return Task.due_date == today
     if view == TaskView.TOMORROW:
         return Task.due_date == today + timedelta(days=1)
+    if view == TaskView.UNSCHEDULED:
+        return Task.due_date.is_(None)
     if view == TaskView.THIS_WEEK:
         start = today - timedelta(days=today.weekday())
         end = start + timedelta(days=6)
@@ -149,6 +152,8 @@ def _build_conditions(owner: User, filters: TaskListFilters) -> list[sa.ColumnEl
     ]
     if filters.status is not None:
         conditions.append(Task.status == filters.status.value)
+    if filters.priority is not None:
+        conditions.append(Task.priority == filters.priority.value)
     if filters.category_id is not None:
         conditions.append(Task.category_id == filters.category_id)
     if filters.context_id is not None:
@@ -450,3 +455,29 @@ async def delete_task(
     apply_mutation_audit(task, actor=actor, api_key_id=api_key_id)
     db.add(task)
     await db.commit()
+
+
+async def restore_task(
+    db: AsyncSession,
+    owner: User,
+    task_id: uuid.UUID,
+    *,
+    actor: MutationActor = MutationActor.USER,
+    api_key_id: uuid.UUID | None = None,
+) -> Task:
+    result = await db.execute(
+        select(Task).where(
+            Task.id == task_id,
+            Task.owner_id == owner.id,
+            Task.deleted_at.is_not(None),
+        )
+    )
+    task = result.scalar_one_or_none()
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+    task.deleted_at = None
+    apply_mutation_audit(task, actor=actor, api_key_id=api_key_id)
+    db.add(task)
+    await db.commit()
+    await db.refresh(task)
+    return task

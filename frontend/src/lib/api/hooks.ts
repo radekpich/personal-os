@@ -290,6 +290,17 @@ export function useDeleteTask() {
   });
 }
 
+export function useRestoreTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.restoreTask(id),
+    onSuccess: (task) => {
+      queryClient.setQueryData(queryKeys.task(task.id), task);
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
 function invalidateTaskAttachments(queryClient: ReturnType<typeof useQueryClient>, taskId: string) {
   queryClient.invalidateQueries({ queryKey: queryKeys.taskAttachments(taskId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.task(taskId) });

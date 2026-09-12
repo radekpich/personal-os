@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import ActorContext, get_current_actor, verify_csrf_or_api_key
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models.task import Task, TaskSource, TaskStatus
+from app.models.task import Task, TaskPriority, TaskSource, TaskStatus
 from app.schemas.task import TaskCreate, TaskList, TaskRead, TaskUpdate, TaskView
 from app.services import task_service
 from app.services.concurrency import ConflictError
@@ -47,6 +47,7 @@ async def list_tasks(
     db: Annotated[AsyncSession, Depends(get_db)],
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
     status_filter: Annotated[TaskStatus | None, Query(alias="status")] = None,
+    priority: Annotated[TaskPriority | None, Query()] = None,
     category_id: Annotated[uuid.UUID | None, Query()] = None,
     context_id: Annotated[uuid.UUID | None, Query()] = None,
     vision_id: Annotated[uuid.UUID | None, Query()] = None,
@@ -63,6 +64,7 @@ async def list_tasks(
 ) -> TaskList:
     filters = TaskListFilters(
         status=status_filter,
+        priority=priority,
         category_id=category_id,
         context_id=context_id,
         vision_id=vision_id,
@@ -123,6 +125,25 @@ async def create_task(
         db,
         actor_context.user,
         payload,
+        actor=actor_context.actor,
+        api_key_id=actor_context.api_key_id,
+    )
+
+
+@router.post(
+    "/{task_id}/restore",
+    response_model=TaskRead,
+    dependencies=[Depends(verify_csrf_or_api_key)],
+)
+async def restore_task(
+    task_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    actor_context: Annotated[ActorContext, Depends(get_current_actor)],
+) -> Task:
+    return await task_service.restore_task(
+        db,
+        actor_context.user,
+        task_id,
         actor=actor_context.actor,
         api_key_id=actor_context.api_key_id,
     )

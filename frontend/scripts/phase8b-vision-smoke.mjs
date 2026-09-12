@@ -84,7 +84,7 @@ async function cleanup(page) {
 
 async function run() {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
   const errors = [];
   attachErrorCollector(page, errors);
   try {

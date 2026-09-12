@@ -1,9 +1,9 @@
 "use client";
 
-import { Bot, CalendarDays, CheckSquare, HelpCircle, Inbox, Mail, MessageCircle, NotebookPen, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
-import type { Category, Context, Task, TaskSource } from "@/lib/api/types";
-import { useTasks, useTaxonomy, useUpdateTask, useVisions } from "@/lib/api/hooks";
+import { Bot, CalendarDays, CheckSquare, HelpCircle, Inbox, Mail, MessageCircle, NotebookPen, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import type { Category, Context, Task, TaskPriority, TaskSource, TaskStatus, TaskUpdate } from "@/lib/api/types";
+import { useDeleteTask, useRestoreTask, useTasks, useTaxonomy, useUpdateTask, useVisions } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TaskDetailPanel } from "./task-detail-panel";
@@ -19,16 +19,43 @@ const sourceMeta: Record<TaskSource, { label: string; icon: React.ComponentType<
 };
 
 const sources: TaskSource[] = ["quick_capture", "telegram", "agent", "calendar", "email", "journal", "web"];
-const periods = [
-  ["all", "Kdykoliv"],
-  ["today", "Dnes"],
-  ["7", "7 dní"],
-  ["30", "30 dní"],
-] as const;
+const periods = [["all", "Kdykoliv"], ["today", "Dnes"], ["7", "7 dní"], ["30", "30 dní"]] as const;
+const statusOptions: Array<[TaskStatus, string]> = [["inbox", "Inbox"], ["todo", "Čeká"], ["in_progress", "Rozpracováno"], ["blocked", "Blokováno"], ["done", "Hotovo"], ["cancelled", "Zrušeno"]];
+const priorityOptions: Array<[TaskPriority, string]> = [["none", "Bez priority"], ["low", "Nízká"], ["medium", "Střední"], ["high", "Vysoká"]];
+
+type BulkDraft = {
+  category_id: string;
+  context_id: string;
+  status: "" | TaskStatus;
+  priority: "" | TaskPriority;
+  due_date: string;
+};
+
+type UndoState = {
+  message: string;
+  previous: Task[];
+  updated: Task[];
+  deletedIds: string[];
+} | null;
 
 function isoDaysAgo(days: number) {
   const date = new Date();
   date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+function localDate(offsetDays = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 10);
+}
+
+function nextMonday() {
+  const date = new Date();
+  const day = date.getDay() || 7;
+  date.setDate(date.getDate() + (8 - day));
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
   return date.toISOString().slice(0, 10);
 }
 
@@ -38,26 +65,43 @@ function formatWhen(value: string) {
 }
 
 function periodFilter(period: string) {
-  if (period === "today") return { created_from: new Date().toISOString().slice(0, 10) };
+  if (period === "today") return { created_from: localDate() };
   if (period === "7" || period === "30") return { created_from: isoDaysAgo(Number(period)) };
   return {};
 }
+
+const emptyBulkDraft: BulkDraft = { category_id: "", context_id: "", status: "", priority: "", due_date: "" };
 
 export function InboxWorkspace() {
   const [source, setSource] = useState<TaskSource | "all">("all");
   const [period, setPeriod] = useState("all");
   const [selected, setSelected] = useState<Task | null>(null);
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
-  const [bulkCategoryId, setBulkCategoryId] = useState("all");
+  const [bulk, setBulk] = useState<BulkDraft>(emptyBulkDraft);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [undo, setUndo] = useState<UndoState>(null);
   const tasks = useTasks({ view: "inbox", source, page_size: 100, ...periodFilter(period) });
   const { categories, contexts, tags } = useTaxonomy();
   const visions = useVisions();
   const update = useUpdateTask();
+  const remove = useDeleteTask();
+  const restore = useRestoreTask();
   const cat = categories.data?.items ?? [];
   const ctx = contexts.data?.items ?? [];
   const tag = tags.data?.items ?? [];
   const vis = visions.data?.items ?? [];
   const items = useMemo(() => tasks.data?.items ?? [], [tasks.data?.items]);
+  const selectedTasks = useMemo(() => items.filter((task) => checked.has(task.id)), [checked, items]);
+
+  useEffect(() => {
+    setChecked((current) => new Set([...current].filter((id) => items.some((task) => task.id === id))));
+  }, [items]);
+
+  useEffect(() => {
+    if (!undo) return;
+    const timeout = window.setTimeout(() => setUndo(null), 8_000);
+    return () => window.clearTimeout(timeout);
+  }, [undo]);
 
   const grouped = useMemo(() => {
     const map = new Map<TaskSource, Task[]>();
@@ -79,20 +123,77 @@ export function InboxWorkspace() {
     });
   }
 
+  function selectAll() {
+    setChecked(new Set(items.map((task) => task.id)));
+  }
+
+  function selectGroup(groupItems: Task[]) {
+    setChecked((current) => new Set([...current, ...groupItems.map((task) => task.id)]));
+  }
+
   async function patchTask(task: Task, payload: { category_id?: string | null; context_id?: string | null }) {
     await update.mutateAsync({ task, payload: { ...payload, status: task.status === "inbox" && task.category_id && task.context_id ? "todo" : task.status } });
   }
 
-  async function bulkAssignCategory() {
-    if (bulkCategoryId === "all") return;
-    const selectedTasks = items.filter((task) => checked.has(task.id));
-    await Promise.all(selectedTasks.map((task) => update.mutateAsync({ task, payload: { category_id: bulkCategoryId } })));
+  function buildBulkPayload(): TaskUpdate {
+    const payload: TaskUpdate = {};
+    if (bulk.category_id === "__clear") payload.category_id = null;
+    else if (bulk.category_id) payload.category_id = bulk.category_id;
+    if (bulk.context_id === "__clear") payload.context_id = null;
+    else if (bulk.context_id) payload.context_id = bulk.context_id;
+    if (bulk.status) payload.status = bulk.status;
+    if (bulk.priority) payload.priority = bulk.priority;
+    if (bulk.due_date === "__clear") payload.due_date = null;
+    else if (bulk.due_date) payload.due_date = bulk.due_date;
+    return payload;
+  }
+
+  async function applyBulk() {
+    const payload = buildBulkPayload();
+    if (selectedTasks.length === 0 || Object.keys(payload).length === 0) return;
+    const previous = selectedTasks;
+    const updated = await Promise.all(selectedTasks.map((task) => update.mutateAsync({ task, payload })));
+    setUndo({ message: `Zpracováno ${updated.length} položek.`, previous, updated, deletedIds: [] });
     setChecked(new Set());
-    setBulkCategoryId("all");
+    setBulk(emptyBulkDraft);
+  }
+
+  async function deleteSelected() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    const previous = selectedTasks;
+    await Promise.all(previous.map((task) => remove.mutateAsync(task)));
+    setUndo({ message: `Smazáno ${previous.length} položek.`, previous, updated: [], deletedIds: previous.map((task) => task.id) });
+    setChecked(new Set());
+    setConfirmDelete(false);
+  }
+
+  async function undoLast() {
+    if (!undo) return;
+    if (undo.deletedIds.length > 0) {
+      await Promise.all(undo.deletedIds.map((id) => restore.mutateAsync(id)));
+    } else {
+      await Promise.all(undo.updated.map((task, index) => {
+        const before = undo.previous[index];
+        return update.mutateAsync({
+          task,
+          payload: {
+            category_id: before.category_id,
+            context_id: before.context_id,
+            status: before.status,
+            priority: before.priority,
+            due_date: before.due_date,
+          },
+        });
+      }));
+    }
+    setUndo({ message: `Vráceno ${undo.previous.length} položek.`, previous: [], updated: [], deletedIds: [] });
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4 pb-36">
       <header className="panel p-3 sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -113,43 +214,54 @@ export function InboxWorkspace() {
             <select aria-label="Filtrovat období" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={period} onChange={(event) => setPeriod(event.target.value)}>
               {periods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
+            <Button size="sm" variant="secondary" onClick={selectAll} disabled={items.length === 0}>Vybrat vše</Button>
           </div>
         </div>
       </header>
-
-      {checked.size > 0 ? (
-        <div className="panel flex flex-wrap items-center gap-2 border-[var(--accent)] p-3">
-          <span className="text-sm font-medium">Vybráno {checked.size}</span>
-          <select aria-label="Hromadně přiřadit kategorii" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={bulkCategoryId} onChange={(event) => setBulkCategoryId(event.target.value)}>
-            <option value="all">Vybrat kategorii…</option>
-            {cat.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-          </select>
-          <Button size="sm" onClick={bulkAssignCategory} disabled={bulkCategoryId === "all" || update.isPending}>Přiřadit kategorii</Button>
-          <Button size="sm" variant="ghost" onClick={() => setChecked(new Set())}>Zrušit výběr</Button>
-        </div>
-      ) : null}
 
       {tasks.isLoading ? <div className="panel p-6 text-sm text-[var(--muted)]">Načítám inbox…</div> : null}
       {tasks.isError ? <div className="panel p-6 text-sm text-[var(--danger)]">Inbox se nepodařilo načíst.</div> : null}
       {!tasks.isLoading && grouped.length === 0 ? <EmptyInbox /> : null}
 
       <div className="grid gap-4">
-        {grouped.map((group) => <SourceGroup key={group.source} source={group.source} tasks={group.items} categories={cat} contexts={ctx} checked={checked} pending={update.isPending} onToggle={toggle} onPatch={patchTask} onProcess={setSelected} />)}
+        {grouped.map((group) => <SourceGroup key={group.source} source={group.source} tasks={group.items} categories={cat} contexts={ctx} checked={checked} pending={update.isPending || remove.isPending || restore.isPending} onToggle={toggle} onPatch={patchTask} onProcess={setSelected} onSelectGroup={() => selectGroup(group.items)} />)}
       </div>
+
+      {checked.size > 0 ? (
+        <BulkPanel
+          count={checked.size}
+          bulk={bulk}
+          categories={cat}
+          contexts={ctx}
+          pending={update.isPending || remove.isPending || restore.isPending}
+          confirmDelete={confirmDelete}
+          onBulkChange={(next) => { setBulk(next); setConfirmDelete(false); }}
+          onApply={applyBulk}
+          onDelete={deleteSelected}
+          onCancel={() => { setChecked(new Set()); setConfirmDelete(false); }}
+        />
+      ) : null}
+
+      {undo ? (
+        <div className="fixed inset-x-3 bottom-20 z-40 mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--accent)] bg-[var(--surface)] p-3 shadow-2xl sm:bottom-4">
+          <span className="text-sm font-medium">{undo.message}</span>
+          {undo.previous.length > 0 ? <Button size="sm" variant="secondary" onClick={undoLast} disabled={update.isPending || restore.isPending}><RotateCcw size={15}/> Vrátit</Button> : null}
+        </div>
+      ) : null}
 
       <TaskDetailPanel task={selected} categories={cat} contexts={ctx} tags={tag} visions={vis} onClose={() => setSelected(null)} />
     </div>
   );
 }
 
-function SourceGroup({ source, tasks, categories, contexts, checked, pending, onToggle, onPatch, onProcess }: { source: TaskSource; tasks: Task[]; categories: Category[]; contexts: Context[]; checked: Set<string>; pending: boolean; onToggle: (id: string) => void; onPatch: (task: Task, payload: { category_id?: string | null; context_id?: string | null }) => void; onProcess: (task: Task) => void }) {
+function SourceGroup({ source, tasks, categories, contexts, checked, pending, onToggle, onPatch, onProcess, onSelectGroup }: { source: TaskSource; tasks: Task[]; categories: Category[]; contexts: Context[]; checked: Set<string>; pending: boolean; onToggle: (id: string) => void; onPatch: (task: Task, payload: { category_id?: string | null; context_id?: string | null }) => void; onProcess: (task: Task) => void; onSelectGroup: () => void }) {
   const meta = sourceMeta[source];
   const Icon = meta.icon;
   return (
     <section className="grid gap-2">
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between gap-2 px-1">
         <h2 className="flex items-center gap-2 text-base font-semibold"><span className="grid size-8 place-items-center rounded-full bg-[var(--surface-muted)]"><Icon size={16}/></span>{meta.label}</h2>
-        <span className="text-sm text-[var(--muted)]">{tasks.length} položek</span>
+        <div className="flex items-center gap-2"><span className="text-sm text-[var(--muted)]">{tasks.length} položek</span><Button size="sm" variant="ghost" onClick={onSelectGroup}>Vybrat vše v této skupině</Button></div>
       </div>
       <div className="grid gap-2">
         {tasks.map((task) => <InboxItem key={task.id} task={task} categories={categories} contexts={contexts} checked={checked.has(task.id)} pending={pending} onToggle={() => onToggle(task.id)} onPatch={(payload) => onPatch(task, payload)} onProcess={() => onProcess(task)} />)}
@@ -179,6 +291,50 @@ function InboxItem({ task, categories, contexts, checked, pending, onToggle, onP
       </div>
       <Button size="sm" variant="secondary" onClick={onProcess}><CheckSquare size={15}/> Zpracovat</Button>
     </article>
+  );
+}
+
+function BulkPanel({ count, bulk, categories, contexts, pending, confirmDelete, onBulkChange, onApply, onDelete, onCancel }: { count: number; bulk: BulkDraft; categories: Category[]; contexts: Context[]; pending: boolean; confirmDelete: boolean; onBulkChange: (bulk: BulkDraft) => void; onApply: () => void; onDelete: () => void; onCancel: () => void }) {
+  const hasPatch = Object.keys({ ...bulk }).some((key) => bulk[key as keyof BulkDraft]);
+  return (
+    <div className="fixed inset-x-2 bottom-20 z-30 mx-auto max-w-5xl rounded-[var(--radius-lg)] border border-[var(--accent)] bg-[var(--surface)] p-3 shadow-2xl sm:bottom-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold">Vybráno {count}</span>
+        <Button size="sm" variant="ghost" onClick={onCancel}>Zrušit výběr</Button>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <select aria-label="Hromadná kategorie" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={bulk.category_id} onChange={(event) => onBulkChange({ ...bulk, category_id: event.target.value })}>
+          <option value="">Kategorie: neměnit</option>
+          <option value="__clear">Kategorie: vyčistit</option>
+          {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+        </select>
+        <select aria-label="Hromadné kde" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={bulk.context_id} onChange={(event) => onBulkChange({ ...bulk, context_id: event.target.value })}>
+          <option value="">Kde: neměnit</option>
+          <option value="__clear">Kde: vyčistit</option>
+          {contexts.map((context) => <option key={context.id} value={context.id}>{context.name}</option>)}
+        </select>
+        <select aria-label="Hromadný stav" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={bulk.status} onChange={(event) => onBulkChange({ ...bulk, status: event.target.value as "" | TaskStatus })}>
+          <option value="">Stav: neměnit</option>
+          {statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <select aria-label="Hromadná priorita" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={bulk.priority} onChange={(event) => onBulkChange({ ...bulk, priority: event.target.value as "" | TaskPriority })}>
+          <option value="">Priorita: neměnit</option>
+          {priorityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <select aria-label="Hromadný termín" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={bulk.due_date} onChange={(event) => onBulkChange({ ...bulk, due_date: event.target.value })}>
+          <option value="">Termín: neměnit</option>
+          <option value={localDate()}>Dnes</option>
+          <option value={localDate(1)}>Zítra</option>
+          <option value={nextMonday()}>Příští týden</option>
+          <option value="__clear">Bez termínu</option>
+        </select>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <input aria-label="Vlastní hromadný termín" type="date" className="focus-ring min-h-10 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={bulk.due_date.startsWith("20") ? bulk.due_date : ""} onChange={(event) => onBulkChange({ ...bulk, due_date: event.target.value })} />
+        <Button onClick={onApply} disabled={!hasPatch || pending}>Použít na {count}</Button>
+        <Button variant={confirmDelete ? "danger" : "ghost"} onClick={onDelete} disabled={pending}><Trash2 size={16}/> {confirmDelete ? `Potvrdit smazání ${count}` : "Smazat"}</Button>
+      </div>
+    </div>
   );
 }
 

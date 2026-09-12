@@ -3,7 +3,8 @@ import type { TaskPriority, TaskStatus, TaskView } from "@/lib/api/types";
 export const statusLabels: Record<TaskStatus, string> = {
   inbox: "Inbox",
   todo: "Čeká",
-  doing: "Rozpracováno",
+  in_progress: "Rozpracováno",
+  blocked: "Blokováno",
   done: "Hotovo",
   cancelled: "Zrušeno",
 };
@@ -21,4 +22,5 @@ export const viewLabels: Record<TaskView, string> = {
   overdue: "Po termínu",
   inbox: "Inbox",
   tomorrow: "Zítra",
+  unscheduled: "Bez termínu",
 };

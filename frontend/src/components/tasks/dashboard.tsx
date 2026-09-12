@@ -1,15 +1,19 @@
 "use client";
 
-import { AlertTriangle, CalendarCheck, CheckCircle2, Flame, Inbox, NotebookPen, Sunrise } from "lucide-react";
+import { AlertTriangle, CalendarCheck, CheckCircle2, Flame, Inbox, NotebookPen, Square, Sunrise } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { rrulestr } from "rrule";
 import type { Challenge, Note, Task } from "@/lib/api/types";
-import { useChallenges, useCheckInChallenge, useNotes, useTasks, useTaxonomy, useVisions } from "@/lib/api/hooks";
+import { useChallengeHeatmap, useChallenges, useCheckInChallenge, useDeleteCheckIn, useNotes, useTasks, useTaxonomy, useVisions } from "@/lib/api/hooks";
 import { TaskList } from "@/components/tasks/task-list";
 import { TaskDetailPanel } from "./task-detail-panel";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+
+function localDateString() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
 
 function isScheduledToday(challenge: Challenge) {
   if (!challenge.is_active) return false;
@@ -36,6 +40,7 @@ export function Dashboard() {
   const challenges = useChallenges();
   const notes = useNotes({ kind: "diary", page_size: 3 });
   const checkIn = useCheckInChallenge();
+  const deleteCheckIn = useDeleteCheckIn();
   const { categories, contexts, tags } = useTaxonomy();
   const visions = useVisions();
   const [selected, setSelected] = useState<Task | null>(null);
@@ -44,6 +49,7 @@ export function Dashboard() {
   const tag = tags.data?.items ?? [];
   const vis = visions.data?.items ?? [];
   const todaysChallenges = useMemo(() => (challenges.data?.items ?? []).filter(isScheduledToday), [challenges.data?.items]);
+  const visibleTodaysChallenges = todaysChallenges.slice(0, 6);
   const todayItems = today.data?.items ?? [];
   const tomorrowItems = tomorrow.data?.items ?? [];
   const overdueTotal = overdue.data?.total ?? 0;
@@ -78,9 +84,19 @@ export function Dashboard() {
             <h2 className="flex items-center gap-2 text-base font-semibold sm:text-lg"><Flame size={18}/> Návyky dnes</h2>
             <Link className="text-xs text-[var(--muted)] sm:text-sm" href="/challenges">Všechny</Link>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {todaysChallenges.map((challenge) => <ChallengeTodayCard key={challenge.id} challenge={challenge} pending={checkIn.isPending} onCheckIn={() => checkIn.mutate({ id: challenge.id, payload: { is_relapse: false } })} />)}
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-3">
+            {visibleTodaysChallenges.map((challenge) => (
+              <ChallengeTodayCard
+                key={challenge.id}
+                challenge={challenge}
+                checkInPending={checkIn.isPending}
+                deletePending={deleteCheckIn.isPending}
+                onCheckIn={() => checkIn.mutate({ id: challenge.id, payload: { is_relapse: false } })}
+                onDeleteCheckIn={(date) => deleteCheckIn.mutate({ id: challenge.id, date })}
+              />
+            ))}
           </div>
+          {todaysChallenges.length > 6 ? <Link className="panel flex min-h-11 items-center justify-center text-sm font-medium text-[var(--accent)]" href="/challenges">Zobrazit všechny</Link> : null}
         </section>
       ) : null}
 
@@ -111,11 +127,22 @@ function Metric({ label, value, icon, href, danger }: { label: string; value: nu
   return <Link href={href} className="panel flex min-h-16 items-center justify-between p-3"><div><p className="text-[11px] uppercase tracking-[0.2em] text-[var(--muted)]">{label}</p><p className="mt-0.5 text-xl font-semibold">{value}</p></div><div className={danger ? "text-[var(--danger)]" : "text-[var(--accent)]"}>{icon}</div></Link>;
 }
 
-function ChallengeTodayCard({ challenge, pending, onCheckIn }: { challenge: Challenge; pending: boolean; onCheckIn: () => void }) {
+function ChallengeTodayCard({ challenge, checkInPending, deletePending, onCheckIn, onDeleteCheckIn }: { challenge: Challenge; checkInPending: boolean; deletePending: boolean; onCheckIn: () => void; onDeleteCheckIn: (date: string) => void }) {
+  const today = localDateString();
+  const heatmap = useChallengeHeatmap(challenge.id, Number(today.slice(0, 4)));
+  const todayDay = heatmap.data?.days.find((day) => day.date === today);
+  const checked = Boolean(todayDay?.has_check_in);
+  const pending = checkInPending || deletePending || heatmap.isLoading;
   return (
-    <article className="panel min-w-56 p-3">
-      <div className="flex items-start justify-between gap-3"><div><p className="text-lg">{challenge.icon}</p><h3 className="mt-1 line-clamp-2 text-sm font-semibold">{challenge.title}</h3></div><Badge className="px-2 py-0.5 text-xs">{challenge.current_streak} dní</Badge></div>
-      <Button className="mt-3 w-full" size="sm" onClick={onCheckIn} disabled={pending}><CheckCircle2 size={15}/> Zapsat dnes</Button>
+    <article className={`panel grid min-h-28 grid-cols-[1fr_auto] items-center gap-3 p-3 ${checked ? "order-2 opacity-55" : "order-1"}`}>
+      <div className="min-w-0">
+        <p className="text-lg">{challenge.icon}</p>
+        <h3 className="mt-1 line-clamp-2 text-sm font-semibold">{challenge.title}</h3>
+        <p className="mt-1 text-xs text-[var(--muted)]">Šňůra {challenge.current_streak} dní</p>
+      </div>
+      <button type="button" aria-label={checked ? `Odebrat dnešní zápis: ${challenge.title}` : `Zapsat dnes: ${challenge.title}`} className={`focus-ring grid size-14 place-items-center rounded-2xl border-2 ${checked ? "border-[var(--success)] bg-[var(--success)] text-white" : "border-[var(--border-strong)] bg-[var(--surface-muted)] text-[var(--muted)]"}`} onClick={() => checked ? onDeleteCheckIn(today) : onCheckIn()} disabled={pending}>
+        {checked ? <CheckCircle2 size={30}/> : <Square size={30}/>}
+      </button>
     </article>
   );
 }

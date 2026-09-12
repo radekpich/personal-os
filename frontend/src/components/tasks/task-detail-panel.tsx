@@ -19,7 +19,7 @@ import { MarkdownPreview } from "@/components/markdown-preview";
 const schema = z.object({
   title: z.string().min(1),
   description: z.string().nullable(),
-  status: z.enum(["inbox", "todo", "doing", "done", "cancelled"]),
+  status: z.enum(["inbox", "todo", "in_progress", "blocked", "done", "cancelled"]),
   priority: z.enum(["none", "low", "medium", "high"]),
   due_date: z.string().nullable(),
   due_time: z.string().nullable(),
@@ -145,7 +145,7 @@ export function TaskDialog({ mode, open, task = null, initialTitle = "", categor
     <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[96dvh] flex-col overflow-hidden rounded-t-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:h-dvh sm:w-full sm:max-w-xl sm:rounded-none sm:border-l">
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-[51] flex max-h-[96dvh] flex-col overflow-hidden rounded-t-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:h-dvh sm:w-full sm:max-w-xl sm:rounded-none sm:border-l">
           <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] p-4 sm:p-6">
             <div><Dialog.Title className="text-lg font-semibold sm:text-xl">{title}</Dialog.Title><Dialog.Description className="text-sm text-[var(--muted)]">{description}</Dialog.Description></div>
             <Dialog.Close asChild><Button variant="ghost" size="sm" aria-label="Zavřít"><X size={18}/></Button></Dialog.Close>
@@ -158,7 +158,7 @@ export function TaskDialog({ mode, open, task = null, initialTitle = "", categor
               <label className="grid gap-1 text-sm font-medium">Popis<Textarea {...form.register("description")} rows={4} /></label>
               {descriptionValue ? <MarkdownPreview className="rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-3 text-sm text-[var(--muted)]">{descriptionValue}</MarkdownPreview> : null}
               <div className="grid gap-3 sm:grid-cols-2">
-                <Select label="Stav" {...form.register("status")}><option value="inbox">Inbox</option><option value="todo">Čeká</option><option value="doing">Rozpracováno</option><option value="done">Hotovo</option><option value="cancelled">Zrušeno</option></Select>
+                <Select label="Stav" {...form.register("status")}><option value="inbox">Inbox</option><option value="todo">Čeká</option><option value="in_progress">Rozpracováno</option><option value="blocked">Blokováno</option><option value="done">Hotovo</option><option value="cancelled">Zrušeno</option></Select>
                 <Select label="Priorita" {...form.register("priority")}><option value="none">Bez priority</option><option value="low">Nízká</option><option value="medium">Střední</option><option value="high">Vysoká</option></Select>
                 <label className="grid gap-1 text-sm font-medium">Termín<Input type="date" {...form.register("due_date")} /></label>
                 <label className="grid gap-1 text-sm font-medium">Čas (volitelně)<Input type="time" {...form.register("due_time")} /></label>

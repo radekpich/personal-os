@@ -125,7 +125,7 @@ export function ChallengeDialog({ open, challenge = null, onClose }: Props) {
     <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 flex h-[96dvh] max-h-[96dvh] flex-col overflow-hidden rounded-t-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:h-dvh sm:w-full sm:max-w-xl sm:rounded-none sm:border-l">
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-[51] flex h-[96dvh] max-h-[96dvh] flex-col overflow-hidden rounded-t-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:h-dvh sm:w-full sm:max-w-xl sm:rounded-none sm:border-l">
           <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] p-4 sm:p-6">
             <div>
               <Dialog.Title className="text-lg font-semibold">{mode === "edit" ? "Upravit výzvu" : "Nová výzva"}</Dialog.Title>

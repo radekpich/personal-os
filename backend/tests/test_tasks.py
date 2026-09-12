@@ -693,3 +693,87 @@ async def test_task_completed_at_utc(test_user: User) -> None:
         await session.commit()
         await session.refresh(task)
         assert task.completed_at is not None
+
+async def test_task_filters_support_unscheduled_priority_and_in_progress_alias(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    await _login_test_user(client, csrf_headers, test_user)
+    headers = await csrf_headers(client)
+
+    async with TestSessionLocal() as session:
+        category = Category(owner_id=test_user.id, name="Batch7", color="#2563EB", icon="check")
+        context = Context(owner_id=test_user.id, name="@batch7")
+        session.add_all([category, context])
+        await session.commit()
+        await session.refresh(category)
+        await session.refresh(context)
+
+    processed = {"category_id": str(category.id), "context_id": str(context.id)}
+    unscheduled_high = await client.post(
+        "/tasks",
+        json={
+            "title": "Bez termínu high",
+            "status": "in_progress",
+            "priority": "high",
+            **processed,
+        },
+        headers=headers,
+    )
+    await client.post(
+        "/tasks",
+        json={
+            "title": "S termínem",
+            "status": "todo",
+            "priority": "high",
+            "due_date": "2026-09-11",
+            **processed,
+        },
+        headers=headers,
+    )
+    await client.post(
+        "/tasks",
+        json={"title": "Bez termínu low", "status": "todo", "priority": "low", **processed},
+        headers=headers,
+    )
+
+    unscheduled = await client.get("/tasks", params={"view": "unscheduled"})
+    assert {task["title"] for task in unscheduled.json()["items"]} == {
+        "Bez termínu high",
+        "Bez termínu low",
+    }
+
+    high = await client.get("/tasks", params={"priority": "high"})
+    assert {task["title"] for task in high.json()["items"]} == {"Bez termínu high", "S termínem"}
+
+    in_progress = await client.get("/tasks", params={"status": "in_progress"})
+    assert [task["id"] for task in in_progress.json()["items"]] == [unscheduled_high.json()["id"]]
+
+
+async def test_deleted_task_can_be_restored_for_undo(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    await _login_test_user(client, csrf_headers, test_user)
+    headers = await csrf_headers(client)
+
+    created = await client.post("/tasks", json={"title": "Vrátit smazání"}, headers=headers)
+    task_id = created.json()["id"]
+    deleted = await client.delete(
+        f"/tasks/{task_id}",
+        headers={**headers, "If-Match": str(created.json()["version"])},
+    )
+    assert deleted.status_code == 204
+
+    hidden = await client.get("/tasks", params={"view": "inbox"})
+    assert task_id not in {task["id"] for task in hidden.json()["items"]}
+
+    restored = await client.post(f"/tasks/{task_id}/restore", headers=headers)
+    assert restored.status_code == 200
+    assert restored.json()["id"] == task_id
+    assert restored.json()["version"] == created.json()["version"] + 2
+
+    visible = await client.get("/tasks", params={"view": "inbox"})
+    assert task_id in {task["id"] for task in visible.json()["items"]}

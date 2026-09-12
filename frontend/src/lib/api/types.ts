@@ -10,10 +10,10 @@ export type User = {
   created_at: string;
 };
 
-export type TaskStatus = "inbox" | "todo" | "doing" | "done" | "cancelled";
+export type TaskStatus = "inbox" | "todo" | "in_progress" | "blocked" | "done" | "cancelled";
 export type TaskPriority = "none" | "low" | "medium" | "high";
 export type TaskSource = "web" | "quick_capture" | "telegram" | "agent" | "calendar" | "email" | "journal";
-export type TaskView = "today" | "this_week" | "overdue" | "inbox" | "tomorrow";
+export type TaskView = "today" | "this_week" | "overdue" | "inbox" | "tomorrow" | "unscheduled";
 export type RecurrenceMode = "fixed" | "after_completion";
 export type VisionHorizon = "life" | "5y" | "1y" | "quarter";
 export type VisionStatus = "active" | "paused" | "achieved" | "abandoned";
@@ -522,6 +522,7 @@ export type ListResponse<T> = { items: T[] };
 
 export type TaskFilters = {
   status?: TaskStatus | "all";
+  priority?: TaskPriority | "all";
   category_id?: UUID | "all";
   context_id?: UUID | "all";
   vision_id?: UUID | "all";

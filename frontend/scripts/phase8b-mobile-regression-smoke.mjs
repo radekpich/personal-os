@@ -98,7 +98,8 @@ async function verifyTaskDialogDefaults(page) {
   await page.getByRole('heading', { name: 'Nový úkol' }).waitFor({ timeout: 10_000 });
   const status = await page.locator('select[name="status"]').inputValue();
   if (status !== 'todo') throw new Error(`Nový úkol ze stránky Úkoly má špatný default stav: ${status}`);
-  await page.getByRole('button', { name: 'Zrušit' }).click();
+  await page.keyboard.press('Escape');
+  await page.getByRole('heading', { name: 'Nový úkol' }).waitFor({ state: 'detached', timeout: 10_000 });
 }
 
 async function verifyCompletedAtDetail(page, seeded) {
@@ -114,7 +115,7 @@ async function verifyCompletedAtDetail(page, seeded) {
   await article.waitFor({ timeout: 15_000 });
   await article.getByRole('button', { name: 'Otevřít detail' }).click();
   await page.getByText(/Splněno /).waitFor({ timeout: 10_000 });
-  await page.getByRole('button', { name: 'Zrušit' }).click();
+  await page.keyboard.press('Escape');
 }
 
 async function verifyRecurrencePanel(page) {
@@ -133,12 +134,12 @@ async function verifyRecurrencePanel(page) {
   if (!(await page.getByRole('button', { name: 'Potvrdit' }).isVisible())) throw new Error('Chybí tlačítko Potvrdit');
   await page.getByRole('button', { name: 'Zrušit' }).first().click();
   if (await page.getByText('Nastavení teď znamená').isVisible().catch(() => false)) throw new Error('Zrušit nesbalilo panel');
-  await page.getByRole('button', { name: 'Zrušit' }).click();
+  await page.keyboard.press('Escape');
 }
 
 async function run() {
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 390, height: 900 }, isMobile: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
   const errors = [];
   attachErrorCollector(page, errors);
   try {

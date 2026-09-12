@@ -46,10 +46,10 @@ function TaskItem({ task, category, context, vision, selected, highlighted, onSe
   }
 
   return (
-    <article className={cn("task-row panel grid grid-cols-[auto_1fr_auto] items-start gap-2 p-3 sm:gap-3 sm:p-4", selected && "border-[var(--accent)]", (task.created_by === "agent" || highlighted) && "border-[var(--accent)]/70 bg-[var(--accent)]/5")}>
-      <button aria-label={done ? "Vrátit úkol" : "Dokončit úkol"} onClick={() => toggle.mutate({ task, status: nextStatus })} className={cn("mt-0.5 size-5 rounded-full border-2 transition sm:mt-1 sm:size-6", done ? "border-[var(--success)] bg-[var(--success)]" : "border-[var(--border-strong)] bg-transparent")}>{done ? <span className="text-[10px] text-white sm:text-xs">✓</span> : null}</button>
-      <div className="min-w-0">
-        <button onClick={onSelect} className={cn("block text-left text-sm font-medium tracking-tight sm:text-base", done && "text-[var(--muted-foreground)] line-through")}>{task.title}</button>
+    <article className={cn("task-row panel grid w-full min-w-0 max-w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 overflow-hidden p-3 sm:gap-3 sm:p-4", selected && "border-[var(--accent)]", (task.created_by === "agent" || highlighted) && "border-[var(--accent)]/70 bg-[var(--accent)]/5")}>
+      <button type="button" aria-label={done ? "Vrátit úkol" : "Dokončit úkol"} onClick={() => toggle.mutate({ task, status: nextStatus })} className={cn("relative z-10 mt-0.5 size-5 rounded-full border-2 transition sm:mt-1 sm:size-6", done ? "border-[var(--success)] bg-[var(--success)]" : "border-[var(--border-strong)] bg-transparent")}>{done ? <span className="text-[10px] text-white sm:text-xs">✓</span> : null}</button>
+      <div className="min-w-0 pr-1">
+        <button type="button" onClick={onSelect} className={cn("block max-w-full break-words text-left text-sm font-medium tracking-tight sm:text-base", done && "text-[var(--muted-foreground)] line-through")}>{task.title}</button>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--muted)] sm:mt-2 sm:gap-2 sm:text-xs">
           {category ? <Badge className="border-0 px-2 py-0.5" style={{ background: `${category.color}22`, color: category.color }}><span className="mr-1 size-2 rounded-full" style={{ background: category.color }} />{category.name}</Badge> : null}
           {context ? <span>{context.name}</span> : null}
@@ -68,7 +68,7 @@ function TaskItem({ task, category, context, vision, selected, highlighted, onSe
         {task.description ? <MarkdownPreview compact className="mt-2 text-sm text-[var(--muted)]">{task.description}</MarkdownPreview> : null}
         {confirmingDelete ? <p className="mt-2 text-xs text-[var(--danger)]">Klepni na koš ještě jednou pro smazání.</p> : null}
       </div>
-      <div className="flex gap-0.5 sm:gap-1">
+      <div className="relative z-10 flex shrink-0 gap-0.5 sm:gap-1">
         <Button variant="ghost" size="sm" onClick={onSelect} aria-label="Otevřít detail"><PanelRightOpen size={15}/></Button>
         <Button variant={confirmingDelete ? "danger" : "ghost"} size="sm" onClick={deleteTask} aria-label={confirmingDelete ? "Potvrdit smazání" : "Smazat"}><Trash2 size={15}/></Button>
       </div>

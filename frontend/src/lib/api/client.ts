@@ -191,6 +191,7 @@ export const api = {
   createTask: (payload: TaskCreate) => request<Task>("/tasks", { method: "POST", json: payload }),
   updateTask: (id: string, payload: TaskUpdate, version: number) => request<Task>(`/tasks/${id}`, { method: "PATCH", json: payload, ifMatch: version }),
   deleteTask: (id: string, version: number) => request<void>(`/tasks/${id}`, { method: "DELETE", ifMatch: version }),
+  restoreTask: (id: string) => request<Task>(`/tasks/${id}/restore`, { method: "POST" }),
   taskAttachments: (taskId: string) => request<ListResponse<Attachment>>(`/tasks/${taskId}/attachments`),
   uploadAttachment: (file: File, caption?: string | null) => {
     const formData = new FormData();

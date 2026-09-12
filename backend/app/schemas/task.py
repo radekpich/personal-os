@@ -23,6 +23,7 @@ class TaskView(str, enum.Enum):
     OVERDUE = "overdue"
     INBOX = "inbox"
     TOMORROW = "tomorrow"
+    UNSCHEDULED = "unscheduled"
 
 
 class TaskBase(BaseModel):
