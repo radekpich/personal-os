@@ -44,13 +44,14 @@ export function ChallengeWorkspace() {
   const [presetFilter, setPresetFilter] = useState<ChallengePreset>("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<ChallengeFilters>(() => defaultChallengeFilters);
+  const [insightFilter, setInsightFilter] = useState<ChallengeInsightFilter>("none");
 
   const year = new Date().getFullYear();
   const deleteImpact = useChallengeStats(deleteTarget?.id ?? null);
 
   const filteredChallenges = useMemo(() => {
     const items = challenges.data?.items ?? [];
-    return items.filter((challenge) => {
+    const baseFiltered = items.filter((challenge) => {
       if (!matchesPreset(challenge, presetFilter)) return false;
       if (advancedFilters.type !== "all" && challenge.type !== advancedFilters.type) return false;
       if (advancedFilters.categoryId !== "all" && challenge.category_id !== advancedFilters.categoryId) return false;
@@ -61,7 +62,8 @@ export function ChallengeWorkspace() {
       if (advancedFilters.streak === "strong" && challenge.current_streak < 7) return false;
       return true;
     });
-  }, [advancedFilters, challenges.data?.items, presetFilter]);
+    return applyInsightFilter(baseFiltered, insightFilter);
+  }, [advancedFilters, challenges.data?.items, insightFilter, presetFilter]);
 
   const insights = useMemo(() => buildChallengeInsights(challenges.data?.items ?? []), [challenges.data?.items]);
   const activeAdvancedCount = countChallengeFilters(advancedFilters);
@@ -128,16 +130,28 @@ export function ChallengeWorkspace() {
           <Button onClick={openCreate}><Plus size={16}/>Nová výzva</Button>
         </div>
         <div className="grid min-w-0 grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-5">
-          {insights.map((insight) => <InsightCard key={insight.label} label={insight.label} value={insight.value} hint={insight.hint} tone={insight.tone} />)}
+          {insights.map((insight) => (
+            <InsightCard
+              key={insight.label}
+              label={insight.label}
+              value={insight.value}
+              hint={insight.hint}
+              tone={insight.tone}
+              active={insightFilter === insight.filter}
+              onClick={() => setInsightFilter((current) => current === insight.filter ? "none" : insight.filter)}
+            />
+          ))}
         </div>
       </div>
 
       <ChallengeFilterStrip
         preset={presetFilter}
-        onPreset={setPresetFilter}
+        onPreset={(value) => { setPresetFilter(value); if (value !== "all") setInsightFilter("none"); }}
         filteredCount={filteredChallenges.length}
         totalCount={challenges.data?.items.length ?? 0}
-        advancedCount={activeAdvancedCount}
+        advancedCount={activeAdvancedCount + (insightFilter !== "none" ? 1 : 0)}
+        insightFilter={insightFilter}
+        onClearInsight={() => setInsightFilter("none")}
         onOpenFilters={() => setFiltersOpen(true)}
       />
 
@@ -172,7 +186,7 @@ export function ChallengeWorkspace() {
         <ChallengeFilterDialog
           initial={advancedFilters}
           categories={categories.data?.items ?? []}
-          onApply={(filters) => { setAdvancedFilters(filters); setFiltersOpen(false); }}
+          onApply={(filters) => { setAdvancedFilters(filters); setInsightFilter("none"); setFiltersOpen(false); }}
           onClose={() => setFiltersOpen(false)}
         />
       ) : null}
@@ -197,6 +211,7 @@ export function ChallengeWorkspace() {
 }
 
 type ChallengePreset = "all" | "active" | "paused" | "daily_action" | "abstinence";
+type ChallengeInsightFilter = "none" | "shortest" | "best" | "worst" | "active" | "record";
 type ChallengeFilters = { type: ChallengeType | "all"; categoryId: string; status: "all" | "active" | "paused"; streak: "all" | "zero" | "short" | "strong" };
 const defaultChallengeFilters: ChallengeFilters = { type: "all", categoryId: "all", status: "all", streak: "all" };
 const challengePresets: Array<{ value: ChallengePreset; label: string }> = [
@@ -218,27 +233,77 @@ function countChallengeFilters(filters: ChallengeFilters) {
   return [filters.type !== "all", filters.categoryId !== "all", filters.status !== "all", filters.streak !== "all"].filter(Boolean).length;
 }
 
+function applyInsightFilter(items: Challenge[], filter: ChallengeInsightFilter) {
+  if (filter === "none") return items;
+  if (filter === "active") return items.filter((item) => item.is_active);
+  if (!items.length) return items;
+  if (filter === "shortest") {
+    const shortest = Math.min(...items.map((item) => item.current_streak));
+    return items.filter((item) => item.current_streak === shortest);
+  }
+  if (filter === "best") {
+    const best = Math.max(...items.map((item) => item.current_streak));
+    return items.filter((item) => item.current_streak === best);
+  }
+  if (filter === "record") {
+    const record = Math.max(...items.map((item) => item.longest_streak));
+    return items.filter((item) => item.longest_streak === record);
+  }
+  const zeroStreak = items.filter((item) => item.current_streak === 0);
+  if (zeroStreak.length) return zeroStreak;
+  const worstGap = Math.max(...items.map((item) => item.longest_streak - item.current_streak));
+  return items.filter((item) => item.longest_streak - item.current_streak === worstGap);
+}
+
+function insightFilterLabel(filter: ChallengeInsightFilter) {
+  if (filter === "shortest") return "Nejkratší";
+  if (filter === "best") return "Nejlepší";
+  if (filter === "worst") return "Nejhorší";
+  if (filter === "active") return "Aktivní";
+  if (filter === "record") return "Rekord";
+  return null;
+}
+
 function buildChallengeInsights(items: Challenge[]) {
   const active = items.filter((item) => item.is_active);
   const source = active.length ? active : items;
   const shortest = source.reduce<Challenge | null>((best, item) => (!best || item.current_streak < best.current_streak ? item : best), null);
   const best = source.reduce<Challenge | null>((top, item) => (!top || item.current_streak > top.current_streak ? item : top), null);
-  const worst = source.filter((item) => item.current_streak === 0).length || source.reduce<Challenge | null>((low, item) => (!low || item.longest_streak - item.current_streak > low.longest_streak - low.current_streak ? item : low), null)?.title || "—";
+  const zeroCount = source.filter((item) => item.current_streak === 0).length;
+  const worst = zeroCount || source.reduce<Challenge | null>((low, item) => (!low || item.longest_streak - item.current_streak > low.longest_streak - low.current_streak ? item : low), null)?.title || "—";
   const record = source.reduce((max, item) => Math.max(max, item.longest_streak), 0);
   return [
-    { label: "Nejkratší šňůra", value: shortest ? formatCzechCount(shortest.current_streak, "den", "dny", "dní") : "—", hint: shortest?.title ?? "bez návyků", tone: "warning" as const },
-    { label: "Nejlepší", value: best ? formatCzechCount(best.current_streak, "den", "dny", "dní") : "—", hint: best?.title ?? "bez dat", tone: "success" as const },
-    { label: "Nejhorší", value: typeof worst === "number" ? formatCzechCount(worst, "nulová", "nulové", "nulových") : worst, hint: typeof worst === "number" ? "bez šňůry" : "největší propad", tone: "danger" as const },
-    { label: "Aktivní", value: active.length, hint: `${items.length} celkem`, tone: "neutral" as const },
-    { label: "Rekord", value: formatCzechCount(record, "den", "dny", "dní"), hint: "nejdelší série", tone: "neutral" as const },
+    { filter: "shortest" as const, label: "Nejkratší šňůra", value: shortest ? formatCzechCount(shortest.current_streak, "den", "dny", "dní") : "—", hint: shortest?.title ?? "bez návyků", tone: "warning" as const },
+    { filter: "best" as const, label: "Nejlepší", value: best ? formatCzechCount(best.current_streak, "den", "dny", "dní") : "—", hint: best?.title ?? "bez dat", tone: "success" as const },
+    { filter: "worst" as const, label: "Nejhorší", value: typeof worst === "number" ? formatCzechCount(worst, "nulová", "nulové", "nulových") : worst, hint: typeof worst === "number" ? "bez šňůry" : "největší propad", tone: "danger" as const },
+    { filter: "active" as const, label: "Aktivní", value: active.length, hint: `${items.length} celkem`, tone: "neutral" as const },
+    { filter: "record" as const, label: "Rekord", value: formatCzechCount(record, "den", "dny", "dní"), hint: "nejdelší série", tone: "neutral" as const },
   ];
 }
 
-function InsightCard({ label, value, hint, tone }: { label: string; value: string | number; hint: string; tone: "neutral" | "success" | "warning" | "danger" }) {
-  return <div className={cn("min-w-0 rounded-[var(--radius-md)] border p-2.5", tone === "success" && "border-[var(--success)]/30 bg-[var(--success)]/10", tone === "warning" && "border-[var(--warning)]/30 bg-[var(--warning)]/10", tone === "danger" && "border-[var(--danger)]/30 bg-[var(--danger)]/10", tone === "neutral" && "border-[var(--border)] bg-[var(--surface-muted)]")}><p className="truncate text-[11px] text-[var(--muted)]">{label}</p><p className="truncate text-base font-semibold">{value}</p><p className="truncate text-[11px] text-[var(--muted)]">{hint}</p></div>;
+function InsightCard({ label, value, hint, tone, active, onClick }: { label: string; value: string | number; hint: string; tone: "neutral" | "success" | "warning" | "danger"; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "focus-ring min-w-0 rounded-[var(--radius-md)] border p-2.5 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
+        tone === "success" && "border-[var(--success)]/30 bg-[var(--success)]/10",
+        tone === "warning" && "border-[var(--warning)]/30 bg-[var(--warning)]/10",
+        tone === "danger" && "border-[var(--danger)]/30 bg-[var(--danger)]/10",
+        tone === "neutral" && "border-[var(--border)] bg-[var(--surface-muted)]",
+        active && "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--surface)]",
+      )}
+    >
+      <p className="truncate text-[11px] text-[var(--muted)]">{label}</p>
+      <p className="truncate text-base font-semibold">{value}</p>
+      <p className="truncate text-[11px] text-[var(--muted)]">{hint}</p>
+    </button>
+  );
 }
 
-function ChallengeFilterStrip({ preset, onPreset, filteredCount, totalCount, advancedCount, onOpenFilters }: { preset: ChallengePreset; onPreset: (value: ChallengePreset) => void; filteredCount: number; totalCount: number; advancedCount: number; onOpenFilters: () => void }) {
+function ChallengeFilterStrip({ preset, onPreset, filteredCount, totalCount, advancedCount, insightFilter, onClearInsight, onOpenFilters }: { preset: ChallengePreset; onPreset: (value: ChallengePreset) => void; filteredCount: number; totalCount: number; advancedCount: number; insightFilter: ChallengeInsightFilter; onClearInsight: () => void; onOpenFilters: () => void }) {
   return (
     <div className="panel flex min-w-0 max-w-full items-center gap-2 overflow-hidden p-2 sm:p-3">
       <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Rychlé filtry návyků">
@@ -248,6 +313,11 @@ function ChallengeFilterStrip({ preset, onPreset, filteredCount, totalCount, adv
           </button>
         ))}
       </div>
+      {insightFilter !== "none" ? (
+        <button type="button" onClick={onClearInsight} className="focus-ring hidden shrink-0 rounded-full border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-sm font-medium text-[var(--accent)] sm:inline-flex">
+          {insightFilterLabel(insightFilter)} ×
+        </button>
+      ) : null}
       <Badge className="hidden shrink-0 sm:inline-flex">{filteredCount}/{totalCount}</Badge>
       <Button variant={advancedCount > 0 ? "default" : "secondary"} onClick={onOpenFilters} className="shrink-0">
         <SlidersHorizontal size={16} /> Filtry {advancedCount > 0 ? <Badge className="bg-white/20 px-2 py-0.5 text-xs text-current">{advancedCount}</Badge> : null}

@@ -4,6 +4,16 @@
 
 ## Hotovo
 
+- [x] 2026-09-13 05:52 UTC — Klikatelné statistiky Návyky jako rychlé filtry
+  - Insight karty v horní statistice jsou nově tlačítka s `aria-pressed` a aktivním zvýrazněním.
+  - Klik na `Nejkratší šňůra` filtruje seznam na návyky s nejnižší aktuální šňůrou.
+  - Klik na `Nejlepší` filtruje seznam na top návyky podle aktuální šňůry.
+  - Klik na `Nejhorší` ukáže návyky bez šňůry, případně největší propad oproti rekordu.
+  - Klik na `Aktivní` ukáže aktivní návyky; `Rekord` ukáže návyky s nejvyšším historickým rekordem.
+  - Druhý klik stejný insight filtr vypne; běžné presety/advanced filtry insight filtr čistí, aby se UI nechovalo překvapivě.
+  - Ověřeno cíleným Playwright testem na Pixel 5: `Nejlepší` zúží seznam na top návyk, druhý klik filtr vypne, `Nejkratší šňůra` ukáže nejkratší návyk, bez horizontálního overflow.
+  - Prošlo `npm run lint && npm run typecheck && NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` a `npm run phase8b:mobile-regression-smoke`.
+
 - [x] 2026-09-13 05:40 UTC — Přehlednější Návyky: insighty, filtry jako Úkoly, jasné splnění dnes
   - Odstraněn horní popis z karty Návyky a výzvy.
   - Přidány úvodní insight karty: nejkratší šňůra, nejlepší, nejhorší, aktivní/celkem a rekord.
