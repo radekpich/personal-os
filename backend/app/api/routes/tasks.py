@@ -30,6 +30,17 @@ def _require_if_match(if_match: int | None) -> int:
     return if_match
 
 
+
+
+async def _task_read(db: AsyncSession, task: Task) -> TaskRead:
+    return TaskRead.model_validate(task).model_copy(
+        update={"recurrence_preview_dates": await task_service.recurrence_preview_dates(db, task)}
+    )
+
+
+async def _task_reads(db: AsyncSession, tasks: list[Task]) -> list[TaskRead]:
+    return [await _task_read(db, task) for task in tasks]
+
 def _raise_conflict(exc: ConflictError) -> NoReturn:
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
@@ -81,7 +92,7 @@ async def list_tasks(
     )
     tasks, total = await task_service.list_tasks(db, actor_context.user, filters)
     return TaskList(
-        items=[TaskRead.model_validate(task) for task in tasks],
+        items=await _task_reads(db, tasks),
         total=total,
         page=page,
         page_size=page_size,
@@ -98,16 +109,17 @@ async def quick_create_task(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
-) -> Task:
+) -> TaskRead:
     body = await request.body()
     title = body.decode("utf-8")
-    return await task_service.quick_create_task(
+    task = await task_service.quick_create_task(
         db,
         actor_context.user,
         title,
         actor=actor_context.actor,
         api_key_id=actor_context.api_key_id,
     )
+    return await _task_read(db, task)
 
 
 @router.post(
@@ -120,14 +132,15 @@ async def create_task(
     payload: TaskCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
-) -> Task:
-    return await task_service.create_task(
+) -> TaskRead:
+    task = await task_service.create_task(
         db,
         actor_context.user,
         payload,
         actor=actor_context.actor,
         api_key_id=actor_context.api_key_id,
     )
+    return await _task_read(db, task)
 
 
 @router.post(
@@ -139,14 +152,15 @@ async def restore_task(
     task_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
-) -> Task:
-    return await task_service.restore_task(
+) -> TaskRead:
+    task = await task_service.restore_task(
         db,
         actor_context.user,
         task_id,
         actor=actor_context.actor,
         api_key_id=actor_context.api_key_id,
     )
+    return await _task_read(db, task)
 
 
 @router.get("/{task_id}", response_model=TaskRead)
@@ -154,8 +168,9 @@ async def get_task(
     task_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
-) -> Task:
-    return await task_service.get_task(db, actor_context.user, task_id)
+) -> TaskRead:
+    task = await task_service.get_task(db, actor_context.user, task_id)
+    return await _task_read(db, task)
 
 
 @router.patch("/{task_id}", response_model=TaskRead, dependencies=[Depends(verify_csrf_or_api_key)])
@@ -166,9 +181,9 @@ async def update_task(
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
     settings: Annotated[Settings, Depends(get_settings)],
     if_match: Annotated[int | None, Header(alias="If-Match")] = None,
-) -> Task:
+) -> TaskRead:
     try:
-        return await task_service.update_task(
+        task = await task_service.update_task(
             db,
             actor_context.user,
             task_id,
@@ -178,6 +193,7 @@ async def update_task(
             actor=actor_context.actor,
             api_key_id=actor_context.api_key_id,
         )
+        return await _task_read(db, task)
     except ConflictError as exc:
         _raise_conflict(exc)
 

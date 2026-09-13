@@ -1,9 +1,10 @@
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
+from dateutil.rrule import rrulestr
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,37 +29,82 @@ def _parse_rrule(rrule: str) -> dict[str, str]:
     return dict(part.split("=", 1) for part in rrule.split(";") if "=" in part)
 
 
+def _rule_dt(day: date) -> datetime:
+    return datetime.combine(day, time.min, tzinfo=LOCAL_TIMEZONE)
+
+
 def _next_due_date(rrule: str, mode: str, task: Task, completed_at: datetime) -> date | None:
-    parts = _parse_rrule(rrule)
-    interval = int(parts.get("INTERVAL", "1"))
+    if mode == RecurrenceMode.AFTER_COMPLETION.value:
+        anchor = completed_at.astimezone(LOCAL_TIMEZONE).date()
+        dtstart = _rule_dt(anchor)
+    else:
+        anchor = task.due_date or completed_at.astimezone(LOCAL_TIMEZONE).date()
+        dtstart = _rule_dt(anchor)
+
+    try:
+        rule = rrulestr(rrule, dtstart=dtstart)
+        next_occurrence = rule.after(_rule_dt(anchor), inc=False)
+    except Exception:
+        return None
+    return next_occurrence.date() if next_occurrence is not None else None
+
+
+def _series_template_id(task: Task) -> uuid.UUID:
+    return task.recurrence_template_id or task.id
+
+
+async def _series_instance_count(db: AsyncSession, task: Task) -> int:
+    template_id = _series_template_id(task)
+    result = await db.execute(
+        select(sa.func.count(Task.id)).where(
+            Task.owner_id == task.owner_id,
+            sa.or_(Task.id == template_id, Task.recurrence_template_id == template_id),
+            Task.deleted_at.is_(None),
+        )
+    )
+    return int(result.scalar_one() or 0)
+
+
+def _rrule_count(rrule: str) -> int | None:
+    value = _parse_rrule(rrule).get("COUNT")
+    if value is None:
+        return None
+    try:
+        return max(0, int(value))
+    except ValueError:
+        return None
+
+
+def _preview_recurrence_dates_from_count(
+    rrule: str, mode: str, task: Task, completed_at: datetime, existing_count: int, limit: int = 5
+) -> list[date]:
+    total_count = _rrule_count(rrule)
+    remaining_allowed = (
+        limit if total_count is None else max(0, min(limit, total_count - existing_count))
+    )
+    if remaining_allowed <= 0:
+        return []
+
     if mode == RecurrenceMode.AFTER_COMPLETION.value:
         anchor = completed_at.astimezone(LOCAL_TIMEZONE).date()
     else:
         anchor = task.due_date or completed_at.astimezone(LOCAL_TIMEZONE).date()
+    try:
+        rule = rrulestr(rrule, dtstart=_rule_dt(anchor))
+        occurrences = rule.xafter(_rule_dt(anchor), count=remaining_allowed, inc=False)
+    except Exception:
+        return []
+    return [occurrence.date() for occurrence in occurrences]
 
-    freq = parts["FREQ"]
-    if freq == "DAILY":
-        return anchor + timedelta(days=interval)
-    if freq == "WEEKLY":
-        byday = parts.get("BYDAY")
-        if byday:
-            targets = [
-                WEEKDAY_TO_INDEX[item] for item in byday.split(",") if item in WEEKDAY_TO_INDEX
-            ]
-            for offset in range(1, 7 * interval + 8):
-                candidate = anchor + timedelta(days=offset)
-                if candidate.weekday() in targets:
-                    return candidate
-        return anchor + timedelta(weeks=interval)
-    if freq == "MONTHLY":
-        month = anchor.month - 1 + interval
-        year = anchor.year + month // 12
-        month = month % 12 + 1
-        day = min(anchor.day, 28)
-        return date(year, month, day)
-    if freq == "YEARLY":
-        return date(anchor.year + interval, anchor.month, min(anchor.day, 28))
-    return None
+
+async def recurrence_preview_dates(db: AsyncSession, task: Task, limit: int = 5) -> list[date]:
+    if task.recurrence_rule is None or task.recurrence_mode is None:
+        return []
+    existing_count = await _series_instance_count(db, task)
+    now = datetime.now(UTC)
+    return _preview_recurrence_dates_from_count(
+        task.recurrence_rule, task.recurrence_mode, task, now, existing_count, limit
+    )
 
 
 async def _generate_next_recurrence_instance(
@@ -67,6 +113,10 @@ async def _generate_next_recurrence_instance(
     if task.recurrence_rule is None or task.recurrence_mode is None:
         return
     template_id = task.recurrence_template_id or task.id
+    existing_count = await _series_instance_count(db, task)
+    total_count = _rrule_count(task.recurrence_rule)
+    if total_count is not None and existing_count >= total_count:
+        return
     next_due = _next_due_date(task.recurrence_rule, task.recurrence_mode, task, completed_at)
     if next_due is None:
         return
@@ -203,6 +253,7 @@ async def list_tasks(
         (Task.priority == TaskPriority.LOW.value, 2),
         else_=3,
     )
+    order_by: tuple[sa.ColumnElement[object] | sa.InstrumentedAttribute[object], ...]
     if filters.view == TaskView.INBOX:
         order_by = (Task.created_at.desc(),)
     elif filters.view in {TaskView.TODAY, TaskView.TOMORROW, TaskView.OVERDUE}:

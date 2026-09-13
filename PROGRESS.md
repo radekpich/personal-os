@@ -4,6 +4,17 @@
 
 ## Hotovo
 
+- [x] 2026-09-13 09:49 UTC — Varianta A pro opakované úkoly: aktuální úkol + náhled dalších výskytů
+  - Backend úkolů vrací `recurrence_preview_dates`, počítané z aktuálního uloženého RRULE a série úkolu.
+  - Generování další instance přes `python-dateutil` respektuje `BYMONTHDAY=14` i další RRULE pravidla místo ručního zjednodušení.
+  - `COUNT` se nově bere jako celkový počet výskytů série; po dosažení limitu se další úkol nezaloží.
+  - Změna pravidla opakování přepočítá náhled po uložení; detail úkolu vysvětluje, že v seznamu je jen aktuální výskyt.
+  - UI přejmenovalo `Podle rozvrhu` na srozumitelnější `Podle kalendáře`, ponechalo `Po dokončení` a přidalo lidské vysvětlení obou režimů.
+  - Shrnutí konce opakování používá `celkem N výskytů` místo matoucího `po N opakováních`.
+  - Ověření backend: `ruff check app tests`; `mypy --strict app tests/test_recurrence.py`; `pytest -q tests/test_recurrence.py` → 6 passed.
+  - Ověření frontend: `npm run typecheck`; `NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` → OK.
+  - Preview restartováno na backend `:8030` a frontend `:3030`; API smoke pro úkol `Investovat kazdy mesic 10k do xtb` vrací `recurrence_preview_dates=[2026-10-14]`; Playwright smoke v detailu vidí `DALŠÍ VÝSKYTY • 14. 10. 2026`.
+
 - [x] 2026-09-13 05:52 UTC — Klikatelné statistiky Návyky jako rychlé filtry
   - Insight karty v horní statistice jsou nově tlačítka s `aria-pressed` a aktivním zvýrazněním.
   - Klik na `Nejkratší šňůra` filtruje seznam na návyky s nejnižší aktuální šňůrou.

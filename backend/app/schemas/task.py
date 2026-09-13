@@ -107,6 +107,7 @@ class TaskRead(BaseModel):
     source_detail: str | None
     recurrence_rule: str | None
     recurrence_mode: RecurrenceMode | None
+    recurrence_preview_dates: list[date] = Field(default_factory=list)
     position: int
     version: int
     created_by: str

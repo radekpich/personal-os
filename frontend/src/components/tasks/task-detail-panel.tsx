@@ -138,6 +138,7 @@ export function TaskDialog({ mode, open, task = null, initialTitle = "", categor
 
   const pending = create.isPending || update.isPending;
   const completedText = task?.completed_at ? formatCompletedAt(task.completed_at) : null;
+  const recurrencePreviewDates = task?.recurrence_preview_dates ?? [];
   const title = mode === "create" ? "Nový úkol" : "Detail úkolu";
   const description = mode === "create" ? "Vyplň všechny parametry úkolu na jednom místě." : "Uprav bez odchodu ze seznamu.";
 
@@ -177,16 +178,28 @@ export function TaskDialog({ mode, open, task = null, initialTitle = "", categor
                 }}
               />
               {recurrenceRule ? (
-                <fieldset className="grid gap-2 rounded-[var(--radius-lg)] border border-[var(--border)] p-3 text-sm">
+                <fieldset className="grid gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] p-3 text-sm">
                   <legend className="px-1 font-semibold">Typ opakování</legend>
-                  <label className="flex items-start gap-2">
+                  <p className="text-xs text-[var(--muted)]">V seznamu je vždy jen aktuální úkol. Další výskyt vznikne po označení aktuálního jako hotového; níže vidíš náhled dalších termínů.</p>
+                  <label className="flex items-start gap-2 rounded-[var(--radius-md)] p-2 hover:bg-[var(--surface-muted)]">
                     <input type="radio" value="fixed" {...form.register("recurrence_mode")} />
-                    <span><strong>Podle rozvrhu</strong> — další termín podle pravidla, i když jsem předchozí nesplnil (fakturace každé pondělí).</span>
+                    <span><strong>Podle kalendáře</strong> — drží pevný plán. Např. „každého 14.“ zůstane 14. den v měsíci, i když úkol dokončíš později.</span>
                   </label>
-                  <label className="flex items-start gap-2">
+                  <label className="flex items-start gap-2 rounded-[var(--radius-md)] p-2 hover:bg-[var(--surface-muted)]">
                     <input type="radio" value="after_completion" {...form.register("recurrence_mode")} />
-                    <span><strong>Po dokončení</strong> — další termín se počítá od chvíle, kdy úkol zavřu (výměna podestýlky 7 dní po té minulé).</span>
+                    <span><strong>Po dokončení</strong> — další termín se počítá až od chvíle, kdy úkol zavřeš. Hodí se pro věci typu „za 7 dní po poslední výměně“.</span>
                   </label>
+                  <div className="rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Další výskyty</p>
+                    {recurrencePreviewDates.length ? (
+                      <ul className="mt-2 grid gap-1">
+                        {recurrencePreviewDates.map((date) => <li key={date}>• {formatDateOnly(date)}</li>)}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-[var(--muted)]">Žádný další výskyt podle aktuálního uloženého pravidla.</p>
+                    )}
+                    {form.formState.isDirty ? <p className="mt-2 text-xs text-[var(--muted)]">Změny opakování se do náhledu přesně promítnou po uložení.</p> : null}
+                  </div>
                 </fieldset>
               ) : null}
               <div className="grid gap-2">
@@ -221,6 +234,11 @@ function formatCompletedAt(value: string) {
   const date = new Date(value);
   const formatted = new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" }).format(date);
   return `Splněno ${formatted}`;
+}
+
+function formatDateOnly(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  return new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium" }).format(date);
 }
 
 function Select({ label, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {

@@ -379,7 +379,7 @@ function summarizeBase(frequency: FrequencyValue, interval: number, weekdays: nu
 }
 
 function summarizeEnding(options: Partial<Options>): string | null {
-  if (options.count) return `po ${options.count} opakováních`;
+  if (options.count) return `celkem ${options.count} ${occurrenceWord(options.count)}`;
   if (options.until instanceof Date) return `do ${formatDate(options.until)}`;
   return null;
 }
@@ -432,4 +432,10 @@ function toDateInput(date: Date) {
 
 function formatDate(date: Date) {
   return `${date.getDate()}. ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function occurrenceWord(count: number) {
+  if (count === 1) return "výskyt";
+  if (count >= 2 && count <= 4) return "výskyty";
+  return "výskytů";
 }

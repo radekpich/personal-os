@@ -505,6 +505,7 @@ export type Task = VersionedAuditFields & {
   source_detail: string | null;
   recurrence_rule: string | null;
   recurrence_mode: RecurrenceMode | null;
+  recurrence_preview_dates: string[];
   position: number;
   tags: Tag[];
   created_at: string;

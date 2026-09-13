@@ -122,6 +122,82 @@ async def test_after_completion_recurring_task_generates_from_completed_at(
     assert items[0]["recurrence_template_id"] == created.json()["id"]
 
 
+async def test_monthly_count_preview_and_generation_stop_after_count(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    headers = await _login(client, csrf_headers, test_user)
+    created = await client.post(
+        "/tasks",
+        json={
+            "title": "Investovat do XTB",
+            "status": "todo",
+            "due_date": "2026-09-14",
+            "recurrence_rule": "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=14;COUNT=2",
+            "recurrence_mode": "fixed",
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201
+    assert created.json()["recurrence_preview_dates"] == ["2026-10-14"]
+
+    first_done = await client.patch(
+        f"/tasks/{created.json()['id']}",
+        json={"status": "done"},
+        headers={**headers, "If-Match": str(created.json()["version"])},
+    )
+    assert first_done.status_code == 200
+
+    listed = await client.get("/tasks", params={"status": "todo"})
+    assert listed.status_code == 200
+    items = listed.json()["items"]
+    assert len(items) == 1
+    next_task = items[0]
+    assert next_task["due_date"] == "2026-10-14"
+    assert next_task["recurrence_preview_dates"] == []
+
+    second_done = await client.patch(
+        f"/tasks/{next_task['id']}",
+        json={"status": "done"},
+        headers={**headers, "If-Match": str(next_task["version"])},
+    )
+    assert second_done.status_code == 200
+
+    listed_after_second = await client.get("/tasks", params={"status": "todo"})
+    assert listed_after_second.status_code == 200
+    assert listed_after_second.json()["items"] == []
+
+
+async def test_updating_recurrence_rule_recomputes_preview(
+    client: AsyncClient,
+    test_user: User,
+    csrf_headers: CsrfHeaders,
+) -> None:
+    headers = await _login(client, csrf_headers, test_user)
+    created = await client.post(
+        "/tasks",
+        json={
+            "title": "Měsíční kontrola",
+            "status": "todo",
+            "due_date": "2026-09-16",
+            "recurrence_rule": "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=16;COUNT=3",
+            "recurrence_mode": "fixed",
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201
+    assert created.json()["recurrence_preview_dates"] == ["2026-10-16", "2026-11-16"]
+
+    updated = await client.patch(
+        f"/tasks/{created.json()['id']}",
+        json={"recurrence_rule": "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=14;COUNT=3"},
+        headers={**headers, "If-Match": str(created.json()["version"])},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["recurrence_preview_dates"] == ["2026-10-14", "2026-11-14"]
+
+
 async def test_invalid_rrule_is_rejected(
     client: AsyncClient,
     test_user: User,
