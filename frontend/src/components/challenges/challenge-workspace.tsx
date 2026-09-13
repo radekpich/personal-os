@@ -1,6 +1,7 @@
 "use client";
 
-import { Activity, CheckCircle2, Flame, Plus, ShieldCheck } from "lucide-react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { Activity, CheckCircle2, Flame, Plus, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   useChallengeHeatmap,
@@ -18,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActionButton } from "@/components/ui/action-buttons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { FilterBar, FilterSelect } from "@/components/ui/filter-bar";
 import { ChallengeDialog } from "@/components/challenges/challenge-dialog";
 
 const challengeTypeLabels: Record<ChallengeType, string> = {
@@ -41,8 +41,9 @@ export function ChallengeWorkspace() {
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Challenge | null>(null);
   const [pendingDate, setPendingDate] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [presetFilter, setPresetFilter] = useState<ChallengePreset>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<ChallengeFilters>(() => defaultChallengeFilters);
 
   const year = new Date().getFullYear();
   const deleteImpact = useChallengeStats(deleteTarget?.id ?? null);
@@ -50,12 +51,20 @@ export function ChallengeWorkspace() {
   const filteredChallenges = useMemo(() => {
     const items = challenges.data?.items ?? [];
     return items.filter((challenge) => {
-      if (categoryFilter !== "all" && challenge.category_id !== categoryFilter) return false;
-      if (statusFilter === "active" && !challenge.is_active) return false;
-      if (statusFilter === "paused" && challenge.is_active) return false;
+      if (!matchesPreset(challenge, presetFilter)) return false;
+      if (advancedFilters.type !== "all" && challenge.type !== advancedFilters.type) return false;
+      if (advancedFilters.categoryId !== "all" && challenge.category_id !== advancedFilters.categoryId) return false;
+      if (advancedFilters.status === "active" && !challenge.is_active) return false;
+      if (advancedFilters.status === "paused" && challenge.is_active) return false;
+      if (advancedFilters.streak === "zero" && challenge.current_streak !== 0) return false;
+      if (advancedFilters.streak === "short" && challenge.current_streak > 3) return false;
+      if (advancedFilters.streak === "strong" && challenge.current_streak < 7) return false;
       return true;
     });
-  }, [challenges.data?.items, categoryFilter, statusFilter]);
+  }, [advancedFilters, challenges.data?.items, presetFilter]);
+
+  const insights = useMemo(() => buildChallengeInsights(challenges.data?.items ?? []), [challenges.data?.items]);
+  const activeAdvancedCount = countChallengeFilters(advancedFilters);
 
   function openCreate() {
     setEditingChallenge(null);
@@ -85,7 +94,7 @@ export function ChallengeWorkspace() {
   async function oneTap(challenge: Challenge) {
     await checkIn.mutateAsync({
       id: challenge.id,
-      payload: challenge.type === "abstinence" ? { is_relapse: true } : { is_relapse: false },
+      payload: { date: todayPrague(), is_relapse: challenge.type === "abstinence" },
     });
   }
 
@@ -111,23 +120,25 @@ export function ChallengeWorkspace() {
 
   return (
     <div className="grid min-w-0 max-w-full gap-4">
-      <div className="panel flex min-w-0 max-w-full flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
-        <div className="min-w-0">
-          <p className="text-sm text-[var(--muted)]">
-            Daily akce se počítá z reálných zápisů; abstinence běží od startu a zapisuje jen relaps.
-          </p>
-          <h2 className="text-xl font-semibold">Návyky a výzvy</h2>
+      <div className="panel grid min-w-0 max-w-full gap-4 p-4 sm:p-5">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold">Návyky a výzvy</h2>
+          </div>
+          <Button onClick={openCreate}><Plus size={16}/>Nová výzva</Button>
         </div>
-        <Badge>{formatCzechCount(challenges.data?.items.length ?? 0, "aktivní měření", "aktivní měření", "aktivních měření")}</Badge>
-        <Button onClick={openCreate}><Plus size={16}/>Nová výzva</Button>
+        <div className="grid min-w-0 grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-5">
+          {insights.map((insight) => <InsightCard key={insight.label} label={insight.label} value={insight.value} hint={insight.hint} tone={insight.tone} />)}
+        </div>
       </div>
 
-      <Filters
-        categoryId={categoryFilter}
-        status={statusFilter}
-        categories={categories.data?.items ?? []}
-        onCategory={setCategoryFilter}
-        onStatus={setStatusFilter}
+      <ChallengeFilterStrip
+        preset={presetFilter}
+        onPreset={setPresetFilter}
+        filteredCount={filteredChallenges.length}
+        totalCount={challenges.data?.items.length ?? 0}
+        advancedCount={activeAdvancedCount}
+        onOpenFilters={() => setFiltersOpen(true)}
       />
 
       {challenges.isLoading ? <p className="panel p-5 text-[var(--muted)]">Načítám návyky…</p> : null}
@@ -157,6 +168,14 @@ export function ChallengeWorkspace() {
       </div>
 
       <ChallengeDialog open={dialogOpen} challenge={editingChallenge} onClose={() => setDialogOpen(false)} />
+      {filtersOpen ? (
+        <ChallengeFilterDialog
+          initial={advancedFilters}
+          categories={categories.data?.items ?? []}
+          onApply={(filters) => { setAdvancedFilters(filters); setFiltersOpen(false); }}
+          onClose={() => setFiltersOpen(false)}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -177,29 +196,99 @@ export function ChallengeWorkspace() {
   );
 }
 
-function Filters({ categoryId, status, categories, onCategory, onStatus }: {
-  categoryId: string;
-  status: string;
-  categories: { id: string; name: string }[];
-  onCategory: (value: string) => void;
-  onStatus: (value: string) => void;
-}) {
+type ChallengePreset = "all" | "active" | "paused" | "daily_action" | "abstinence";
+type ChallengeFilters = { type: ChallengeType | "all"; categoryId: string; status: "all" | "active" | "paused"; streak: "all" | "zero" | "short" | "strong" };
+const defaultChallengeFilters: ChallengeFilters = { type: "all", categoryId: "all", status: "all", streak: "all" };
+const challengePresets: Array<{ value: ChallengePreset; label: string }> = [
+  { value: "all", label: "Vše" },
+  { value: "active", label: "Aktivní" },
+  { value: "paused", label: "Pauza" },
+  { value: "daily_action", label: "Denní" },
+  { value: "abstinence", label: "Abstinence" },
+];
+
+function matchesPreset(challenge: Challenge, preset: ChallengePreset) {
+  if (preset === "active") return challenge.is_active;
+  if (preset === "paused") return !challenge.is_active;
+  if (preset === "daily_action" || preset === "abstinence") return challenge.type === preset;
+  return true;
+}
+
+function countChallengeFilters(filters: ChallengeFilters) {
+  return [filters.type !== "all", filters.categoryId !== "all", filters.status !== "all", filters.streak !== "all"].filter(Boolean).length;
+}
+
+function buildChallengeInsights(items: Challenge[]) {
+  const active = items.filter((item) => item.is_active);
+  const source = active.length ? active : items;
+  const shortest = source.reduce<Challenge | null>((best, item) => (!best || item.current_streak < best.current_streak ? item : best), null);
+  const best = source.reduce<Challenge | null>((top, item) => (!top || item.current_streak > top.current_streak ? item : top), null);
+  const worst = source.filter((item) => item.current_streak === 0).length || source.reduce<Challenge | null>((low, item) => (!low || item.longest_streak - item.current_streak > low.longest_streak - low.current_streak ? item : low), null)?.title || "—";
+  const record = source.reduce((max, item) => Math.max(max, item.longest_streak), 0);
+  return [
+    { label: "Nejkratší šňůra", value: shortest ? formatCzechCount(shortest.current_streak, "den", "dny", "dní") : "—", hint: shortest?.title ?? "bez návyků", tone: "warning" as const },
+    { label: "Nejlepší", value: best ? formatCzechCount(best.current_streak, "den", "dny", "dní") : "—", hint: best?.title ?? "bez dat", tone: "success" as const },
+    { label: "Nejhorší", value: typeof worst === "number" ? formatCzechCount(worst, "nulová", "nulové", "nulových") : worst, hint: typeof worst === "number" ? "bez šňůry" : "největší propad", tone: "danger" as const },
+    { label: "Aktivní", value: active.length, hint: `${items.length} celkem`, tone: "neutral" as const },
+    { label: "Rekord", value: formatCzechCount(record, "den", "dny", "dní"), hint: "nejdelší série", tone: "neutral" as const },
+  ];
+}
+
+function InsightCard({ label, value, hint, tone }: { label: string; value: string | number; hint: string; tone: "neutral" | "success" | "warning" | "danger" }) {
+  return <div className={cn("min-w-0 rounded-[var(--radius-md)] border p-2.5", tone === "success" && "border-[var(--success)]/30 bg-[var(--success)]/10", tone === "warning" && "border-[var(--warning)]/30 bg-[var(--warning)]/10", tone === "danger" && "border-[var(--danger)]/30 bg-[var(--danger)]/10", tone === "neutral" && "border-[var(--border)] bg-[var(--surface-muted)]")}><p className="truncate text-[11px] text-[var(--muted)]">{label}</p><p className="truncate text-base font-semibold">{value}</p><p className="truncate text-[11px] text-[var(--muted)]">{hint}</p></div>;
+}
+
+function ChallengeFilterStrip({ preset, onPreset, filteredCount, totalCount, advancedCount, onOpenFilters }: { preset: ChallengePreset; onPreset: (value: ChallengePreset) => void; filteredCount: number; totalCount: number; advancedCount: number; onOpenFilters: () => void }) {
   return (
-    <FilterBar>
-      <FilterSelect
-        aria-label="Kategorie"
-        value={categoryId}
-        onChange={onCategory}
-        options={[{ value: "all", label: "Všechny kategorie" }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
-      />
-      <FilterSelect
-        aria-label="Stav"
-        value={status}
-        onChange={onStatus}
-        options={[{ value: "all", label: "Vše" }, { value: "active", label: "Aktivní" }, { value: "paused", label: "Pozastavené" }]}
-      />
-    </FilterBar>
+    <div className="panel flex min-w-0 max-w-full items-center gap-2 overflow-hidden p-2 sm:p-3">
+      <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Rychlé filtry návyků">
+        {challengePresets.map((view) => (
+          <button key={view.value} type="button" onClick={() => onPreset(view.value)} className={cn("focus-ring inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-medium transition", preset === view.value ? "border-[var(--accent)] bg-[var(--accent)] text-white" : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]")} aria-pressed={preset === view.value}>
+            {view.label}
+          </button>
+        ))}
+      </div>
+      <Badge className="hidden shrink-0 sm:inline-flex">{filteredCount}/{totalCount}</Badge>
+      <Button variant={advancedCount > 0 ? "default" : "secondary"} onClick={onOpenFilters} className="shrink-0">
+        <SlidersHorizontal size={16} /> Filtry {advancedCount > 0 ? <Badge className="bg-white/20 px-2 py-0.5 text-xs text-current">{advancedCount}</Badge> : null}
+      </Button>
+    </div>
   );
+}
+
+function ChallengeFilterDialog({ initial, categories, onApply, onClose }: { initial: ChallengeFilters; categories: { id: string; name: string }[]; onApply: (filters: ChallengeFilters) => void; onClose: () => void }) {
+  const [draft, setDraft] = useState<ChallengeFilters>(initial);
+  return (
+    <Dialog.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-[51] flex h-[96dvh] max-h-[96dvh] flex-col overflow-hidden rounded-t-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:h-dvh sm:w-full sm:max-w-xl sm:rounded-none sm:border-l">
+          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--border)] p-4 sm:p-6">
+            <div className="min-w-0"><Dialog.Title className="text-lg font-semibold">Filtry návyků</Dialog.Title><Dialog.Description className="text-sm text-[var(--muted)]">Vyber jen výzvy, které chceš právě řešit.</Dialog.Description></div>
+            <Dialog.Close asChild><Button variant="ghost" size="sm" aria-label="Zavřít filtry"><X size={18}/></Button></Dialog.Close>
+          </div>
+          <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto p-4 pb-24 sm:p-6">
+            <Select label="Typ návyku" value={draft.type} onChange={(value) => setDraft((current) => ({ ...current, type: value as ChallengeType | "all" }))} options={[{ value: "all", label: "Libovolný typ" }, { value: "daily_action", label: "Denní akce" }, { value: "abstinence", label: "Abstinence" }]} />
+            <Select label="Kategorie" value={draft.categoryId} onChange={(value) => setDraft((current) => ({ ...current, categoryId: value }))} options={[{ value: "all", label: "Libovolná kategorie" }, ...categories.map((category) => ({ value: category.id, label: category.name }))]} />
+            <Select label="Stav" value={draft.status} onChange={(value) => setDraft((current) => ({ ...current, status: value as ChallengeFilters["status"] }))} options={[{ value: "all", label: "Libovolný stav" }, { value: "active", label: "Aktivní" }, { value: "paused", label: "Pozastavené" }]} />
+            <Select label="Šňůra" value={draft.streak} onChange={(value) => setDraft((current) => ({ ...current, streak: value as ChallengeFilters["streak"] }))} options={[{ value: "all", label: "Libovolná" }, { value: "zero", label: "Bez šňůry" }, { value: "short", label: "Krátká do 3 dnů" }, { value: "strong", label: "Silná 7+ dnů" }]} />
+          </div>
+          <div className="relative z-10 flex shrink-0 justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6">
+            <Button type="button" variant="ghost" onClick={() => onApply(defaultChallengeFilters)}>Vyčistit</Button>
+            <Button type="button" onClick={() => onApply(draft)}>Použít filtry</Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function Select({ label, value, options, onChange }: { label: string; value: string; options: Array<{ value: string; label: string }>; onChange: (value: string) => void }) {
+  return <label className="grid gap-1 text-sm font-medium">{label}<select className="focus-ring min-h-11 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 text-sm" value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+}
+
+function todayPrague() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
 function ChallengeCard({ challenge, expanded, pending, pendingDate, year, onToggleDetail, onOneTap, onEdit, onDelete, onCheckInToggle }: {
@@ -215,6 +304,12 @@ function ChallengeCard({ challenge, expanded, pending, pendingDate, year, onTogg
   onCheckInToggle: (challenge: Challenge, day: ChallengeHeatmapDay) => void;
 }) {
   const Icon = challenge.type === "abstinence" ? ShieldCheck : Activity;
+  const todayStr = todayPrague();
+  const todayHeatmap = useChallengeHeatmap(challenge.id, Number(todayStr.slice(0, 4)));
+  const todayCell = todayHeatmap.data?.days.find((day) => day.date === todayStr);
+  const checkedToday = Boolean(todayCell?.has_check_in);
+  const doneLabel = challenge.type === "abstinence" ? "Relaps zapsán" : "Splněno dnes";
+  const todoLabel = challenge.type === "abstinence" ? "Zapsat relaps" : "Hotovo dnes";
   return (
     <article className={cn("panel min-w-0 max-w-full p-4 transition sm:p-5", expanded && "ring-2 ring-[var(--primary)]")}>
       <button className="w-full min-w-0 text-left" onClick={onToggleDetail}>
@@ -244,8 +339,15 @@ function ChallengeCard({ challenge, expanded, pending, pendingDate, year, onTogg
           {challenge.target_days ? <Badge>cíl {formatCzechCount(challenge.target_days, "den", "dny", "dní")}</Badge> : null}
         </div>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
-          <Button size="sm" variant={challenge.type === "abstinence" ? "danger" : "default"} onClick={onOneTap} disabled={pending}>
-            {challenge.type === "abstinence" ? <Flame size={15} /> : <CheckCircle2 size={15} />} {challenge.type === "abstinence" ? "Zapsat relaps" : "Hotovo dnes"}
+          <Button
+            size="sm"
+            variant={checkedToday ? "secondary" : challenge.type === "abstinence" ? "danger" : "default"}
+            onClick={onOneTap}
+            disabled={pending || checkedToday}
+            aria-pressed={checkedToday}
+            className={cn(checkedToday && "border-[var(--success)] bg-[var(--success)]/12 text-[var(--success)]")}
+          >
+            {challenge.type === "abstinence" ? <Flame size={15} /> : <CheckCircle2 size={15} />} {checkedToday ? doneLabel : todoLabel}
           </Button>
           <ActionButton icon="edit" label="Upravit výzvu" onClick={onEdit} />
           <ActionButton icon="delete" label="Smazat výzvu" danger onClick={onDelete} />
@@ -266,7 +368,7 @@ function ChallengeDetail({ challenge, year, pendingDate, onCheckInToggle }: {
 }) {
   const stats = useChallengeStats(challenge.id);
   const heatmap = useChallengeHeatmap(challenge.id, year);
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayStr = useMemo(() => todayPrague(), []);
   const cutoffStr = useMemo(() => {
     const cutoff = new Date(`${todayStr}T00:00:00`);
     cutoff.setDate(cutoff.getDate() - BACKFILL_LIMIT_DAYS);

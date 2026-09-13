@@ -4,6 +4,15 @@
 
 ## Hotovo
 
+- [x] 2026-09-13 05:40 UTC — Přehlednější Návyky: insighty, filtry jako Úkoly, jasné splnění dnes
+  - Odstraněn horní popis z karty Návyky a výzvy.
+  - Přidány úvodní insight karty: nejkratší šňůra, nejlepší, nejhorší, aktivní/celkem a rekord.
+  - Filtry předělané podle Úkolů: horizontální rychlé presety (`Vše`, `Aktivní`, `Pauza`, `Denní`, `Abstinence`) + tlačítko `Filtry` s bottom-sheet dialogem.
+  - Dialog filtrů obsahuje typ návyku, kategorii, stav a šňůru; má stejný fixed header / scroll body / footer pattern jako úkoly.
+  - `Hotovo dnes` používá dnešní Prague datum, po zápisu se změní na jasné `Splněno dnes` se zeleným stavem a `aria-pressed=true`; abstinence po zápisu ukáže `Relaps zapsán`.
+  - Ověřeno cíleným Playwright testem na Pixel 5: horní popis pryč, presety + dialog viditelné, po kliknutí `Hotovo dnes` se karta přepne na `Splněno dnes`, bez horizontálního overflow.
+  - Prošlo `npm run lint && npm run typecheck && NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` a `npm run phase8b:mobile-regression-smoke`.
+
 - [x] 2026-09-12 18:48 UTC — Zjednodušení Deníku a detailu výzvy
   - V Deníku odstraněno duplicitní horní tlačítko `Nový zápis`; nový plný zápis zůstává přes rychlý řádek `+ Plný`.
   - V Deníku odstraněn filtr `Všechny typy`; zůstává pouze vyhledávání.
