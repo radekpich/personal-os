@@ -20,6 +20,64 @@ export type VisionStatus = "active" | "paused" | "achieved" | "abandoned";
 export type ChallengeType = "daily_action" | "abstinence";
 export type AttachmentProcessingStatus = "pending" | "ready" | "failed";
 
+export type CalendarRequestOperation = "create" | "update" | "delete";
+export type CalendarRequestStatus = "pending" | "claimed" | "done" | "failed" | "cancelled";
+
+export type ExternalCalendar = {
+  id: UUID;
+  owner_id: UUID;
+  external_id: string;
+  name: string;
+  color: string | null;
+  can_write: boolean;
+  is_shared: boolean;
+  is_primary: boolean;
+  is_enabled: boolean;
+  is_default: boolean;
+  last_synced_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CalendarRequest = {
+  id: UUID;
+  owner_id: UUID;
+  task_id: UUID;
+  operation: CalendarRequestOperation;
+  calendar_external_id: string;
+  calendar_name: string | null;
+  calendar_color: string | null;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+  reminder_minutes: number | null;
+  status: CalendarRequestStatus;
+  claimed_at: string | null;
+  claimed_by: UUID | null;
+  completed_at: string | null;
+  external_event_id: string | null;
+  external_event_link: string | null;
+  error_message: string | null;
+  attempt_count: number;
+  idempotency_key: string;
+  created_at: string;
+};
+
+export type CalendarRequestCreate = {
+  operation?: CalendarRequestOperation;
+  calendar_external_id: string;
+  title?: string | null;
+  description?: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day?: boolean;
+  reminder_minutes?: number | null;
+  idempotency_key: string;
+};
+
+
 export type Attachment = {
   id: UUID;
   owner_id: UUID;
@@ -506,6 +564,7 @@ export type Task = VersionedAuditFields & {
   recurrence_rule: string | null;
   recurrence_mode: RecurrenceMode | null;
   recurrence_preview_dates: string[];
+  calendar_request: CalendarRequest | null;
   position: number;
   tags: Tag[];
   created_at: string;

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task
 from app.models.user import User
+from app.services.external_calendar_service import task_has_external_calendar_event_clause
 
 VTIMEZONE_EUROPE_PRAGUE = """BEGIN:VTIMEZONE\r
 TZID:Europe/Prague\r
@@ -80,7 +81,12 @@ async def get_user_by_calendar_token(db: AsyncSession, token: str) -> User | Non
 async def render_calendar_for_user(db: AsyncSession, user: User) -> str:
     result = await db.execute(
         select(Task)
-        .where(Task.owner_id == user.id, Task.deleted_at.is_(None), Task.due_date.is_not(None))
+        .where(
+            Task.owner_id == user.id,
+            Task.deleted_at.is_(None),
+            Task.due_date.is_not(None),
+            ~task_has_external_calendar_event_clause(),
+        )
         .order_by(Task.due_date, Task.due_time, Task.position, Task.created_at)
     )
     tasks = list(result.scalars().all())

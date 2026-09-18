@@ -10,7 +10,7 @@ from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models.task import Task, TaskPriority, TaskSource, TaskStatus
 from app.schemas.task import TaskCreate, TaskList, TaskRead, TaskUpdate, TaskView
-from app.services import task_service
+from app.services import external_calendar_service, task_service
 from app.services.concurrency import ConflictError
 from app.services.task_service import TaskListFilters
 
@@ -30,16 +30,23 @@ def _require_if_match(if_match: int | None) -> int:
     return if_match
 
 
-
-
 async def _task_read(db: AsyncSession, task: Task) -> TaskRead:
+    request = await external_calendar_service.latest_request_for_task(db, task.owner_id, task.id)
     return TaskRead.model_validate(task).model_copy(
-        update={"recurrence_preview_dates": await task_service.recurrence_preview_dates(db, task)}
+        update={
+            "recurrence_preview_dates": await task_service.recurrence_preview_dates(db, task),
+            "calendar_request": (
+                await external_calendar_service.serialize_request(db, request)
+                if request is not None
+                else None
+            ),
+        }
     )
 
 
 async def _task_reads(db: AsyncSession, tasks: list[Task]) -> list[TaskRead]:
     return [await _task_read(db, task) for task in tasks]
+
 
 def _raise_conflict(exc: ConflictError) -> NoReturn:
     raise HTTPException(
@@ -209,6 +216,7 @@ async def delete_task(
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
     settings: Annotated[Settings, Depends(get_settings)],
     if_match: Annotated[int | None, Header(alias="If-Match")] = None,
+    delete_calendar_event: bool = False,
 ) -> Response:
     try:
         await task_service.delete_task(
@@ -219,6 +227,7 @@ async def delete_task(
             fresh_user_edit_guard_minutes=settings.fresh_user_edit_guard_minutes,
             actor=actor_context.actor,
             api_key_id=actor_context.api_key_id,
+            delete_calendar_event=delete_calendar_event,
         )
     except ConflictError as exc:
         _raise_conflict(exc)

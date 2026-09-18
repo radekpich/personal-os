@@ -11,6 +11,9 @@ import type {
   AgentRun,
   AgentWatch,
   Attachment,
+  CalendarRequest,
+  CalendarRequestCreate,
+  ExternalCalendar,
   AttachmentUpdate,
   Category,
   Challenge,
@@ -190,7 +193,7 @@ export const api = {
   quickTask: (title: string) => request<Task>("/tasks/quick", { method: "POST", text: title }),
   createTask: (payload: TaskCreate) => request<Task>("/tasks", { method: "POST", json: payload }),
   updateTask: (id: string, payload: TaskUpdate, version: number) => request<Task>(`/tasks/${id}`, { method: "PATCH", json: payload, ifMatch: version }),
-  deleteTask: (id: string, version: number) => request<void>(`/tasks/${id}`, { method: "DELETE", ifMatch: version }),
+  deleteTask: (id: string, version: number, deleteCalendarEvent = false) => request<void>(`/tasks/${id}`, { method: "DELETE", ifMatch: version, params: { delete_calendar_event: deleteCalendarEvent } }),
   restoreTask: (id: string) => request<Task>(`/tasks/${id}/restore`, { method: "POST" }),
   taskAttachments: (taskId: string) => request<ListResponse<Attachment>>(`/tasks/${taskId}/attachments`),
   uploadAttachment: (file: File, caption?: string | null) => {
@@ -231,6 +234,14 @@ export const api = {
   updateVision: (id: string, payload: VisionUpdate) => request<Vision>(`/visions/${id}`, { method: "PATCH", json: payload }),
   visionDeleteImpact: (id: string) => request<VisionDeleteImpact>(`/visions/${id}/delete-impact`),
   deleteVision: (id: string, deleteChildren = false) => request<void>(`/visions/${id}`, { method: "DELETE", params: { delete_children: deleteChildren } }),
+  externalCalendars: () => request<ListResponse<ExternalCalendar>>("/external-calendars"),
+  updateExternalCalendar: (id: string, payload: Partial<Pick<ExternalCalendar, "is_enabled" | "is_default">>) =>
+    request<ListResponse<ExternalCalendar>>(`/external-calendars/${id}`, { method: "PATCH", json: payload }),
+  createCalendarRequest: (taskId: string, payload: CalendarRequestCreate) =>
+    request<CalendarRequest>(`/tasks/${taskId}/calendar-request`, { method: "POST", json: payload }),
+  retryCalendarRequest: (id: string) => request<CalendarRequest>(`/calendar-requests/${id}/retry`, { method: "POST" }),
+  cancelCalendarRequest: (id: string) => request<CalendarRequest>(`/calendar-requests/${id}`, { method: "DELETE" }),
+  disconnectCalendarRequest: (id: string) => request<CalendarRequest>(`/calendar-requests/${id}/disconnect`, { method: "POST" }),
   regenerateCalendarToken: () => request<User>("/calendar/regenerate-token", { method: "POST" }),
 };
 

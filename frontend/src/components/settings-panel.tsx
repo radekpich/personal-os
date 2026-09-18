@@ -13,14 +13,16 @@ import {
   useDeleteCategory,
   useDeleteContext,
   useDeleteTag,
+  useExternalCalendars,
   useMe,
   useStorageUsage,
   useTaxonomy,
   useUpdateCategory,
   useUpdateContext,
+  useUpdateExternalCalendar,
   useUpdateTag,
 } from "@/lib/api/hooks";
-import type { Category, Context, Tag } from "@/lib/api/types";
+import type { Category, Context, ExternalCalendar, Tag } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { ActionButton } from "@/components/ui/action-buttons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -99,12 +101,73 @@ export function SettingsPanel() {
         {regenerate.isSuccess ? <p className="mt-3 text-sm text-[var(--success)]">Token byl přegenerovaný. Starý odkaz přestal fungovat.</p> : null}
       </section>
 
+      <ExternalCalendarsSection />
+
       <section className="panel p-5 sm:p-6">
         <h2 className="text-xl font-semibold">Klávesové zkratky</h2>
         <dl className="mt-4 grid gap-2 text-sm text-[var(--muted)] sm:grid-cols-2"><dt>Cmd/Ctrl+N</dt><dd>Rychlý zápis</dd><dt>Cmd/Ctrl+K</dt><dd>Command palette</dd><dt>Cmd/Ctrl+1–4</dt><dd>Pohledy: Dashboard, Úkoly, Inbox, Nastavení</dd></dl>
       </section>
     </div>
   );
+}
+
+function ExternalCalendarsSection() {
+  const calendars = useExternalCalendars();
+  const update = useUpdateExternalCalendar();
+  const items = calendars.data?.items ?? [];
+
+  async function updateCalendar(calendar: ExternalCalendar, payload: Partial<Pick<ExternalCalendar, "is_enabled" | "is_default">>) {
+    await update.mutateAsync({ id: calendar.id, payload });
+  }
+
+  return (
+    <section className="panel p-5 sm:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold">Google kalendáře přes agenta</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">Seznam zapisovatelných kalendářů hlásí agent. Aplikace neukládá OAuth ani Google tokeny.</p>
+        </div>
+        <Button type="button" variant="secondary" size="sm" onClick={() => void calendars.refetch()} disabled={calendars.isFetching}>
+          <RefreshCcw size={14} />Obnovit
+        </Button>
+      </div>
+      {calendars.isLoading ? <p className="mt-4 text-sm text-[var(--muted)]">Načítám kalendáře…</p> : null}
+      {!calendars.isLoading && !items.length ? (
+        <p className="mt-4 rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] p-4 text-sm text-[var(--muted)]">
+          Agent zatím nenahlásil žádný kalendář. Spusť synchronizaci podle sekce <code>Kalendář</code> v AGENT.md; aplikace potom nabídne jen kalendáře s právem zápisu.
+        </p>
+      ) : null}
+      {items.length ? (
+        <div className="mt-4 grid gap-3">
+          {items.map((calendar) => (
+            <div key={calendar.id} className="grid gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] p-3 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="size-3 rounded-full" style={{ background: calendar.color ?? "#64748b" }} />
+                  <strong>{calendar.name}</strong>
+                  {calendar.is_shared ? <span className="rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-xs text-[var(--muted)]">sdílený</span> : null}
+                  {calendar.is_primary ? <span className="rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-xs text-[var(--muted)]">primární</span> : null}
+                </div>
+                <p className="mt-1 text-xs text-[var(--muted)]">Poslední aktualizace: {formatDateTime(calendar.last_synced_at)}</p>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={calendar.is_enabled} disabled={!calendar.can_write || update.isPending} onChange={(event) => void updateCalendar(calendar, { is_enabled: event.target.checked })} />
+                nabízet u úkolů
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="default-calendar" checked={calendar.is_default} disabled={!calendar.can_write || update.isPending} onChange={() => void updateCalendar(calendar, { is_default: true })} />
+                výchozí
+              </label>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
 function ThemeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {

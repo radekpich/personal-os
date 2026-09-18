@@ -466,16 +466,28 @@ async def update_task(
     if "priority" in changes and payload.priority is not None:
         task.priority = payload.priority.value
 
+    calendar_relevant_fields = {"title", "description", "due_date", "due_time", "estimate_minutes"}
+    should_update_calendar = bool(calendar_relevant_fields.intersection(changes))
+    completed_calendar_marker = False
+
     if "status" in changes and payload.status is not None:
         new_status = payload.status
         if new_status == TaskStatus.DONE and task.status != TaskStatus.DONE.value:
             task.completed_at = datetime.now(UTC)
             task.completed_by = actor.value
+            completed_calendar_marker = True
             await _generate_next_recurrence_instance(db, task, task.completed_at)
         elif new_status != TaskStatus.DONE:
             task.completed_at = None
             task.completed_by = None
         task.status = new_status.value
+
+    if should_update_calendar or completed_calendar_marker:
+        from app.services import external_calendar_service
+
+        await external_calendar_service.enqueue_update_for_task(
+            db, task, completed_marker=completed_calendar_marker
+        )
 
     apply_mutation_audit(task, actor=actor, api_key_id=api_key_id)
     db.add(task)
@@ -493,6 +505,7 @@ async def delete_task(
     actor: MutationActor = MutationActor.USER,
     api_key_id: uuid.UUID | None = None,
     fresh_user_edit_guard_minutes: int = 5,
+    delete_calendar_event: bool = False,
 ) -> None:
     task = await get_task(db, owner, task_id)
     ensure_can_mutate(
@@ -502,6 +515,10 @@ async def delete_task(
         current_state=state_from_schema(TaskRead, task),
         fresh_user_edit_guard_minutes=fresh_user_edit_guard_minutes,
     )
+    if delete_calendar_event:
+        from app.services import external_calendar_service
+
+        await external_calendar_service.enqueue_delete_for_task(db, task)
     task.deleted_at = datetime.now(UTC)
     apply_mutation_audit(task, actor=actor, api_key_id=api_key_id)
     db.add(task)

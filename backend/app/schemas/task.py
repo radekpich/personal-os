@@ -5,6 +5,7 @@ from datetime import date, datetime, time
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.task import RecurrenceMode, TaskPriority, TaskSource, TaskStatus
+from app.schemas.external_calendar import CalendarRequestRead
 from app.schemas.tag import TagRead
 
 
@@ -108,6 +109,7 @@ class TaskRead(BaseModel):
     recurrence_rule: str | None
     recurrence_mode: RecurrenceMode | None
     recurrence_preview_dates: list[date] = Field(default_factory=list)
+    calendar_request: CalendarRequestRead | None = None
     position: int
     version: int
     created_by: str

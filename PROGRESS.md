@@ -4,6 +4,19 @@
 
 ## Hotovo
 
+- [x] 2026-09-18 05:13 UTC — Aktivní zápis úkolů do Google Kalendáře přes agenta
+  - Backend doplnil `ExternalCalendar` a `CalendarRequest` včetně Alembic migrace, idempotentní fronty požadavků a endpointů pro aplikaci i agenta.
+  - Agent umí hlásit seznam kalendářů přes `POST /agent/calendars/sync`; aplikace nabízí jen zapisovatelné kalendáře a ukládá `last_synced_at`, default a user toggle `is_enabled`.
+  - Fronta podporuje `create/update/delete`, atomický `claim` s `409`, `complete`, `retry`, `cancel` a scheduler reset zaseknutých `claimed` požadavků po 5 minutách s limitem 3 pokusů.
+  - Úkoly vrací poslední stav kalendářového požadavku; update/done/delete úkolu umí zadávat navazující požadavky a karta má stav `čeká / v kalendáři / nepovedlo se` včetně retry a odpojení bez mazání události.
+  - `.ics` feed zůstává pasivní, ale servisně vynechá úkoly s navázanou skutečnou kalendářovou událostí/aktivní frontou, aby nevznikaly duplicity.
+  - Frontend má v Nastavení sekci Google kalendáře přes agenta a na kartě úkolu ikonu kalendáře s quick-create nebo kompaktním popoverem; opravená normalizace `due_time` z backendového `HH:MM:SS` na input/API `HH:MM`.
+  - `AGENT.md` doplněn o sekci Kalendář: sync po startu/denně, poll pending každých 30 s, povinný claim, Europe/Prague, odkaz na úkol a ignorování UID `personalos-` z `.ics` feedu.
+  - Ověření backend: `ruff check app tests`; cílený `ruff format --check` změněných souborů; `mypy --strict app tests/test_external_calendars.py`; `pytest tests/test_external_calendars.py tests/test_recurrence.py -q` → 10 passed.
+  - Ověření frontend: `npm run lint`; `npm run typecheck`; `NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` → OK.
+  - Preview DB `/home/zeus/personal-os-preview/phase8b-preview.sqlite` migrována na Alembic head, preview restartováno (`backend :8030`, `frontend :3030`); smoke přes Playwright syncnul test kalendáře agenta a ověřil Nastavení + kartu úkolu → `{ ok: true, errors: [] }`, screenshoty `/tmp/personal-os-calendar-settings.png` a `/tmp/personal-os-calendar-task-pending.png`.
+  - Plný `pytest -q` má mimo tuto změnu 3 existující selhání ve starších challenge/security testech; kalendářové a recurrence testy jsou zelené.
+
 - [x] 2026-09-13 09:49 UTC — Varianta A pro opakované úkoly: aktuální úkol + náhled dalších výskytů
   - Backend úkolů vrací `recurrence_preview_dates`, počítané z aktuálního uloženého RRULE a série úkolu.
   - Generování další instance přes `python-dateutil` respektuje `BYMONTHDAY=14` i další RRULE pravidla místo ručního zjednodušení.

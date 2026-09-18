@@ -20,6 +20,12 @@ from app.models.attachment import (
 from app.models.category import Category
 from app.models.challenge import Challenge, ChallengePause, ChallengeType, CheckIn
 from app.models.context import Context
+from app.models.external_calendar import (
+    CalendarRequest,
+    CalendarRequestOperation,
+    CalendarRequestStatus,
+    ExternalCalendar,
+)
 from app.models.note import Note, NoteKind
 from app.models.refresh_token import RefreshToken
 from app.models.tag import Tag
@@ -48,6 +54,10 @@ __all__ = [
     "ChallengeType",
     "CheckIn",
     "Context",
+    "CalendarRequest",
+    "CalendarRequestOperation",
+    "CalendarRequestStatus",
+    "ExternalCalendar",
     "Note",
     "NoteAttachment",
     "NoteKind",

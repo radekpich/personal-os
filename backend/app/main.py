@@ -19,6 +19,7 @@ from app.api.routes.calendar import router as calendar_router
 from app.api.routes.categories import router as categories_router
 from app.api.routes.challenges import router as challenges_router
 from app.api.routes.contexts import router as contexts_router
+from app.api.routes.external_calendars import router as external_calendars_router
 from app.api.routes.health import router as health_router
 from app.api.routes.notes import router as notes_router
 from app.api.routes.tags import router as tags_router
@@ -32,6 +33,7 @@ from app.db.session import AsyncSessionLocal
 from app.services.agent_action_service import AgentActionAuditMiddleware
 from app.services.agent_registry_service import aggregate_old_agent_runs
 from app.services.attachment_service import cleanup_deleted_and_orphaned_files
+from app.services.external_calendar_service import release_stale_claims
 
 configure_logging()
 logger = logging.getLogger("app")
@@ -51,6 +53,11 @@ async def run_agent_run_retention() -> None:
     logger.info("agent run retention finished", extra=result)
 
 
+async def run_calendar_request_watchdog() -> None:
+    result = await release_stale_claims(AsyncSessionLocal)
+    logger.info("calendar request watchdog finished", extra=result)
+
+
 def start_scheduler() -> None:
     if settings.environment == "test" or scheduler.running:
         return
@@ -67,6 +74,13 @@ def start_scheduler() -> None:
         trigger="cron",
         minute=17,
         id="agent_run_retention",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        run_calendar_request_watchdog,
+        trigger="interval",
+        minutes=1,
+        id="calendar_request_watchdog",
         replace_existing=True,
     )
     scheduler.start()
@@ -120,6 +134,7 @@ app.include_router(calendar_router)
 app.include_router(categories_router)
 app.include_router(challenges_router)
 app.include_router(contexts_router)
+app.include_router(external_calendars_router)
 app.include_router(notes_router)
 app.include_router(tags_router)
 app.include_router(tasks_router)

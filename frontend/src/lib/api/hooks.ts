@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type {
   AgentActionFilters,
+  CalendarRequestCreate,
   ChallengeCreate,
   ChallengeHeatmapDay,
   ChallengeUpdate,
@@ -32,6 +33,7 @@ export const queryKeys = {
   agentRuns: (filters: { job_id?: string; trigger?: string; status?: string; q?: string; page?: number; page_size?: number } = {}) => ["agent-runs", filters] as const,
   agentConfigChanges: (filters: { acknowledged?: boolean } = {}) => ["agent-config-changes", filters] as const,
   agentKeys: ["agent-keys"] as const,
+  externalCalendars: ["external-calendars"] as const,
   categories: ["categories"] as const,
   contexts: ["contexts"] as const,
   tags: ["tags"] as const,
@@ -137,6 +139,39 @@ export function useRevertAgentActionBatch() {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
     },
   });
+}
+
+export function useExternalCalendars() {
+  return useQuery({ queryKey: queryKeys.externalCalendars, queryFn: api.externalCalendars, refetchInterval: 60_000 });
+}
+
+export function useUpdateExternalCalendar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof api.updateExternalCalendar>[1] }) => api.updateExternalCalendar(id, payload),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.externalCalendars }),
+  });
+}
+
+export function useCreateCalendarRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ task, payload }: { task: Task; payload: CalendarRequestCreate }) => api.createCalendarRequest(task.id, payload),
+    onSuccess: (_request, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.task(variables.task.id) });
+    },
+  });
+}
+
+export function useRetryCalendarRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: api.retryCalendarRequest, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }) });
+}
+
+export function useDisconnectCalendarRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: api.disconnectCalendarRequest, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }) });
 }
 
 export function useTaxonomy() {
@@ -285,7 +320,11 @@ export function useToggleTaskDone() {
 export function useDeleteTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (task: Task) => api.deleteTask(task.id, task.version),
+    mutationFn: (input: Task | { task: Task; deleteCalendarEvent?: boolean }) => {
+      const task = "task" in input ? input.task : input;
+      const deleteCalendarEvent = "task" in input ? input.deleteCalendarEvent ?? false : false;
+      return api.deleteTask(task.id, task.version, deleteCalendarEvent);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 }

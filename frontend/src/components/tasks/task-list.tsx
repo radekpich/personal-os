@@ -11,6 +11,7 @@ import { MarkdownPreview } from "@/components/markdown-preview";
 import { ActionButton, CompleteToggleButton } from "@/components/ui/action-buttons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { priorityLabels, statusLabels } from "./labels";
+import { TaskCalendarButton, TaskCalendarStatus } from "./task-calendar-button";
 
 type Props = { tasks: Task[]; categories: Category[]; contexts: Context[]; tags: Tag[]; visions?: Vision[]; selectedId?: string | null; highlightedIds?: Set<string>; onSelect: (task: Task) => void };
 
@@ -31,14 +32,16 @@ function TaskItem({ task, category, context, vision, selected, highlighted, onSe
   const toggle = useToggleTaskDone();
   const remove = useDeleteTask();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteCalendarEvent, setDeleteCalendarEvent] = useState(false);
   const done = task.status === "done";
   const overdue = isOverdue(task.due_date, task.status);
   const nextStatus: TaskStatus = done ? (task.category_id ? "todo" : "inbox") : "done";
   const showStatus = task.status !== "todo";
 
   async function deleteTask() {
-    await remove.mutateAsync(task);
+    await remove.mutateAsync({ task, deleteCalendarEvent });
     setDeleteOpen(false);
+    setDeleteCalendarEvent(false);
   }
 
   return (
@@ -59,11 +62,13 @@ function TaskItem({ task, category, context, vision, selected, highlighted, onSe
             </Link>
           ) : null}
           {highlighted ? <Badge className="border-[var(--success)] px-2 py-0.5 text-[var(--success)]">nové</Badge> : null}
+          <TaskCalendarStatus task={task} />
           {task.tags.map((tag) => <span key={tag.id}>#{tag.name}</span>)}
         </div>
         {task.description ? <MarkdownPreview compact className="mt-2 text-sm text-[var(--muted)]">{task.description}</MarkdownPreview> : null}
       </div>
       <div className="relative z-10 flex shrink-0 gap-0.5 sm:gap-1">
+        <TaskCalendarButton task={task} />
         <ActionButton icon="edit" label="Upravit úkol" onClick={onSelect} />
         <ActionButton icon="delete" label="Smazat úkol" danger onClick={() => setDeleteOpen(true)} />
       </div>
@@ -75,8 +80,15 @@ function TaskItem({ task, category, context, vision, selected, highlighted, onSe
         destructive
         confirmDisabled={remove.isPending}
         onConfirm={() => void deleteTask()}
-        onCancel={() => setDeleteOpen(false)}
-      />
+        onCancel={() => { setDeleteOpen(false); setDeleteCalendarEvent(false); }}
+      >
+        {task.calendar_request?.status === "done" ? (
+          <label className="flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--border)] p-3 text-sm">
+            <input type="checkbox" checked={deleteCalendarEvent} onChange={(event) => setDeleteCalendarEvent(event.target.checked)} />
+            <span>Smazat i událost v kalendáři „{task.calendar_request.calendar_name ?? task.calendar_request.calendar_external_id}“.</span>
+          </label>
+        ) : null}
+      </ConfirmDialog>
     </article>
   );
 }
