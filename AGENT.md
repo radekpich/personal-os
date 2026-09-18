@@ -160,11 +160,13 @@ Požadovaný scope API klíče: `calendar:report`. Payload nahrazuje předchozí
 
 ### Zpracování fronty zápisů
 
-Požadovaný scope API klíče: `calendar:write`. Polluj čekající požadavky přibližně každých 30 sekund:
+Požadovaný scope API klíče: `calendar:write`. Backend po vytvoření/retry/update/delete `CalendarRequest` spouští okamžitý trigger přes `CALENDAR_WRITER_TRIGGER_COMMAND`; primární cesta tedy není polling job. Trigger má provést stejný worker, který umí jednorázově zpracovat aktuální pending frontu. Cron/polling používej jen jako pojistku při výpadku triggeru.
+
+Jednorázový worker:
 
 ```bash
 curl -sS "$API_URL/agent/calendar-requests?status=pending" \
-  -H "X-API-Key: $API_KEY"
+  -H "X-API-Key: ***"
 ```
 
 Pro každý požadavek:

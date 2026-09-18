@@ -11,10 +11,11 @@
   - Úkoly vrací poslední stav kalendářového požadavku; update/done/delete úkolu umí zadávat navazující požadavky a karta má stav `čeká / v kalendáři / nepovedlo se` včetně retry a odpojení bez mazání události.
   - `.ics` feed zůstává pasivní, ale servisně vynechá úkoly s navázanou skutečnou kalendářovou událostí/aktivní frontou, aby nevznikaly duplicity.
   - Frontend má v Nastavení sekci Google kalendáře přes agenta a na kartě úkolu ikonu kalendáře s quick-create nebo kompaktním popoverem; opravená normalizace `due_time` z backendového `HH:MM:SS` na input/API `HH:MM`.
-  - `AGENT.md` doplněn o sekci Kalendář: sync po startu/denně, poll pending každých 30 s, povinný claim, Europe/Prague, odkaz na úkol a ignorování UID `personalos-` z `.ics` feedu.
+  - `AGENT.md` doplněn o sekci Kalendář: sync po startu/denně, okamžitý backend trigger přes `CALENDAR_WRITER_TRIGGER_COMMAND` po vytvoření/retry/update/delete requestu, povinný claim, Europe/Prague, odkaz na úkol a ignorování UID `personalos-` z `.ics` feedu.
   - Ověření backend: `ruff check app tests`; cílený `ruff format --check` změněných souborů; `mypy --strict app tests/test_external_calendars.py`; `pytest tests/test_external_calendars.py tests/test_recurrence.py -q` → 10 passed.
   - Ověření frontend: `npm run lint`; `npm run typecheck`; `NEXT_PUBLIC_API_BASE_URL=http://38.79.154.155:8030 npm run build` → OK.
   - Preview DB `/home/zeus/personal-os-preview/phase8b-preview.sqlite` migrována na Alembic head, preview restartováno (`backend :8030`, `frontend :3030`); smoke přes Playwright syncnul test kalendáře agenta a ověřil Nastavení + kartu úkolu → `{ ok: true, errors: [] }`, screenshoty `/tmp/personal-os-calendar-settings.png` a `/tmp/personal-os-calendar-task-pending.png`.
+  - 2026-09-18 doplněn okamžitý backend trigger: preview env má `CALENDAR_WRITER_TRIGGER_COMMAND=/home/zeus/.hermes/scripts/personal_os_calendar_writer.py`, 10s loop i minutový cron byly vypnuté; API smoke vytvořil calendar request za ~0.08 s, trigger ho přepnul na `done` a Google Calendar vrátil event `47n8dctg0klqa81akdvnr34r48` v `radek.pich@kexo.cz` (testovací event i úkol následně smazané).
   - Plný `pytest -q` má mimo tuto změnu 3 existující selhání ve starších challenge/security testech; kalendářové a recurrence testy jsou zelené.
 
 - [x] 2026-09-13 09:49 UTC — Varianta A pro opakované úkoly: aktuální úkol + náhled dalších výskytů

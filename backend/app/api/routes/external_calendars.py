@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -10,6 +10,7 @@ from app.api.deps import (
     require_api_key_scope,
     verify_csrf_or_api_key,
 )
+from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models.external_calendar import CalendarRequestStatus
 from app.schemas.external_calendar import (
@@ -23,6 +24,7 @@ from app.schemas.external_calendar import (
 )
 from app.services import external_calendar_service
 from app.services.api_key_service import ApiKeyIdentity
+from app.services.calendar_writer_trigger import trigger_calendar_writer
 
 router = APIRouter(tags=["external-calendars"])
 
@@ -77,12 +79,15 @@ async def sync_agent_calendars(
 async def create_task_calendar_request(
     task_id: uuid.UUID,
     payload: CalendarRequestCreate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> CalendarRequestRead:
     request = await external_calendar_service.create_request(
         db, actor_context.user, task_id, payload
     )
+    background_tasks.add_task(trigger_calendar_writer, settings)
     return await external_calendar_service.serialize_request(db, request)
 
 
@@ -107,10 +112,13 @@ async def cancel_calendar_request(
 )
 async def retry_calendar_request(
     request_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> CalendarRequestRead:
     request = await external_calendar_service.retry_request(db, actor_context.user, request_id)
+    background_tasks.add_task(trigger_calendar_writer, settings)
     return await external_calendar_service.serialize_request(db, request)
 
 

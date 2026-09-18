@@ -2,7 +2,17 @@ import uuid
 from datetime import date, datetime, time
 from typing import Annotated, NoReturn
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import ActorContext, get_current_actor, verify_csrf_or_api_key
@@ -11,6 +21,7 @@ from app.db.session import get_db
 from app.models.task import Task, TaskPriority, TaskSource, TaskStatus
 from app.schemas.task import TaskCreate, TaskList, TaskRead, TaskUpdate, TaskView
 from app.services import external_calendar_service, task_service
+from app.services.calendar_writer_trigger import trigger_calendar_writer
 from app.services.concurrency import ConflictError
 from app.services.task_service import TaskListFilters
 
@@ -184,6 +195,7 @@ async def get_task(
 async def update_task(
     task_id: uuid.UUID,
     payload: TaskUpdate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
     settings: Annotated[Settings, Depends(get_settings)],
@@ -200,6 +212,7 @@ async def update_task(
             actor=actor_context.actor,
             api_key_id=actor_context.api_key_id,
         )
+        background_tasks.add_task(trigger_calendar_writer, settings)
         return await _task_read(db, task)
     except ConflictError as exc:
         _raise_conflict(exc)
@@ -212,6 +225,7 @@ async def update_task(
 )
 async def delete_task(
     task_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     actor_context: Annotated[ActorContext, Depends(get_current_actor)],
     settings: Annotated[Settings, Depends(get_settings)],
@@ -229,6 +243,7 @@ async def delete_task(
             api_key_id=actor_context.api_key_id,
             delete_calendar_event=delete_calendar_event,
         )
+        background_tasks.add_task(trigger_calendar_writer, settings)
     except ConflictError as exc:
         _raise_conflict(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
