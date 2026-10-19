@@ -64,12 +64,6 @@ export function Dashboard() {
         <Metric href="/inbox" label="Inbox" value={inbox.data?.total ?? 0} icon={<Inbox size={16}/>} />
       </div>
 
-      {overdueTotal > 0 ? (
-        <Link href="/tasks?view=overdue" className="flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--danger)]/30 bg-[var(--danger)]/10 px-3 py-2 text-sm font-medium text-[var(--danger)]">
-          <span className="inline-flex items-center gap-2"><AlertTriangle size={16}/> Po termínu: {overdueTotal}</span>
-          <span>Otevřít →</span>
-        </Link>
-      ) : null}
 
       {today.isLoading ? <Loading label="Načítám dnešek…" /> : todayItems.length > 0 ? (
         <TaskSection title="Dnes" subtitle="Co mám dnes dělat" href="/tasks?view=today" tasks={todayItems} categories={cat} contexts={ctx} tags={tag} visions={vis} onSelect={setSelected} primary />

@@ -4,6 +4,9 @@
 
 ## Hotovo
 
+- [x] Odstraněn duplicitní červený pruh „Po termínu“ z Přehledu; horní KPI karta a odkaz na filtrované úkoly zůstávají.
+  - Ověření: frontend lint, typecheck, production build; `node scripts/dashboard-no-duplicate-overdue-smoke.mjs` na veřejné adrese → desktop/mobile OK, jediný odkaz Po termínu, bez page errors. Frontend restartován přes systemd user service.
+
 - [x] 2026-09-18 05:13 UTC — Aktivní zápis úkolů do Google Kalendáře přes agenta
   - Backend doplnil `ExternalCalendar` a `CalendarRequest` včetně Alembic migrace, idempotentní fronty požadavků a endpointů pro aplikaci i agenta.
   - Agent umí hlásit seznam kalendářů přes `POST /agent/calendars/sync`; aplikace nabízí jen zapisovatelné kalendáře a ukládá `last_synced_at`, default a user toggle `is_enabled`.
