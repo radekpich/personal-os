@@ -4,6 +4,9 @@
 
 ## Hotovo
 
+- [x] Kde/context je nepovinné při zpracování Inboxu: kategorií zařazené úkoly jsou vidět v Úkolech a časových pohledech i bez kontextu. Inline přiřazení kategorie používá novou hodnotu a nevyžaduje Kde.
+  - Regresní test nejprve RED, po opravě `pytest tests/test_tasks.py -q` → 24 passed; ruff, frontend lint/typecheck/build OK. Restart obou systemd služeb; live API: Inbox 0, Dnes 51 úkolů bez Kde; desktop/mobile smoke bez page errors. Uživatelská data neměněna.
+
 - [x] Odstraněn duplicitní červený pruh „Po termínu“ z Přehledu; horní KPI karta a odkaz na filtrované úkoly zůstávají.
   - Ověření: frontend lint, typecheck, production build; `node scripts/dashboard-no-duplicate-overdue-smoke.mjs` na veřejné adrese → desktop/mobile OK, jediný odkaz Po termínu, bez page errors. Frontend restartován přes systemd user service.
 

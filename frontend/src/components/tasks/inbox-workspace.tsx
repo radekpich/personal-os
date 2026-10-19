@@ -134,7 +134,8 @@ export function InboxWorkspace() {
   }
 
   async function patchTask(task: Task, payload: { category_id?: string | null; context_id?: string | null }) {
-    await update.mutateAsync({ task, payload: { ...payload, status: task.status === "inbox" && task.category_id && task.context_id ? "todo" : task.status } });
+    const categoryId = payload.category_id !== undefined ? payload.category_id : task.category_id;
+    await update.mutateAsync({ task, payload: { ...payload, status: task.status === "inbox" && categoryId ? "todo" : task.status } });
   }
 
   function buildBulkPayload(): TaskUpdate {

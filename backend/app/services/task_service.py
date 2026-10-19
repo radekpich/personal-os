@@ -178,7 +178,7 @@ def _local_today() -> date:
 def _view_condition(view: TaskView) -> sa.ColumnElement[bool]:
     today = _local_today()
     if view == TaskView.INBOX:
-        return sa.or_(Task.category_id.is_(None), Task.context_id.is_(None))
+        return Task.category_id.is_(None)
     if view == TaskView.TODAY:
         return Task.due_date == today
     if view == TaskView.TOMORROW:
@@ -231,10 +231,8 @@ def _build_conditions(owner: User, filters: TaskListFilters) -> list[sa.ColumnEl
         conditions.append(_view_condition(filters.view))
         if filters.view != TaskView.INBOX:
             conditions.append(Task.category_id.is_not(None))
-            conditions.append(Task.context_id.is_not(None))
     elif filters.status is None and filters.vision_id is None:
         conditions.append(Task.category_id.is_not(None))
-        conditions.append(Task.context_id.is_not(None))
     return conditions
 
 

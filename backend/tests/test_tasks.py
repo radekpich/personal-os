@@ -90,7 +90,6 @@ async def test_task_source_fields_and_inbox_processed_filters(
             "title": "Zpracovaný úkol",
             "status": "todo",
             "category_id": str(category.id),
-            "context_id": str(context.id),
         },
         headers=headers,
     )
