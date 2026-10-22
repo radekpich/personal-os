@@ -177,7 +177,7 @@ Pro každý požadavek:
    - `create` vytvoří novou událost,
    - `update` upraví existující událost podle `external_event_id`,
    - `delete` smaže existující událost podle `external_event_id`.
-4. Do popisu události vždy vlož odkaz zpět na úkol v Personal OS. Pokud už je v `description` text `Personal OS task: ...`, zachovej ho / převeď na plný odkaz podle nasazení.
+4. Do popisu události vlož jen text poznámky a jeden HTML odkaz `<a href="PLNÁ_URL_ÚKOLU">Otevřít úkol v Personal OS</a>`. Text bezpečně HTML-escapuj a zachovej odstavce. Nevypisuj UUID, relativní cestu ani duplicitní `Personal OS task:` odkazy; staré automatické patičky pro tentýž úkol před vykreslením odstraň. Zdroj writeru je verzovaný v `scripts/personal_os_calendar_writer.py`, provozní kopie v `~/.hermes/scripts/personal_os_calendar_writer.py`.
 5. Používej časovou zónu `Europe/Prague`.
 6. Výsledek nahlaš přes `POST /agent/calendar-requests/{id}/complete`:
 

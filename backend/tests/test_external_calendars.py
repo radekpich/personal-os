@@ -155,6 +155,7 @@ async def test_calendar_request_is_idempotent_claimed_atomically_and_completed(
     first = await client.post(f"/tasks/{task['id']}/calendar-request", json=payload, headers=csrf)
     second = await client.post(f"/tasks/{task['id']}/calendar-request", json=payload, headers=csrf)
     assert first.status_code == 201
+    assert first.json()["description"] == (task.get("description") or "").strip()
     assert second.status_code == 201
     assert first.json()["id"] == second.json()["id"]
     request_id = first.json()["id"]

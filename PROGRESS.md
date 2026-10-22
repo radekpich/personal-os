@@ -4,6 +4,9 @@
 
 ## Hotovo
 
+- [x] Čitelný Google Calendar popis: backend již nepřidává technickou relativní patičku; writer zachová text poznámky a přidá jediný HTML odkaz „Otevřít úkol v Personal OS“. Odstraní i staré relativní/plné automatické patičky stejného úkolu, bezpečně escapuje text a zachovává řádky. Ostatní uživatelské odkazy nemění.
+  - Writer nyní verzován v scripts/personal_os_calendar_writer.py, offline regrese scripts/test_calendar_writer_description.py: RED 3 failures → GREEN 4 tests. Backend RED na popisu → GREEN 16 calendar/trigger tests. Runtime kopie nasazena a hash/syntax ověřeny, backend restartován. Žádné existující Google události nebyly upraveny, žádné nové testovací události vytvořeny. Aktualizováno AGENT.md.
+
 - [x] Kalendář u úkolu: vždy potvrzovací Radix Portal dialog mimo ořezávající kartu; fixní hlavička/patička a scroll body. Datum/čas předvyplněny z úkolu, chybějící datum prázdné s možností zadání, validace a viditelná chyba API. Odstraněn přímý zápis kliknutím a předchozí samostatný PATCH úkolu.
   - Backend ukládá CalendarRequest a termín/čas/délku úkolu atomicky, s verzí/auditem, Prague převodem a zachováním idempotence, validace i all-day/delete chování.
   - TDD reprodukce UI i backend RED → GREEN; relevantní backend `pytest tests/test_external_calendars.py tests/test_calendar_writer_trigger.py tests/test_tasks.py -q` → 40 passed, ruff check/format a strict mypy dotčených souborů OK. Frontend lint/typecheck/production build OK.

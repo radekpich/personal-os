@@ -39,8 +39,8 @@ def _local_dt(task: Task) -> datetime | None:
 
 
 def _calendar_description(task: Task) -> str:
-    parts = [task.description or "", "", f"Personal OS task: /tasks?task={task.id}"]
-    return "\n".join(part for part in parts if part is not None).strip()
+    # The writer adds the single human-readable backlink when rendering Google HTML.
+    return (task.description or "").strip()
 
 
 async def list_calendars(db: AsyncSession, owner: User) -> list[ExternalCalendar]:
