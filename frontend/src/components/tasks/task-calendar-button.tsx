@@ -1,5 +1,6 @@
 "use client";
 
+import * as Dialog from "@radix-ui/react-dialog";
 import { CalendarPlus, ExternalLink, RefreshCcw, Unlink, X } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -9,7 +10,6 @@ import {
   useDisconnectCalendarRequest,
   useExternalCalendars,
   useRetryCalendarRequest,
-  useUpdateTask,
 } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,21 +21,12 @@ const durations = [15, 30, 60, 120];
 export function TaskCalendarButton({ task }: { task: Task }) {
   const calendars = useExternalCalendars();
   const createRequest = useCreateCalendarRequest();
-  const updateTask = useUpdateTask();
   const [open, setOpen] = useState(false);
   const writable = useMemo(
     () => (calendars.data?.items ?? []).filter((calendar) => calendar.can_write && calendar.is_enabled),
     [calendars.data?.items],
   );
   const defaultCalendar = writable.find((calendar) => calendar.is_default) ?? writable[0] ?? null;
-
-  async function quickCreate() {
-    if (!defaultCalendar || !task.due_date || !task.due_time) {
-      setOpen((value) => !value);
-      return;
-    }
-    await createCalendarRequest(task, defaultCalendar, task.due_date, task.due_time, task.estimate_minutes ?? 30, false);
-  }
 
   async function createCalendarRequest(
     sourceTask: Task,
@@ -75,7 +66,7 @@ export function TaskCalendarButton({ task }: { task: Task }) {
         aria-label="Zapsat do Google Kalendáře"
         onClick={(event) => {
           event.stopPropagation();
-          void quickCreate();
+          setOpen(true);
         }}
         disabled={calendars.isLoading || createRequest.isPending}
       >
@@ -86,15 +77,10 @@ export function TaskCalendarButton({ task }: { task: Task }) {
           task={task}
           calendars={writable}
           defaultCalendar={defaultCalendar}
-          pending={createRequest.isPending || updateTask.isPending}
+          pending={createRequest.isPending}
           onClose={() => setOpen(false)}
           onSubmit={async ({ calendar, date, time, duration, reminder }) => {
-            const payload = { due_date: date, due_time: time, estimate_minutes: duration };
-            const updated =
-              task.due_date !== date || task.due_time !== time || task.estimate_minutes !== duration
-                ? await updateTask.mutateAsync({ task, payload })
-                : task;
-            await createCalendarRequest(updated, calendar, date, time, duration, reminder);
+            await createCalendarRequest(task, calendar, date, time, duration, reminder);
             setOpen(false);
           }}
         />
@@ -119,11 +105,12 @@ function CalendarPopover({
   onSubmit: (payload: { calendar: ExternalCalendar; date: string; time: string; duration: number; reminder: boolean }) => Promise<void>;
 }) {
   const [calendarId, setCalendarId] = useState(defaultCalendar?.external_id ?? calendars[0]?.external_id ?? "");
-  const [date, setDate] = useState(task.due_date ?? todayIso());
+  const [date, setDate] = useState(task.due_date ?? "");
   const [time, setTime] = useState(task.due_time ? toTimeInput(task.due_time) : "09:00");
   const [duration, setDuration] = useState(task.estimate_minutes && durations.includes(task.estimate_minutes) ? task.estimate_minutes : 30);
   const [reminder, setReminder] = useState(false);
   const [showDateError, setShowDateError] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const selectedCalendar = calendars.find((calendar) => calendar.external_id === calendarId) ?? null;
 
   function quickDate(kind: "today" | "tomorrow" | "monday") {
@@ -139,17 +126,18 @@ function CalendarPopover({
   }
 
   return (
-    <div
-      className="absolute right-0 z-40 mt-1 grid max-h-[min(70dvh,520px)] w-[min(92vw,340px)] gap-3 overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-3 text-sm shadow-xl"
-      onClick={(event) => event.stopPropagation()}
-    >
-      <div className="flex items-start justify-between gap-2">
+    <Dialog.Root open onOpenChange={(value) => { if (!value && !pending) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
+        <Dialog.Content onClick={(event) => event.stopPropagation()} className="fixed inset-x-0 bottom-0 z-[51] flex max-h-[96dvh] flex-col overflow-hidden rounded-t-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] text-sm shadow-2xl sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(92vw,480px)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[var(--radius-xl)]">
+      <div className="flex shrink-0 items-start justify-between gap-2 border-b border-[var(--border)] p-4">
         <div>
-          <p className="font-semibold">Zapsat do kalendáře</p>
-          <p className="text-xs text-[var(--muted)]">Požadavek provede agent, ne aplikace.</p>
+          <Dialog.Title className="font-semibold">Zapsat do kalendáře</Dialog.Title>
+          <Dialog.Description className="mt-1 text-xs text-[var(--muted)]">{task.title} — zvolené datum a čas se uloží také do úkolu.</Dialog.Description>
         </div>
-        <button type="button" className="text-[var(--muted)]" onClick={onClose} aria-label="Zavřít"><X size={16} /></button>
+        <button type="button" className="grid size-9 shrink-0 place-items-center text-[var(--muted)]" disabled={pending} onClick={onClose} aria-label="Zavřít"><X size={16} /></button>
       </div>
+      <div className="grid min-h-0 gap-3 overflow-y-auto p-4">
       {!calendars.length ? (
         <p className="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] p-3 text-[var(--muted)]">
           Agent zatím nenahlásil žádný zapisovatelný kalendář. Obnovu spusť na stránce <Link className="underline" href="/agent">Agent</Link> podle AGENT.md.
@@ -188,17 +176,24 @@ function CalendarPopover({
             </div>
           </fieldset>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reminder} onChange={(event) => setReminder(event.target.checked)} />Upozornění 15 minut předem</label>
+        </>
+      )}
+      </div>
+      {submitError ? <p role="alert" className="px-4 text-sm text-[var(--danger)]">{submitError}</p> : null}
+      <div className="relative z-10 flex shrink-0 justify-end gap-2 border-t border-[var(--border)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <Button
             type="button"
             disabled={pending || !selectedCalendar}
             onClick={() => {
-              if (!date) { setShowDateError(true); return; }
-              if (selectedCalendar) void onSubmit({ calendar: selectedCalendar, date, time, duration, reminder });
+              if (!date || !time) { setShowDateError(true); return; }
+              setSubmitError(null);
+              if (selectedCalendar) void onSubmit({ calendar: selectedCalendar, date, time, duration, reminder }).catch((error: unknown) => { setSubmitError(error instanceof Error ? error.message : "Požadavek se nepodařilo uložit. Zkuste to znovu."); });
             }}
           >{pending ? "Odesílám…" : "Zadat požadavek"}</Button>
-        </>
-      )}
-    </div>
+      </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -234,12 +229,8 @@ export function TaskCalendarStatus({ task }: { task: Task }) {
   );
 }
 
-function todayIso() {
-  return toDateInput(new Date());
-}
-
 function toDateInput(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
 function toTimeInput(value: string) {

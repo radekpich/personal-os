@@ -22,6 +22,7 @@ from app.schemas.external_calendar import (
     ExternalCalendarSyncRequest,
     ExternalCalendarUpdate,
 )
+from app.services.concurrency import MutationActor, apply_mutation_audit
 
 
 def _now() -> datetime:
@@ -169,7 +170,13 @@ async def _task(db: AsyncSession, owner: User, task_id: uuid.UUID) -> Task:
 
 
 async def create_request(
-    db: AsyncSession, owner: User, task_id: uuid.UUID, payload: CalendarRequestCreate
+    db: AsyncSession,
+    owner: User,
+    task_id: uuid.UUID,
+    payload: CalendarRequestCreate,
+    *,
+    actor: MutationActor = MutationActor.USER,
+    api_key_id: uuid.UUID | None = None,
 ) -> CalendarRequest:
     existing = (
         await db.execute(
@@ -199,6 +206,28 @@ async def create_request(
         reminder_minutes=payload.reminder_minutes,
         idempotency_key=payload.idempotency_key,
     )
+    if payload.operation != CalendarRequestOperation.DELETE:
+        # Naive input is local Prague time; aware input may have any UTC offset.
+        local_start = (
+            payload.starts_at.replace(tzinfo=PRAGUE_TZ)
+            if payload.starts_at.tzinfo is None
+            else payload.starts_at.astimezone(PRAGUE_TZ)
+        )
+        due_time = None if payload.all_day else local_start.time()
+        estimate = (
+            task.estimate_minutes
+            if payload.all_day
+            else max(1, int((payload.ends_at - payload.starts_at).total_seconds() / 60))
+        )
+        if (task.due_date, task.due_time, task.estimate_minutes) != (
+            local_start.date(),
+            due_time,
+            estimate,
+        ):
+            task.due_date = local_start.date()
+            task.due_time = due_time
+            task.estimate_minutes = estimate
+            apply_mutation_audit(task, actor=actor, api_key_id=api_key_id)
     db.add(request)
     await db.commit()
     await db.refresh(request)

@@ -4,6 +4,13 @@
 
 ## Hotovo
 
+- [x] Kalendář u úkolu: vždy potvrzovací Radix Portal dialog mimo ořezávající kartu; fixní hlavička/patička a scroll body. Datum/čas předvyplněny z úkolu, chybějící datum prázdné s možností zadání, validace a viditelná chyba API. Odstraněn přímý zápis kliknutím a předchozí samostatný PATCH úkolu.
+  - Backend ukládá CalendarRequest a termín/čas/délku úkolu atomicky, s verzí/auditem, Prague převodem a zachováním idempotence, validace i all-day/delete chování.
+  - TDD reprodukce UI i backend RED → GREEN; relevantní backend `pytest tests/test_external_calendars.py tests/test_calendar_writer_trigger.py tests/test_tasks.py -q` → 40 passed, ruff check/format a strict mypy dotčených souborů OK. Frontend lint/typecheck/production build OK.
+  - `npm run calendar:date-sync-smoke` → 4 průchody (desktop/Pixel 5 × s termínem/bez termínu), reálný izolovaný backend :8031 s novou migrovanou DB, předvyplnění HH:MM:SS, validace, POST request, uložený termín/verze a refetch po navigaci OK. `npm run calendar:layout-smoke` → desktop/mobile na živém UI OK. Google writer při izolovaném testu vypnutý; žádné skutečné události ani uživatelské termíny testem neměněny. Příprava izolované DB: `frontend/scripts/calendar-smoke-setup.py`.
+  - Celá backend sada: 145 passed, 2 failed v již existujících historických heatmap testech `tests/test_challenges.py` (400 místo 201 na zářijové check-in). Obě stejné chyby ověřeny také v čistém worktree původního HEAD bez těchto změn; mimo rozsah opravy kalendáře.
+  - DB záloha před nasazením v preview/backups/calendar-dialog-20261022-161718.sqlite; backend i frontend restartovány přes systemd, veřejné health/login OK.
+
 - [x] Filtr Vše v Úkolech zobrazuje jen nedokončené, nezrušené úkoly. Explicitní stav Hotovo/Zrušeno nadále funguje; časové pohledy a seznamy vize nejsou tímto krokem změněny. Bez mutací uživatelských dat.
   - TDD RED: nová regrese pro 5 stavů vracela 5 místo 3. GREEN: `pytest tests/test_task_all_open.py tests/test_tasks.py -q` → 25 passed; ruff check/format a mypy dotčených souborů OK. Backend restartován, `node scripts/task-all-open-smoke.mjs` → desktop/mobile OK, 58 otevřených, bez page errors. Regresní test ověřuje i explicitní Hotovo a Zrušeno.
 

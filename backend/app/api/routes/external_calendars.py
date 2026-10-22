@@ -85,7 +85,12 @@ async def create_task_calendar_request(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> CalendarRequestRead:
     request = await external_calendar_service.create_request(
-        db, actor_context.user, task_id, payload
+        db,
+        actor_context.user,
+        task_id,
+        payload,
+        actor=actor_context.actor,
+        api_key_id=actor_context.api_key_id,
     )
     background_tasks.add_task(trigger_calendar_writer, settings)
     return await external_calendar_service.serialize_request(db, request)
