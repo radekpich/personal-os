@@ -233,6 +233,7 @@ def _build_conditions(owner: User, filters: TaskListFilters) -> list[sa.ColumnEl
             conditions.append(Task.category_id.is_not(None))
     elif filters.status is None and filters.vision_id is None:
         conditions.append(Task.category_id.is_not(None))
+        conditions.append(Task.status.notin_([TaskStatus.DONE.value, TaskStatus.CANCELLED.value]))
     return conditions
 
 

@@ -4,6 +4,9 @@
 
 ## Hotovo
 
+- [x] Filtr Vše v Úkolech zobrazuje jen nedokončené, nezrušené úkoly. Explicitní stav Hotovo/Zrušeno nadále funguje; časové pohledy a seznamy vize nejsou tímto krokem změněny. Bez mutací uživatelských dat.
+  - TDD RED: nová regrese pro 5 stavů vracela 5 místo 3. GREEN: `pytest tests/test_task_all_open.py tests/test_tasks.py -q` → 25 passed; ruff check/format a mypy dotčených souborů OK. Backend restartován, `node scripts/task-all-open-smoke.mjs` → desktop/mobile OK, 58 otevřených, bez page errors. Regresní test ověřuje i explicitní Hotovo a Zrušeno.
+
 - [x] Kde/context je nepovinné při zpracování Inboxu: kategorií zařazené úkoly jsou vidět v Úkolech a časových pohledech i bez kontextu. Inline přiřazení kategorie používá novou hodnotu a nevyžaduje Kde.
   - Regresní test nejprve RED, po opravě `pytest tests/test_tasks.py -q` → 24 passed; ruff, frontend lint/typecheck/build OK. Restart obou systemd služeb; live API: Inbox 0, Dnes 51 úkolů bez Kde; desktop/mobile smoke bez page errors. Uživatelská data neměněna.
 

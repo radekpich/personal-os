@@ -443,14 +443,14 @@ async def test_list_tasks_filters_and_pagination(
 
     page1 = await client.get("/tasks", params={"page": 1, "page_size": 2})
     assert len(page1.json()["items"]) == 2
-    assert page1.json()["total"] == 5
+    assert page1.json()["total"] == 4
     assert page1.json()["page"] == 1
 
     page2 = await client.get("/tasks", params={"page": 2, "page_size": 2})
     assert len(page2.json()["items"]) == 2
 
     page3 = await client.get("/tasks", params={"page": 3, "page_size": 2})
-    assert len(page3.json()["items"]) == 1
+    assert len(page3.json()["items"]) == 0
 
 
 async def test_named_views_use_europe_prague_local_date(
