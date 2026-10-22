@@ -21,6 +21,7 @@
     "phase8b:challenge-smoke": "node scripts/phase8b-challenge-smoke.mjs",
     "phase8b:vision-smoke": "node scripts/phase8b-vision-smoke.mjs",
     "phase8b:batch7-smoke": "node scripts/phase8b-batch7-smoke.mjs",
+    "tasks:category-smoke": "node scripts/task-category-filter-smoke.mjs",
     "calendar:layout-smoke": "node scripts/calendar-dialog-layout-smoke.mjs",
     "calendar:date-sync-smoke": "node scripts/calendar-date-sync-smoke.mjs"
   },

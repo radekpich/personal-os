@@ -4,6 +4,9 @@
 
 ## Hotovo
 
+- [x] Klikací kategorie na kartách úkolů: sdílený TaskList používá přístupný odkaz na čistý `/tasks?category_id=…`, který nastaví Vše a odstraní předchozí časový/stavový/priority/text/context/tag filtr. Zobrazeny zůstávají otevřené úkoly, nikoli hotové/zrušené. Aktivní kategorie je viditelná jako čip s křížkem; zrušení odstraní jen kategorii a zavře případný detail.
+  - Ověření: nový `frontend/scripts/task-category-filter-smoke.mjs` (`npm run tasks:category-smoke`), RED na chybějícím odkazu → GREEN desktop + Pixel 5: vyčištění URL z Dnes/priority/textu/místa, dvě různé otevřené položky kategorie včetně jiného termínu, vyloučení dokončené/jiné kategorie, bez otevření editoru, zachování po reloadu, zrušení čipu a nulový horizontální overflow/JS chyby. Testovací úkoly pouze v izolované DB na 8031. Lint, typecheck, produkční build zelené; frontend 3030 restartován a HTTP 200 ověřeno. Backend a uživatelská data beze změny. Dřívější rozpracované změny štítků deníku ponechány odděleně v pracovním stromu.
+
 - [x] Čitelný Google Calendar popis: backend již nepřidává technickou relativní patičku; writer zachová text poznámky a přidá jediný HTML odkaz „Otevřít úkol v Personal OS“. Odstraní i staré relativní/plné automatické patičky stejného úkolu, bezpečně escapuje text a zachovává řádky. Ostatní uživatelské odkazy nemění.
   - Writer nyní verzován v scripts/personal_os_calendar_writer.py, offline regrese scripts/test_calendar_writer_description.py: RED 3 failures → GREEN 4 tests. Backend RED na popisu → GREEN 16 calendar/trigger tests. Runtime kopie nasazena a hash/syntax ověřeny, backend restartován. Žádné existující Google události nebyly upraveny, žádné nové testovací události vytvořeny. Aktualizováno AGENT.md.
 

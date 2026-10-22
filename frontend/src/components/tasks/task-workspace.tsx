@@ -122,6 +122,7 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
   const selectedFromUrl = params.get("selected");
   const activeSelected = selected ?? tasks.data?.items.find((task) => task.id === selectedFromUrl) ?? null;
   const activeAdvancedCount = countAdvancedFilters(advanced);
+  const activeCategoryName = categories.data?.items.find((category) => category.id === advanced.category_id)?.name;
 
   return (
     <div className="grid min-w-0 max-w-full gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
@@ -152,6 +153,7 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
             <SlidersHorizontal size={16} /> Filtry {activeAdvancedCount > 0 ? <Badge className="bg-white/20 px-2 py-0.5 text-xs text-current">{activeAdvancedCount}</Badge> : null}
           </Button>
         </div>
+        {advanced.category_id !== "all" ? <div className="flex min-w-0 flex-wrap items-center gap-2" aria-label="Aktivní filtry"><button type="button" aria-label={`Zrušit filtr kategorie ${activeCategoryName ?? ""}`.trim()} onClick={() => { setSelected(null); pushParams((next) => { next.delete("category_id"); next.delete("selected"); }); }} className="focus-ring inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-1.5 text-sm text-[var(--foreground)]"><span className="min-w-0 break-words">Kategorie: {activeCategoryName ?? "…"}</span><X size={14} className="shrink-0" aria-hidden="true" /></button></div> : null}
         {tasks.isLoading ? <div className="panel p-8 text-[var(--muted)]">Načítám úkoly…</div> : tasks.isError ? <div className="panel p-8 text-[var(--danger)]">Úkoly se nepodařilo načíst.</div> : <TaskList tasks={tasks.data?.items ?? []} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} selectedId={activeSelected?.id} highlightedIds={highlightedIds} onSelect={setSelected} />}
       </section>
       <aside className="panel hidden h-fit p-5 xl:block">
