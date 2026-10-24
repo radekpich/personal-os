@@ -41,7 +41,8 @@ try {
     await expect(page.locator('article.task-row')).toHaveCount(2); await expect(page.getByRole('dialog')).toHaveCount(0);
     const clear = page.getByRole('button', { name: 'Zrušit filtr kategorie ' + category.name, exact: true }); await expect(clear).toBeVisible();
     await page.reload(); await expect(clear).toBeVisible(); await expect(page.locator('article.task-row')).toHaveCount(2);
-    await clear.click(); await expect(page).toHaveURL(frontend + '/tasks'); await expect(page.getByRole('button', { name: 'Jiný ' + stamp, exact: true })).toBeVisible();
+    const clearedResponse = page.waitForResponse(r => { const u = new URL(r.url()); return u.port === '8030' && u.pathname === '/tasks' && u.searchParams.get('page_size') === '50' && !u.searchParams.has('category_id') && !u.searchParams.has('q'); });
+    await clear.click(); await expect(page).toHaveURL(frontend + '/tasks'); const cleared = await (await clearedResponse).json(); expect(cleared.total).toBeGreaterThan(2); await expect(page.locator('article.task-row')).toHaveCount(cleared.items.length); await expect(clear).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth && document.body.scrollWidth <= document.body.clientWidth)).toBeTruthy();
     results.push({ device: index, cleanCategoryUrl: true, allOpenCategoryTasks: 2, reloadPersists: true, clearWorks: true }); await ctx.close();
   }
