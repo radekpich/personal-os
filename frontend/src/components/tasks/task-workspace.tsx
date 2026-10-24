@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Category, Context, Tag, Task, TaskFilters, TaskPriority, TaskStatus, TaskView } from "@/lib/api/types";
 import { useTasks, useTaxonomy, useVisions } from "@/lib/api/hooks";
-import { cn } from "@/lib/utils";
+import { cn, formatHumanDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TaskDetailPanel } from "@/components/tasks/task-detail-panel";
@@ -30,6 +30,8 @@ type AdvancedFilters = {
   category_id: string;
   context_id: string;
   tag_ids: string[];
+  due_from: string;
+  due_to: string;
 };
 
 export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
@@ -44,6 +46,8 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
     category_id: params.get("category_id") ?? "all",
     context_id: params.get("context_id") ?? "all",
     tag_ids: params.getAll("tag_ids"),
+    due_from: params.get("due_from") ?? "",
+    due_to: params.get("due_to") ?? "",
   }), [params]);
   const filters = useMemo<TaskFilters>(() => ({
     view: currentView === "all" ? undefined : currentView,
@@ -52,6 +56,8 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
     category_id: advanced.category_id,
     context_id: advanced.context_id,
     tag_ids: advanced.tag_ids,
+    due_from: advanced.due_from || undefined,
+    due_to: advanced.due_to || undefined,
     q: params.get("q") ?? undefined,
     page_size: 50,
   }), [advanced, currentView, params]);
@@ -61,16 +67,19 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
     category_id: advanced.category_id,
     context_id: advanced.context_id,
     tag_ids: advanced.tag_ids,
+    due_from: advanced.due_from || undefined,
+    due_to: advanced.due_to || undefined,
     q: params.get("q") ?? undefined,
     page_size: 1,
   }), [advanced, params]);
+  const timeCountBase = useMemo<TaskFilters>(() => ({ ...countBase, due_from: undefined, due_to: undefined }), [countBase]);
   const counts = {
     all: useTasks(countBase),
-    today: useTasks({ ...countBase, view: "today" }),
-    tomorrow: useTasks({ ...countBase, view: "tomorrow" }),
-    this_week: useTasks({ ...countBase, view: "this_week" }),
-    overdue: useTasks({ ...countBase, view: "overdue" }),
-    unscheduled: useTasks({ ...countBase, view: "unscheduled" }),
+    today: useTasks({ ...timeCountBase, view: "today" }),
+    tomorrow: useTasks({ ...timeCountBase, view: "tomorrow" }),
+    this_week: useTasks({ ...timeCountBase, view: "this_week" }),
+    overdue: useTasks({ ...timeCountBase, view: "overdue" }),
+    unscheduled: useTasks({ ...timeCountBase, view: "unscheduled" }),
   };
   const tasks = useTasks(filters);
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(() => new Set());
@@ -102,6 +111,8 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
   function setView(view: "all" | TaskView) {
     pushParams((next) => {
       if (view === "all") next.delete("view"); else next.set("view", view);
+      next.delete("due_from");
+      next.delete("due_to");
       next.delete("selected");
     });
   }
@@ -112,6 +123,8 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
       setOrDelete(next, "priority", nextFilters.priority);
       setOrDelete(next, "category_id", nextFilters.category_id);
       setOrDelete(next, "context_id", nextFilters.context_id);
+      setOrDelete(next, "due_from", nextFilters.due_from);
+      setOrDelete(next, "due_to", nextFilters.due_to);
       next.delete("tag_ids");
       for (const tagId of nextFilters.tag_ids) next.append("tag_ids", tagId);
       next.delete("selected");
@@ -123,6 +136,13 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
   const activeSelected = selected ?? tasks.data?.items.find((task) => task.id === selectedFromUrl) ?? null;
   const activeAdvancedCount = countAdvancedFilters(advanced);
   const activeCategoryName = categories.data?.items.find((category) => category.id === advanced.category_id)?.name;
+  const activePriorityName = priorities.find(([value]) => value === advanced.priority)?.[1];
+  const activeDateLabel = advanced.due_from && advanced.due_from === advanced.due_to
+    ? formatHumanDate(advanced.due_from)
+    : advanced.due_from || advanced.due_to
+      ? [advanced.due_from ? `od ${formatHumanDate(advanced.due_from)}` : "", advanced.due_to ? `do ${formatHumanDate(advanced.due_to)}` : ""].filter(Boolean).join(" ")
+      : currentView === "unscheduled" ? "Bez termínu" : null;
+  const filterChipClass = "focus-ring inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-1.5 text-sm text-[var(--foreground)]";
 
   return (
     <div className="grid min-w-0 max-w-full gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
@@ -153,8 +173,14 @@ export function TaskWorkspace({ initialView }: { initialView?: TaskView }) {
             <SlidersHorizontal size={16} /> Filtry {activeAdvancedCount > 0 ? <Badge className="bg-white/20 px-2 py-0.5 text-xs text-current">{activeAdvancedCount}</Badge> : null}
           </Button>
         </div>
-        {advanced.category_id !== "all" ? <div className="flex min-w-0 flex-wrap items-center gap-2" aria-label="Aktivní filtry"><button type="button" aria-label={`Zrušit filtr kategorie ${activeCategoryName ?? ""}`.trim()} onClick={() => { setSelected(null); pushParams((next) => { next.delete("category_id"); next.delete("selected"); }); }} className="focus-ring inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-1.5 text-sm text-[var(--foreground)]"><span className="min-w-0 break-words">Kategorie: {activeCategoryName ?? "…"}</span><X size={14} className="shrink-0" aria-hidden="true" /></button></div> : null}
-        {tasks.isLoading ? <div className="panel p-8 text-[var(--muted)]">Načítám úkoly…</div> : tasks.isError ? <div className="panel p-8 text-[var(--danger)]">Úkoly se nepodařilo načíst.</div> : <TaskList tasks={tasks.data?.items ?? []} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} selectedId={activeSelected?.id} highlightedIds={highlightedIds} onSelect={setSelected} />}
+        {advanced.category_id !== "all" || advanced.priority !== "all" || activeDateLabel ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-2" aria-label="Aktivní filtry">
+            {advanced.category_id !== "all" ? <button type="button" aria-label={`Zrušit filtr kategorie ${activeCategoryName ?? ""}`.trim()} onClick={() => { setSelected(null); pushParams((next) => { next.delete("category_id"); next.delete("selected"); }); }} className={filterChipClass}><span className="min-w-0 break-words">Kategorie: {activeCategoryName ?? "…"}</span><X size={14} className="shrink-0" aria-hidden="true" /></button> : null}
+            {advanced.priority !== "all" ? <button type="button" aria-label={`Zrušit filtr priority ${activePriorityName ?? ""}`.trim()} onClick={() => { setSelected(null); pushParams((next) => { next.delete("priority"); next.delete("selected"); }); }} className={filterChipClass}><span className="min-w-0 break-words">Priorita: {activePriorityName ?? "…"}</span><X size={14} className="shrink-0" aria-hidden="true" /></button> : null}
+            {activeDateLabel ? <button type="button" aria-label="Zrušit filtr termínu" onClick={() => { setSelected(null); pushParams((next) => { next.delete("due_from"); next.delete("due_to"); next.delete("selected"); if (currentView === "unscheduled") next.delete("view"); }); }} className={filterChipClass}><span className="min-w-0 break-words">Termín: {activeDateLabel}</span><X size={14} className="shrink-0" aria-hidden="true" /></button> : null}
+          </div>
+        ) : null}
+        {tasks.isLoading ? <div className="panel p-8 text-[var(--muted)]">Načítám úkoly…</div> : tasks.isError ? <div className="panel p-8 text-[var(--danger)]">Úkoly se nepodařilo načíst.</div> : <TaskList tasks={tasks.data?.items ?? []} categories={categories.data?.items ?? []} contexts={contexts.data?.items ?? []} tags={tags.data?.items ?? []} visions={visions.data?.items ?? []} selectedId={activeSelected?.id} highlightedIds={highlightedIds} filterQuery={params.toString()} onSelect={setSelected} />}
       </section>
       <aside className="panel hidden h-fit p-5 xl:block">
         <h2 className="font-semibold">Tipy</h2>
@@ -175,7 +201,7 @@ function setOrDelete(params: URLSearchParams, key: string, value: string) {
 }
 
 function countAdvancedFilters(filters: AdvancedFilters) {
-  return [filters.status !== "all", filters.priority !== "all", filters.category_id !== "all", filters.context_id !== "all", filters.tag_ids.length > 0].filter(Boolean).length;
+  return [filters.status !== "all", filters.priority !== "all", filters.category_id !== "all", filters.context_id !== "all", filters.tag_ids.length > 0, Boolean(filters.due_from || filters.due_to)].filter(Boolean).length;
 }
 
 function AdvancedFilterPanel({ initial, categories, contexts, tags, onApply, onClose }: { initial: AdvancedFilters; categories: Category[]; contexts: Context[]; tags: Tag[]; onApply: (filters: AdvancedFilters) => void; onClose: () => void }) {
@@ -206,6 +232,10 @@ function AdvancedFilterPanel({ initial, categories, contexts, tags, onApply, onC
             </div>
             <Select label="Stav" value={draft.status} onChange={(value) => setDraft((current) => ({ ...current, status: value as TaskStatus | "all" }))} options={statuses.map(([value, label]) => ({ value, label }))} />
             <Select label="Priorita" value={draft.priority} onChange={(value) => setDraft((current) => ({ ...current, priority: value as TaskPriority | "all" }))} options={priorities.map(([value, label]) => ({ value, label }))} />
+            <div className="grid min-w-0 grid-cols-2 gap-3">
+              <label htmlFor="task-filter-due-from" className="grid min-w-0 gap-1 text-sm font-medium">Termín od<input id="task-filter-due-from" type="date" value={draft.due_from} max={draft.due_to || undefined} onChange={(event) => setDraft((current) => ({ ...current, due_from: event.target.value }))} className="focus-ring min-h-11 min-w-0 max-w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 text-base" /></label>
+              <label htmlFor="task-filter-due-to" className="grid min-w-0 gap-1 text-sm font-medium">Termín do<input id="task-filter-due-to" type="date" value={draft.due_to} min={draft.due_from || undefined} onChange={(event) => setDraft((current) => ({ ...current, due_to: event.target.value }))} className="focus-ring min-h-11 min-w-0 max-w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 text-base" /></label>
+            </div>
             <div className="grid gap-2">
               <span className="text-sm font-medium">Tagy</span>
               <div className="flex flex-wrap gap-2">
@@ -216,7 +246,7 @@ function AdvancedFilterPanel({ initial, categories, contexts, tags, onApply, onC
             </div>
           </div>
           <div className="relative z-10 flex shrink-0 justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6">
-            <Button type="button" variant="ghost" onClick={() => onApply({ status: "all", priority: "all", category_id: "all", context_id: "all", tag_ids: [] })}>Vyčistit</Button>
+            <Button type="button" variant="ghost" onClick={() => onApply({ status: "all", priority: "all", category_id: "all", context_id: "all", tag_ids: [], due_from: "", due_to: "" })}>Vyčistit</Button>
             <Button type="button" onClick={() => onApply(draft)}>Použít filtry</Button>
           </div>
         </Dialog.Content>

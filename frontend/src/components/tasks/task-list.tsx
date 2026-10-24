@@ -12,22 +12,33 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { priorityLabels, statusLabels } from "./labels";
 import { TaskCalendarButton, TaskCalendarStatus } from "./task-calendar-button";
 
-type Props = { tasks: Task[]; categories: Category[]; contexts: Context[]; tags: Tag[]; visions?: Vision[]; selectedId?: string | null; highlightedIds?: Set<string>; onSelect: (task: Task) => void };
+type Props = { tasks: Task[]; categories: Category[]; contexts: Context[]; tags: Tag[]; visions?: Vision[]; selectedId?: string | null; highlightedIds?: Set<string>; filterQuery?: string; onSelect: (task: Task) => void };
 
-export function TaskList({ tasks, categories, contexts, visions = [], selectedId, highlightedIds = new Set(), onSelect }: Props) {
+export function TaskList({ tasks, categories, contexts, visions = [], selectedId, highlightedIds = new Set(), filterQuery = "", onSelect }: Props) {
   if (tasks.length === 0) return <div className="panel p-5 text-center text-sm text-[var(--muted)] sm:p-8">Nic tu není. Zapiš první úkol nahoře.</div>;
   return (
     <div className="grid min-w-0 max-w-full gap-2 sm:gap-3">
-      {tasks.map((task) => <TaskItem key={task.id} task={task} category={categories.find((c) => c.id === task.category_id)} context={contexts.find((c) => c.id === task.context_id)} vision={visions.find((v) => v.id === task.vision_id)} selected={task.id === selectedId} highlighted={highlightedIds.has(task.id)} onSelect={() => onSelect(task)} />)}
+      {tasks.map((task) => <TaskItem key={task.id} task={task} filterQuery={filterQuery} category={categories.find((c) => c.id === task.category_id)} context={contexts.find((c) => c.id === task.context_id)} vision={visions.find((v) => v.id === task.vision_id)} selected={task.id === selectedId} highlighted={highlightedIds.has(task.id)} onSelect={() => onSelect(task)} />)}
     </div>
   );
+}
+
+// Keep explicit taxonomy/date filters, but leave the previous time/search/status
+// view so a tapped value does not silently lead to an unrelated empty result.
+function taskQuickFilterHref(query: string, updates: Record<string, string | null>) {
+  const next = new URLSearchParams(query);
+  for (const key of ["view", "q", "status", "selected", "page"]) next.delete(key);
+  for (const [key, value] of Object.entries(updates)) {
+    if (value === null) next.delete(key); else next.set(key, value);
+  }
+  return `/tasks?${next.toString()}`;
 }
 
 function taskAgentActivityHref(task: Task) {
   return `/agent?action=create_task&entity_type=task&entity_id=${task.id}`;
 }
 
-function TaskItem({ task, category, context, vision, selected, highlighted, onSelect }: { task: Task; category?: Category; context?: Context; vision?: Vision; selected: boolean; highlighted: boolean; onSelect: () => void }) {
+function TaskItem({ task, filterQuery, category, context, vision, selected, highlighted, onSelect }: { task: Task; filterQuery: string; category?: Category; context?: Context; vision?: Vision; selected: boolean; highlighted: boolean; onSelect: () => void }) {
   const toggle = useToggleTaskDone();
   const remove = useDeleteTask();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -69,13 +80,17 @@ function TaskItem({ task, category, context, vision, selected, highlighted, onSe
           <div className="min-w-0 px-2">
             <dt className="text-[10px] font-medium text-[var(--muted)] sm:text-[11px]">Priorita</dt>
             <dd className="mt-1 flex min-h-6 items-start text-xs leading-6">
-              {task.priority !== "none" ? <Badge className={cn("px-2 py-0.5 text-[11px] sm:text-xs", task.priority === "high" && "border-[var(--danger)] text-[var(--danger)]", task.priority === "medium" && "border-[var(--warning)] text-[var(--warning)]")}>{priorityLabels[task.priority]}</Badge> : <span className="text-[var(--muted)]" aria-label="Bez priority">—</span>}
+              <Link href={taskQuickFilterHref(filterQuery, { priority: task.priority })} aria-label={task.priority === "none" ? "Zobrazit úkoly bez priority" : `Zobrazit úkoly s prioritou ${priorityLabels[task.priority]}`} title={task.priority === "none" ? "Zobrazit úkoly bez priority" : `Filtrovat prioritu: ${priorityLabels[task.priority]}`} onClick={(event) => event.stopPropagation()} className="focus-ring inline-flex max-w-full select-none rounded-full transition hover:brightness-125">
+                {task.priority !== "none" ? <Badge className={cn("px-2 py-0.5 text-[11px] sm:text-xs", task.priority === "high" && "border-[var(--danger)] text-[var(--danger)]", task.priority === "medium" && "border-[var(--warning)] text-[var(--warning)]")}>{priorityLabels[task.priority]}</Badge> : <span className="px-1 text-[var(--muted)]">—</span>}
+              </Link>
             </dd>
           </div>
           <div className="min-w-0 pl-2">
             <dt className="text-[10px] font-medium text-[var(--muted)] sm:text-[11px]">Termín</dt>
             <dd className="mt-1 flex min-h-6 items-start text-xs leading-6 tabular-nums">
-              {task.due_date ? <time dateTime={task.due_date} className={cn("whitespace-nowrap", overdue && "font-semibold text-[var(--danger)]")}>{formatHumanDate(task.due_date).replace(/\s/g, "")}</time> : <span className="text-[var(--muted)]" aria-label="Bez termínu">—</span>}
+              <Link href={taskQuickFilterHref(filterQuery, task.due_date ? { due_from: task.due_date, due_to: task.due_date } : { due_from: null, due_to: null, view: "unscheduled" })} aria-label={task.due_date ? `Zobrazit úkoly s termínem ${formatHumanDate(task.due_date).replace(/\s/g, "")}` : "Zobrazit úkoly bez termínu"} title={task.due_date ? "Zobrazit úkoly na tento den" : "Zobrazit úkoly bez termínu"} onClick={(event) => event.stopPropagation()} className="focus-ring inline-flex select-none rounded-sm transition hover:text-[var(--accent)] hover:underline">
+                {task.due_date ? <time dateTime={task.due_date} className={cn("whitespace-nowrap", overdue && "font-semibold text-[var(--danger)]")}>{formatHumanDate(task.due_date).replace(/\s/g, "")}</time> : <span className="px-1 text-[var(--muted)]">—</span>}
+              </Link>
             </dd>
           </div>
         </dl>
