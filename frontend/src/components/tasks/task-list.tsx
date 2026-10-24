@@ -1,6 +1,5 @@
 "use client";
 
-import { Clock } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import type { Category, Context, Tag, Task, TaskStatus, Vision } from "@/lib/api/types";
@@ -49,28 +48,49 @@ function TaskItem({ task, category, context, vision, selected, highlighted, onSe
       <CompleteToggleButton size="sm" checked={done} checkedLabel="Vrátit úkol" uncheckedLabel="Dokončit úkol" onClick={() => toggle.mutate({ task, status: nextStatus })} disabled={toggle.isPending} className="relative z-10 mt-0.5 sm:mt-1" />
       <div className="min-w-0 pr-1">
         <button type="button" onClick={onSelect} className={cn("block max-w-full break-words text-left text-sm font-medium tracking-tight sm:text-base", done && "text-[var(--muted-foreground)] line-through")}>{task.title}</button>
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--muted)] sm:mt-2 sm:gap-2 sm:text-xs">
-          {category ? <Link href={`/tasks?category_id=${category.id}`} aria-label={`Zobrazit úkoly v kategorii ${category.name}`} title={`Zobrazit úkoly v kategorii ${category.name}`} onClick={(event) => event.stopPropagation()} className="focus-ring inline-flex max-w-full rounded-full transition hover:brightness-125"><Badge className="max-w-full border-0 px-2 py-0.5" style={{ background: `${category.color}22`, color: category.color }}><span className="mr-1 size-2 shrink-0 rounded-full" style={{ background: category.color }} /><span className="min-w-0 break-words">{category.name}</span></Badge></Link> : null}
-          {context ? <span>{context.name}</span> : null}
-          {vision ? <Badge className="border-[var(--accent)] px-2 py-0.5 text-[var(--accent)]">🎯 {vision.title}</Badge> : null}
-          {task.priority !== "none" ? <Badge className={cn("px-2 py-0.5", task.priority === "high" && "border-[var(--danger)] text-[var(--danger)]", task.priority === "medium" && "border-[var(--warning)] text-[var(--warning)]")}>{priorityLabels[task.priority]}</Badge> : null}
-          {task.due_date ? <span className={cn("inline-flex items-center gap-1", overdue && "font-semibold text-[var(--danger)]")}><Clock size={12}/>{formatHumanDate(task.due_date)}</span> : null}
-          {showStatus ? <span>{statusLabels[task.status]}</span> : null}
-          {task.created_by === "agent" ? (
-            <Link href={taskAgentActivityHref(task)} onClick={(event) => event.stopPropagation()} aria-label="Zobrazit akci agenta pro tento úkol">
-              <Badge className="border-[var(--accent)] px-2 py-0.5 text-[var(--accent)] hover:bg-[var(--accent)]/10">agent</Badge>
-            </Link>
-          ) : null}
-          {highlighted ? <Badge className="border-[var(--success)] px-2 py-0.5 text-[var(--success)]">nové</Badge> : null}
-          <TaskCalendarStatus task={task} />
-          {task.tags.map((tag) => <span key={tag.id}>#{tag.name}</span>)}
-        </div>
-        {task.description ? <MarkdownPreview compact className="mt-2 text-sm text-[var(--muted)]">{task.description}</MarkdownPreview> : null}
       </div>
       <div className="relative z-10 flex shrink-0 gap-0.5 sm:gap-1">
         <TaskCalendarButton task={task} />
         <ActionButton icon="edit" label="Upravit úkol" onClick={onSelect} />
         <ActionButton icon="delete" label="Smazat úkol" danger onClick={() => setDeleteOpen(true)} />
+      </div>
+      <div className="col-span-3 min-w-0 space-y-2 sm:col-span-2 sm:col-start-2">
+        <dl aria-label="Podrobnosti úkolu" className="grid grid-cols-3 divide-x divide-[var(--border)] border-t border-[var(--border)] pt-2">
+          <div className="min-w-0 pr-2">
+            <dt className="text-[10px] font-medium text-[var(--muted)] sm:text-[11px]">Kategorie</dt>
+            <dd className="mt-1 flex min-h-6 items-start text-xs leading-6">
+              {category ? (
+                <Link href={`/tasks?category_id=${category.id}`} aria-label={`Zobrazit úkoly v kategorii ${category.name}`} title={`Zobrazit úkoly v kategorii ${category.name}`} onClick={(event) => event.stopPropagation()} className="focus-ring inline-flex min-w-0 max-w-full rounded-full transition hover:brightness-125">
+                  <Badge className="max-w-full overflow-hidden border-0 px-2 py-0.5 text-[11px] sm:text-xs" style={{ background: `${category.color}22`, color: category.color }}><span className="mr-1 size-2 shrink-0 rounded-full" style={{ background: category.color }} /><span className="min-w-0 truncate">{category.name}</span></Badge>
+                </Link>
+              ) : <span className="text-[var(--muted)]" aria-label="Bez kategorie">—</span>}
+            </dd>
+          </div>
+          <div className="min-w-0 px-2">
+            <dt className="text-[10px] font-medium text-[var(--muted)] sm:text-[11px]">Priorita</dt>
+            <dd className="mt-1 flex min-h-6 items-start text-xs leading-6">
+              {task.priority !== "none" ? <Badge className={cn("px-2 py-0.5 text-[11px] sm:text-xs", task.priority === "high" && "border-[var(--danger)] text-[var(--danger)]", task.priority === "medium" && "border-[var(--warning)] text-[var(--warning)]")}>{priorityLabels[task.priority]}</Badge> : <span className="text-[var(--muted)]" aria-label="Bez priority">—</span>}
+            </dd>
+          </div>
+          <div className="min-w-0 pl-2">
+            <dt className="text-[10px] font-medium text-[var(--muted)] sm:text-[11px]">Termín</dt>
+            <dd className="mt-1 flex min-h-6 items-start text-xs leading-6 tabular-nums">
+              {task.due_date ? <time dateTime={task.due_date} className={cn("whitespace-nowrap", overdue && "font-semibold text-[var(--danger)]")}>{formatHumanDate(task.due_date).replace(/\s/g, "")}</time> : <span className="text-[var(--muted)]" aria-label="Bez termínu">—</span>}
+            </dd>
+          </div>
+        </dl>
+        {context || vision || showStatus || task.created_by === "agent" || highlighted || task.calendar_request || task.tags.length > 0 ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--muted)] sm:text-xs" aria-label="Další informace o úkolu">
+            {context ? <span className="max-w-full break-words">Kde: {context.name}</span> : null}
+            {vision ? <Badge className="max-w-full break-words border-[var(--accent)] px-2 py-0.5 text-[var(--accent)]">🎯 {vision.title}</Badge> : null}
+            {showStatus ? <span>{statusLabels[task.status]}</span> : null}
+            {task.created_by === "agent" ? <Link href={taskAgentActivityHref(task)} onClick={(event) => event.stopPropagation()} aria-label="Zobrazit akci agenta pro tento úkol"><Badge className="border-[var(--accent)] px-2 py-0.5 text-[var(--accent)] hover:bg-[var(--accent)]/10">agent</Badge></Link> : null}
+            {highlighted ? <Badge className="border-[var(--success)] px-2 py-0.5 text-[var(--success)]">nové</Badge> : null}
+            <TaskCalendarStatus task={task} />
+            {task.tags.map((tag) => <span key={tag.id} className="max-w-full break-words">#{tag.name}</span>)}
+          </div>
+        ) : null}
+        {task.description ? <MarkdownPreview compact className="text-sm text-[var(--muted)]">{task.description}</MarkdownPreview> : null}
       </div>
       <ConfirmDialog
         open={deleteOpen}
