@@ -34,10 +34,6 @@ function taskQuickFilterHref(query: string, updates: Record<string, string | nul
   return `/tasks?${next.toString()}`;
 }
 
-function taskAgentActivityHref(task: Task) {
-  return `/agent?action=create_task&entity_type=task&entity_id=${task.id}`;
-}
-
 function TaskItem({ task, filterQuery, category, context, vision, selected, highlighted, onSelect }: { task: Task; filterQuery: string; category?: Category; context?: Context; vision?: Vision; selected: boolean; highlighted: boolean; onSelect: () => void }) {
   const toggle = useToggleTaskDone();
   const remove = useDeleteTask();
@@ -46,7 +42,6 @@ function TaskItem({ task, filterQuery, category, context, vision, selected, high
   const done = task.status === "done";
   const overdue = isOverdue(task.due_date, task.status);
   const nextStatus: TaskStatus = done ? (task.category_id ? "todo" : "inbox") : "done";
-  const showStatus = task.status !== "todo";
 
   async function deleteTask() {
     await remove.mutateAsync({ task, deleteCalendarEvent });
@@ -55,7 +50,7 @@ function TaskItem({ task, filterQuery, category, context, vision, selected, high
   }
 
   return (
-    <article className={cn("task-row panel grid w-full min-w-0 max-w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 overflow-hidden p-3 sm:gap-3 sm:p-4", selected && "border-[var(--accent)]", (task.created_by === "agent" || highlighted) && "border-[var(--accent)]/70 bg-[var(--accent)]/5")}>
+    <article className={cn("task-row panel grid w-full min-w-0 max-w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 overflow-hidden p-3 sm:gap-3 sm:p-4", selected && "border-[var(--accent)]", highlighted && "border-[var(--accent)]/70 bg-[var(--accent)]/5")}>
       <CompleteToggleButton size="sm" checked={done} checkedLabel="Vrátit úkol" uncheckedLabel="Dokončit úkol" onClick={() => toggle.mutate({ task, status: nextStatus })} disabled={toggle.isPending} className="relative z-10 mt-0.5 sm:mt-1" />
       <div className="min-w-0 pr-1">
         <button type="button" onClick={onSelect} className={cn("block max-w-full break-words text-left text-sm font-medium tracking-tight sm:text-base", done && "text-[var(--muted-foreground)] line-through")}>{task.title}</button>
@@ -66,8 +61,8 @@ function TaskItem({ task, filterQuery, category, context, vision, selected, high
         <ActionButton icon="delete" label="Smazat úkol" danger onClick={() => setDeleteOpen(true)} />
       </div>
       <div className="col-span-3 min-w-0 space-y-2 sm:col-span-2 sm:col-start-2">
-        <dl aria-label="Podrobnosti úkolu" className="grid grid-cols-3 divide-x divide-[var(--border)] border-t border-[var(--border)] pt-2">
-          <div className="min-w-0 pr-2">
+        <dl aria-label="Podrobnosti úkolu" className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,1fr)] divide-x divide-[var(--border)] border-t border-[var(--border)] pt-2">
+          <div className="min-w-0 pr-1.5 sm:pr-2">
             <dt className="text-[10px] font-medium text-[var(--muted)] sm:text-[11px]">Kategorie</dt>
             <dd className="mt-1 flex min-h-6 items-start text-xs leading-6">
               {category ? (
@@ -77,7 +72,7 @@ function TaskItem({ task, filterQuery, category, context, vision, selected, high
               ) : <span className="text-[var(--muted)]" aria-label="Bez kategorie">—</span>}
             </dd>
           </div>
-          <div className="min-w-0 px-2">
+          <div className="min-w-0 px-1.5 sm:px-2">
             <dt className="text-[10px] font-medium text-[var(--muted)] sm:text-[11px]">Priorita</dt>
             <dd className="mt-1 flex min-h-6 items-start text-xs leading-6">
               <Link href={taskQuickFilterHref(filterQuery, { priority: task.priority })} aria-label={task.priority === "none" ? "Zobrazit úkoly bez priority" : `Zobrazit úkoly s prioritou ${priorityLabels[task.priority]}`} title={task.priority === "none" ? "Zobrazit úkoly bez priority" : `Filtrovat prioritu: ${priorityLabels[task.priority]}`} onClick={(event) => event.stopPropagation()} className="focus-ring inline-flex max-w-full select-none rounded-full transition hover:brightness-125">
@@ -85,21 +80,25 @@ function TaskItem({ task, filterQuery, category, context, vision, selected, high
               </Link>
             </dd>
           </div>
-          <div className="min-w-0 pl-2">
+          <div className="min-w-0 px-1.5 sm:px-2">
             <dt className="text-[10px] font-medium text-[var(--muted)] sm:text-[11px]">Termín</dt>
-            <dd className="mt-1 flex min-h-6 items-start text-xs leading-6 tabular-nums">
+            <dd className="mt-1 flex min-h-6 items-start text-[11px] leading-6 tabular-nums sm:text-xs">
               <Link href={taskQuickFilterHref(filterQuery, task.due_date ? { due_from: task.due_date, due_to: task.due_date } : { due_from: null, due_to: null, view: "unscheduled" })} aria-label={task.due_date ? `Zobrazit úkoly s termínem ${formatHumanDate(task.due_date).replace(/\s/g, "")}` : "Zobrazit úkoly bez termínu"} title={task.due_date ? "Zobrazit úkoly na tento den" : "Zobrazit úkoly bez termínu"} onClick={(event) => event.stopPropagation()} className="focus-ring inline-flex select-none rounded-sm transition hover:text-[var(--accent)] hover:underline">
                 {task.due_date ? <time dateTime={task.due_date} className={cn("whitespace-nowrap", overdue && "font-semibold text-[var(--danger)]")}>{formatHumanDate(task.due_date).replace(/\s/g, "")}</time> : <span className="px-1 text-[var(--muted)]">—</span>}
               </Link>
             </dd>
           </div>
+          <div className="min-w-0 pl-1.5 sm:pl-2">
+            <dt className="text-[10px] font-medium text-[var(--muted)] sm:text-[11px]">Stav</dt>
+            <dd className="mt-1 flex min-h-6 items-start text-[11px] leading-6 sm:text-xs">
+              <span title={statusLabels[task.status]} className={cn("min-w-0 truncate", done && "text-[var(--success)]")}>{statusLabels[task.status]}</span>
+            </dd>
+          </div>
         </dl>
-        {context || vision || showStatus || task.created_by === "agent" || highlighted || task.calendar_request || task.tags.length > 0 ? (
+        {context || vision || highlighted || task.calendar_request || task.tags.length > 0 ? (
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--muted)] sm:text-xs" aria-label="Další informace o úkolu">
             {context ? <span className="max-w-full break-words">Kde: {context.name}</span> : null}
             {vision ? <Badge className="max-w-full break-words border-[var(--accent)] px-2 py-0.5 text-[var(--accent)]">🎯 {vision.title}</Badge> : null}
-            {showStatus ? <span>{statusLabels[task.status]}</span> : null}
-            {task.created_by === "agent" ? <Link href={taskAgentActivityHref(task)} onClick={(event) => event.stopPropagation()} aria-label="Zobrazit akci agenta pro tento úkol"><Badge className="border-[var(--accent)] px-2 py-0.5 text-[var(--accent)] hover:bg-[var(--accent)]/10">agent</Badge></Link> : null}
             {highlighted ? <Badge className="border-[var(--success)] px-2 py-0.5 text-[var(--success)]">nové</Badge> : null}
             <TaskCalendarStatus task={task} />
             {task.tags.map((tag) => <span key={tag.id} className="max-w-full break-words">#{tag.name}</span>)}
